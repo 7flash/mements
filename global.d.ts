@@ -1,6 +1,12 @@
+import { DetailedHTMLProps, HTMLAttributes } from "react";
+
 declare module "react/jsx-runtime" {
   namespace JSX {
-    interface IntrinsicElements {
+    interface IntrinsicElements extends Record<string, any> {
+      // Keep all existing HTML tags by default
+      [tagName: string]: DetailedHTMLProps<HTMLAttributes<HTMLElement>, HTMLElement>;
+
+      // Add your custom elements here
       output?: JSX.HTMLAttributes<CustomElement>;
       settings?: JSX.HTMLAttributes<CustomElement> & {
         temperature?: number;
@@ -20,7 +26,7 @@ declare module "react/jsx-runtime" {
       name?: JSX.HTMLAttributes<CustomElement>;
       titles?: JSX.HTMLAttributes<CustomElement>;
       suggestions?: JSX.HTMLAttributes<CustomElement>;
-      prompt?: JSX.HTMLAttributes<CustomElement>;      
+      prompt?: JSX.HTMLAttributes<CustomElement>;
     }
   }
 }

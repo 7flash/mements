@@ -168,9 +168,13 @@ const server = serve({
     const domainData = domainStmt.get(host);
     const agentWithItsOwnDomain = domainData ? true : false;
 
-    const itsRootCreationDomain = path === "/" && !subdomain && !agentWithItsOwnDomain;
+    let itsRootCreationDomain = false;
+    if (path === "/" && !subdomain && !agentWithItsOwnDomain) itsRootCreationDomain = true;
+    if (path === "/" && host?.includes('localhost:')) itsRootCreationDomain = true;
 
-    if (subdomain || agentWithItsOwnDomain) {
+    if (!itsRootCreationDomain && (subdomain || agentWithItsOwnDomain)) {
+    console.log("agentWithItsOwnDomain ==> ", agentWithItsOwnDomain);
+    console.log("subdomain ==> ", subdomain);
       const agentId = agentWithItsOwnDomain ? domainData.agent_id : null;
       const agentStmt = db.prepare("SELECT * FROM agents WHERE subdomain = ? OR id = ?");
       const agentData = agentStmt.get(subdomain, agentId);
