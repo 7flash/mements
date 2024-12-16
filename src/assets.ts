@@ -83,6 +83,10 @@ class Assets implements IAssets {
     return href;
   }
 
+  public hasAssetByPath(path: string): boolean {
+    return !!this.hrefToName[path];
+  }
+
   public getAssetByPath(path: string): BunFile {
     const assetKey = this.hrefToName[path];
     if (!assetKey) {
