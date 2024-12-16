@@ -55,7 +55,20 @@ export interface IConfig {
   get(key: (typeof envVariables)[number]): string;
 }
 
-import config from "./config";
+const config: IConfig = {
+  get(key) {
+    switch(key) {
+      case 'DB_NAME': return process.env.DB_NAME || "";
+      case 'BUN_PORT': return process.env.BUN_PORT || "3000";
+      default: return "";
+    }
+  },
+};
+
+const randomUUID = new ShortUniqueId({ length: 10 });
+
+const agentUUID = new ShortUniqueId({ length: 4 });
+
 
 const randomUUIDForAgent = new ShortUniqueId({ length: 4 });
 const randomUUIDForChat = new ShortUniqueId({ length: 10 });
@@ -99,6 +112,7 @@ db.run(`
     agent_id TEXT,
     question TEXT,
     context TEXT,
+    PRIMARY KEY (agent_id, question),
     FOREIGN KEY(agent_id) REFERENCES agents(id)
   )
 `);
@@ -214,7 +228,7 @@ const server = serve({
     }
 
     if (req.method === "POST") {
-      if (path === "/api/ask-agent") {
+      if (path === "/api/ask-agent" && agentData) {
         try {
           const data = await req.json();
           const systemPromptStmt = db.prepare("SELECT prompt FROM agents WHERE subdomain = ?");
