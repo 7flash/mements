@@ -57,8 +57,8 @@ export interface IConfig {
 
 import config from "./config";
 
-const randomUUIDForAgent = new ShortUniqueId({ length: 4 });
-const randomUUIDForChat = new ShortUniqueId({ length: 10 });
+const { randomUUID: randomUUIDForAgent }  = new ShortUniqueId({ length: 4 });
+const { randomUUID: randomUUIDForChat } = new ShortUniqueId({ length: 10 });
 
 const db = new Database(`${config.get('DB_NAME')}.sqlite`, { create: true });
 
