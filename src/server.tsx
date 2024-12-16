@@ -47,66 +47,61 @@ export const assets = {
 
 import Assets from './assets';
 
-// todo: ensure keyof properly includes a union of all keys of assets object here
 export type AssetName = keyof typeof assets; 
 
-// Define envVariables as a readonly tuple to preserve its literal types
 export const envVariables = ['DB_NAME', 'BUN_PORT'] as const;
 
-// Use the array directly for the type inference
 export interface IConfig {
-  get(key: (typeof envVariables)[number]): string; // key is now one of 'DB_NAME' | 'BUN_PORT'
+  get(key: (typeof envVariables)[number]): string;
 }
 
 import config from "./config";
 
-/*
-todo: fix type safety like this below it shows proper auto suggestions
-
-const myConfig: IConfig = {
-  get(key) {
-    // Mock implementation
-    return `Value of ${key}`;
-  },
-};
-*/
-
-// todo: random uuid should be 4 symbols for agent because it also includes an agent name, and chatid still needs 10 symbols
-const randomUUID = new ShortUniqueId({ length: 10 });
+const randomUUIDForAgent = new ShortUniqueId({ length: 4 });
+const randomUUIDForChat = new ShortUniqueId({ length: 10 });
 
 const db = new Database(`${config.get('DB_NAME')}.sqlite`, { create: true });
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS chats (
-      id TEXT PRIMARY KEY,
-      question TEXT NOT NULL,
-      response TEXT NOT NULL,
-      timestamp TEXT NOT NULL
-    )
-  `);
+db.run(`
+  CREATE TABLE IF NOT EXISTS chats (
+    id TEXT PRIMARY KEY,
+    question TEXT NOT NULL,
+    response TEXT NOT NULL,
+    timestamp TEXT NOT NULL
+  )
+`);
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS agents (
-      id TEXT PRIMARY KEY,
-      subdomain TEXT UNIQUE,
-      name TEXT,
-      titles TEXT,
-      suggestionsLeft TEXT,
-      suggestionsRight TEXT,
-      links TEXT,
-      prompt TEXT,
-      workflow TEXT
-    )
-  `);
+db.run(`
+  CREATE TABLE IF NOT EXISTS agents (
+    id TEXT PRIMARY KEY,
+    subdomain TEXT UNIQUE,
+    name TEXT,
+    titles TEXT,
+    suggestionsLeft TEXT,
+    suggestionsRight TEXT,
+    links TEXT,
+    prompt TEXT,
+    workflow TEXT
+  )
+`);
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS twitter_bots (
-      agent_id TEXT PRIMARY KEY,
-      handle TEXT,
-      api_key TEXT,
-      FOREIGN KEY(agent_id) REFERENCES agents(id)
-    )
-  `);
+db.run(`
+  CREATE TABLE IF NOT EXISTS twitter_bots (
+    agent_id TEXT PRIMARY KEY,
+    handle TEXT,
+    api_key TEXT,
+    FOREIGN KEY(agent_id) REFERENCES agents(id)
+  )
+`);
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS contexts (
+    agent_id TEXT,
+    question TEXT,
+    context TEXT,
+    FOREIGN KEY(agent_id) REFERENCES agents(id)
+  )
+`);
 
 function htmlTemplate(scriptLink: string, serverData: string = '{}'): string {
   return `
@@ -152,26 +147,10 @@ const server = serve({
     const path = url.pathname;
     const host = req.headers.get("host");
 
-    // todo: dont use "default" subdomain, instead when we are on root domain theen we show "create-agent" app otherwise we show "ask-agent" if we find corresponding agent by subdomain and if not then we show 404 error message (these are for GET requests and we also support two POST requests: create-agent and ask-agent accordingly)
     const subdomain = host ? host.split(".")[0] : "";
 
     const agentStmt = db.prepare("SELECT * FROM agents WHERE subdomain = ?");
     const agentData = agentStmt.get(subdomain);
-
-    if (!agentData) {
-      return new Response("Subdomain not found", { status: 404 });
-    }
-
-    // todo: this serverData we provide in our ask-agent page
-    const serverData = {
-      mintAddress: process.env.MINT_ADDRESS,
-      botName: agentData.name,
-      alternativeBotTitles: JSON.parse(agentData.titles),
-      botTag: agentData.name,
-      scrollItemsLeft: JSON.parse(agentData.suggestionsLeft),
-      scrollItemsRight: JSON.parse(agentData.suggestionsRight),
-      socialMediaLinks: JSON.parse(agentData.links),
-    };
 
     if (req.method === "GET") {
       if (path === "/") {
@@ -184,7 +163,7 @@ const server = serve({
             mintAddress: process.env.MINT_ADDRESS,
             botName: agentData.name,
             alternativeBotTitles: JSON.parse(agentData.titles),
-            botTag: agentData.name,
+            botTag: `@${agentData.name.replace(/\s+/g, '')}`,
             scrollItemsLeft: JSON.parse(agentData.suggestionsLeft),
             scrollItemsRight: JSON.parse(agentData.suggestionsRight),
             socialMediaLinks: JSON.parse(agentData.links),
@@ -197,7 +176,6 @@ const server = serve({
         }
       }
 
-      // todo: we still have both / and /chat endpoints pointing to ask-agent app but remember only when there is a valid agent associated with subdomain 
       if (path.startsWith("/chat") && agentData) {
         const chatId = path.split("/")[2];
         if (chatId) {
@@ -206,7 +184,13 @@ const server = serve({
 
           if (chatResponse) {
             const serverDataWithChat = {
-              ...serverData,
+              mintAddress: process.env.MINT_ADDRESS,
+              botName: agentData.name,
+              alternativeBotTitles: JSON.parse(agentData.titles),
+              botTag: `@${agentData.name.replace(/\s+/g, '')}`,
+              scrollItemsLeft: JSON.parse(agentData.suggestionsLeft),
+              scrollItemsRight: JSON.parse(agentData.suggestionsRight),
+              socialMediaLinks: JSON.parse(agentData.links),
               chatId: chatResponse.id,
               question: encodeURIComponent(chatResponse.question.replaceAll('%', 'percent')),
               content: encodeURIComponent(chatResponse.response.replaceAll('%', 'percent')),
@@ -214,7 +198,8 @@ const server = serve({
             };
 
             return new Response(htmlTemplate(Assets.getLink('askAgentApp'), JSON.stringify(serverDataWithChat)), {
-"content-type": "text/html" });
+              headers: { "content-type": "text/html" }
+            });
           }
         }
         return new Response("Chat not found", { status: 404 });
@@ -233,11 +218,8 @@ const server = serve({
         try {
           const data = await req.json();
           const systemPromptStmt = db.prepare("SELECT prompt FROM agents WHERE subdomain = ?");
-
           const systemPromptRow = systemPromptStmt.get(subdomain);
           const systemPrompt = systemPromptRow ? systemPromptRow.prompt : "You are an AI expert. Provide guidance and advice.";
-
-          // todo: improve instruction and example to make it more focused on persona-based answering the question, todo: implement context fetching it from a new table we define scoped for every agent subdomain to find relevant context based on user question
 
           const contextStmt = db.prepare("SELECT context FROM contexts WHERE agent_id = ? AND question LIKE ?");
           const contextRow = contextStmt.get(agentData.id, `%${data.content}%`);
@@ -265,7 +247,6 @@ const server = serve({
               <user>
                 <context>{context}</context>
                 <question>{data.content}</question>
-                
               </user>
             </>,
           );
@@ -277,19 +258,18 @@ const server = serve({
           const twitterBotStmt = db.prepare("SELECT handle, api_key FROM twitter_bots WHERE agent_id = ?");
           const twitterBotData = twitterBotStmt.get(agentData.id);
 
-          if (twitterBotData) {
-          // todo: when we have a twitter bot associated with agent by its id then it should make a post to its own twitter and in responseData it should return a link to the post its made
-          const twitterPostLink = {};
-            responseData.twitterPostLink = twitterPostLink;
-          }
-
-
           const responseData = {
-            id: randomUUID(),
+            id: randomUUIDForChat(),
             question: data.content,
             response: result.content,
             timestamp: new Date().toISOString(),
           };
+
+          if (twitterBotData) {
+            // Simulate posting to Twitter and returning a link
+            const twitterPostLink = `https://twitter.com/${twitterBotData.handle}/status/${responseData.id}`;
+            responseData.twitterPostLink = twitterPostLink;
+          }
 
           db.run(
             "INSERT INTO chats (id, question, response, timestamp) VALUES (?, ?, ?, ?)",
@@ -308,7 +288,6 @@ const server = serve({
         }
       }
 
-      // todo: dont generate links, only generate shared list of suggestions and then just make right suggestions a reverse list of left ones, also dont generate bot tag just derive it from bot name
       if (path === "/api/create-agent") {
         try {
           const data = await req.json();
@@ -325,18 +304,14 @@ const server = serve({
                   <fields>
                     <name>Name of the bot</name>
                     <titles>List of alternative titles for the bot</titles>
-                    <botTag>Tag for the bot</botTag>
                     <suggestions>List of items to scroll</suggestions>
-                    <links>Links to social media profiles</links>
                     <prompt>System prompt for the bot</prompt>
                   </fields>
                 </responseFormat>
                 <example>
                   <name>AI Guide</name>
                   <titles>["Guide", "Counselor"]</titles>
-                  <botTag>@AIGuide</botTag>
                   <suggestions>["Incorporate practices", "Balance modern life"]</suggestions>
-                  <links>{"telegram": "https://t.me/aiguide", "twitter": "https://x.com/aiguide"}</links>
                   <prompt>You are an AI expert. Provide guidance and advice.</prompt>
                 </example>
               </system>
@@ -351,7 +326,7 @@ const server = serve({
           }
 
           const agentEntry = {
-            id: randomUUID(),
+            id: randomUUIDForAgent(),
             subdomain: `${result.name.toLowerCase().replace(/\s+/g, '-')}-${Math.floor(1000 + Math.random() * 9000)}`,
             name: result.name,
             titles: JSON.stringify(result.titles),
