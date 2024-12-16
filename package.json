@@ -1,0 +1,16 @@
+{
+  "name": "askuai",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "uai": "../uai/"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "short-unique-id": "^5.2.0"
+  }
+}

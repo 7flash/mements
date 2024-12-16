@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+@theme {
+    --font-serif: ui-serif, Georgia;
+    --font-sans: "Geist", system-ui, sans-serif;
+    --font-mono: "JetBrainsMono", ui-monospace;
+  }
