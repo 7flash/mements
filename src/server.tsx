@@ -55,15 +55,7 @@ export interface IConfig {
   get(key: (typeof envVariables)[number]): string;
 }
 
-const config: IConfig = {
-  get(key) {
-    switch(key) {
-      case 'DB_NAME': return process.env.DB_NAME || "";
-      case 'BUN_PORT': return process.env.BUN_PORT || "3000";
-      default: return "";
-    }
-  },
-};
+import config from "./config";
 
 const randomUUIDForAgent = new ShortUniqueId({ length: 4 });
 const randomUUIDForChat = new ShortUniqueId({ length: 10 });

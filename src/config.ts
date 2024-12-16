@@ -1,4 +1,6 @@
-import { type IConfig, envVariables } from "./index";
+import { envVariables, type IConfig } from "./server";
+
+type ConfigKeys = (typeof envVariables)[number];
 
 class Config implements IConfig {
   private config: Record<ConfigKeys, string>;
@@ -14,7 +16,7 @@ class Config implements IConfig {
     }
   }
 
-  static init(requiredEnvVars: ConfigKeys[]): Config {
+  static init(requiredEnvVars: any): Config {
     try {
       return new Config(requiredEnvVars);
     } catch (error) {
@@ -23,7 +25,7 @@ class Config implements IConfig {
     }
   }
 
-  get(key): string {
+  get(key: ConfigKeys): string { // Ensure the key is typed correctly
     if (!(key in this.config)) {
       throw new Error(`Configuration key ${key.toString()} is not available.`);
     }
