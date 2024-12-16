@@ -3,7 +3,8 @@ import type { BunFile } from "bun";
 import { dirname, join, basename, extname } from "path";
 import type { AssetName, IAssets } from "./index";
 import Constants from "./constants";
-import { assets } from "./index";
+
+type AssetsMap = Record<AssetName, { href: string, path?: string, source?: string }>;
 
 class Assets implements IAssets {
   private assets: Record<AssetName, { href: string, path?: string, source?: string }>;
@@ -11,7 +12,7 @@ class Assets implements IAssets {
   private nameToHref: Record<AssetName, string>;
   private nameToPath: Record<AssetName, string>;
 
-  private constructor(_assets: Record<AssetName, { href: string, path?: string, source?: string }>) {
+  private constructor(_assets: AssetsMap) {
     this.assets = _assets;
     this.hrefToName = Object.keys(this.assets).reduce((res, it) => {
       return { ...res, [this.assets[it as AssetName].href]: it as AssetName };
@@ -22,7 +23,7 @@ class Assets implements IAssets {
     this.nameToPath = {} as Record<AssetName, string>;
   }
 
-  static init(_assets: Record<AssetName, { href: string, path?: string, source?: string }>): Assets {
+  static init(_assets: AssetsMap): Assets {
     try {
       return new Assets(_assets);
     } catch (error) {
@@ -96,8 +97,11 @@ class Assets implements IAssets {
   }
 }
 
-const _assets = Assets.init(assets);
+export default async function initAssets(assetsMap: AssetsMap) {
+  const assets = Assets.init(assetsMap);
 
-await _assets.build();
+  await assets.build();
 
-export default _assets;
+  return assets;
+}
+

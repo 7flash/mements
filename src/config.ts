@@ -1,6 +1,6 @@
-import { envVariables, type IConfig } from "./server";
+import { type IConfig } from "./index";
 
-type ConfigKeys = (typeof envVariables)[number];
+type ConfigKeys = 'DB_NAME' | 'BUN_PORT';
 
 class Config implements IConfig {
   private config: Record<ConfigKeys, string>;
@@ -25,7 +25,7 @@ class Config implements IConfig {
     }
   }
 
-  get(key: ConfigKeys): string { // Ensure the key is typed correctly
+  get(key: ConfigKeys): string {
     if (!(key in this.config)) {
       throw new Error(`Configuration key ${key.toString()} is not available.`);
     }
@@ -33,4 +33,6 @@ class Config implements IConfig {
   }
 }
 
-export default Config.init(envVariables);
+export default function(envVariables: any) {
+  return Config.init(envVariables);
+}

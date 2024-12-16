@@ -2,7 +2,6 @@ import { dirname, join } from "path";
 import { $, serve, type BunFile } from "bun";
 import ShortUniqueId from "short-unique-id";
 import { Database } from "bun:sqlite";
-import React from 'react';
 
 const { default: prompt } = await import("uai/src/uai.ts");
 
@@ -14,7 +13,9 @@ export interface IAssets {
   getAssetByName(name: string): BunFile;
 }
 
-export const assets = {
+import buildAssets from './assets';
+
+const assets = await buildAssets({
   logo: {
     href: "/assets/logo.png",
     path: join(process.cwd(), "static/images", "logo.png"),
@@ -25,7 +26,7 @@ export const assets = {
   },
   style: {
     href: "/assets/main.css",
-    source: join(import.meta.dir, "../frontend/App.css"),
+    source: join(import.meta.dir, "./App.css"),
   },
   createAgentApp: {
     href: "/assets/create-agent.js",
@@ -43,19 +44,19 @@ export const assets = {
     href: "/assets/JetBrainsMono.ttf",
     path: join(process.cwd(), "static/fonts", "JetBrainsMono.ttf"),
   },
-}
-
-import Assets from './assets';
+})
 
 export type AssetName = keyof typeof assets; 
 
-export const envVariables = ['DB_NAME', 'BUN_PORT'] as const;
+export type IConstants = { BASE_URL: string };
 
 export interface IConfig {
-  get(key: (typeof envVariables)[number]): string;
+  get(key: string): string;
 }
 
-import config from "./config";
+import getConfigFromEnv from "./config";
+
+const config = getConfigFromEnv(['DB_NAME', 'BUN_PORT']);
 
 const { randomUUID: randomUUIDForAgent }  = new ShortUniqueId({ length: 4 });
 const { randomUUID: randomUUIDForChat } = new ShortUniqueId({ length: 10 });
@@ -149,10 +150,18 @@ const server = serve({
     const host = req.headers.get("host");
 
     const subdomain = host ? host.split(".")[0] : "";
+    // todo: implement a new table that allows to define new domains which are pointing to specific agent and resolve it as well so that can be pointing to specific agent from its own separate domain
+
+    if (subdomain || agentWithItsOwnDomain) {
+      // todo: all about specific agent aka /ask-agent
+    } else if (itsRootCreationDomain) {
+      // about agent creation aka /create-agent
+    }
 
     const agentStmt = db.prepare("SELECT * FROM agents WHERE subdomain = ?");
     const agentData = agentStmt.get(subdomain);
 
+    // todo: replace Assets actually to assets variable we have now from lower case
     if (req.method === "GET") {
       if (path === "/") {
         if (!subdomain) {
@@ -160,6 +169,7 @@ const server = serve({
             headers: { "content-type": "text/html" },
           });
         } else if (agentData) {
+          // todo: try to resolve these issues like Property 'name' does not exist on type '{}'.ts(2339) below maybe agentData can be any or we define specific class for it
           const serverData = {
             mintAddress: process.env.MINT_ADDRESS,
             botName: agentData.name,
