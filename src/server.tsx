@@ -65,11 +65,6 @@ const config: IConfig = {
   },
 };
 
-const randomUUID = new ShortUniqueId({ length: 10 });
-
-const agentUUID = new ShortUniqueId({ length: 4 });
-
-
 const randomUUIDForAgent = new ShortUniqueId({ length: 4 });
 const randomUUIDForChat = new ShortUniqueId({ length: 10 });
 
