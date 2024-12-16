@@ -1,6 +1,4 @@
 import { type IConfig, envVariables } from "./index";
- 
-type ConfigKeys = keyof typeof envVariables;
 
 class Config implements IConfig {
   private config: Record<ConfigKeys, string>;
@@ -25,7 +23,7 @@ class Config implements IConfig {
     }
   }
 
-  get(key: ConfigKeys): string {
+  get(key): string {
     if (!(key in this.config)) {
       throw new Error(`Configuration key ${key.toString()} is not available.`);
     }
@@ -33,11 +31,4 @@ class Config implements IConfig {
   }
 }
 
-export default Config.init([
-  'AWS_ACCESS_KEY_ID',
-  'AWS_SECRET_ACCESS_KEY',
-  'AWS_REGION',
-  'DB_NAME',
-  'PINATA_JWT',
-  'PINATA_GATEWAY_URL'
-]);
+export default Config.init(envVariables);

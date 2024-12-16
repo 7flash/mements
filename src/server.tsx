@@ -50,62 +50,63 @@ import Assets from './assets';
 // todo: ensure keyof properly includes a union of all keys of assets object here
 export type AssetName = keyof typeof assets; 
 
-export const envVariables = ['DB_NAME', 'BUN_PORT'];
+// Define envVariables as a readonly tuple to preserve its literal types
+export const envVariables = ['DB_NAME', 'BUN_PORT'] as const;
 
-// todo ensure keyof properly working here
+// Use the array directly for the type inference
 export interface IConfig {
-  get(key: keyof typeof envVariables): string;
+  get(key: (typeof envVariables)[number]): string; // key is now one of 'DB_NAME' | 'BUN_PORT'
 }
+
+import config from "./config";
+
+/*
+todo: fix type safety like this below it shows proper auto suggestions
+
+const myConfig: IConfig = {
+  get(key) {
+    // Mock implementation
+    return `Value of ${key}`;
+  },
+};
+*/
 
 // todo: random uuid should be 4 symbols for agent because it also includes an agent name, and chatid still needs 10 symbols
 const randomUUID = new ShortUniqueId({ length: 10 });
 
-// todo: avoid using separate abstraction class, remove CustomDatabase just make calls directly and init tables in main function
-class CustomDatabase {
-  constructor(private dbName: string) {
-    this.db = new Database(`${dbName}.sqlite`, { create: true });
-    this.initializeTables();
-  }
+const db = new Database(`${config.get('DB_NAME')}.sqlite`, { create: true });
 
-  private db: Database;
+  db.run(`
+    CREATE TABLE IF NOT EXISTS chats (
+      id TEXT PRIMARY KEY,
+      question TEXT NOT NULL,
+      response TEXT NOT NULL,
+      timestamp TEXT NOT NULL
+    )
+  `);
 
-  private initializeTables() {
-    this.db.run(`
-      CREATE TABLE IF NOT EXISTS chats (
-        id TEXT PRIMARY KEY,
-        question TEXT NOT NULL,
-        response TEXT NOT NULL,
-        timestamp TEXT NOT NULL
-      )
-    `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS agents (
+      id TEXT PRIMARY KEY,
+      subdomain TEXT UNIQUE,
+      name TEXT,
+      titles TEXT,
+      suggestionsLeft TEXT,
+      suggestionsRight TEXT,
+      links TEXT,
+      prompt TEXT,
+      workflow TEXT
+    )
+  `);
 
-    this.db.run(`
-      CREATE TABLE IF NOT EXISTS agents (
-        id TEXT PRIMARY KEY,
-        subdomain TEXT UNIQUE,
-        name TEXT,
-        titles TEXT,
-        suggestionsLeft TEXT,
-        suggestionsRight TEXT,
-        links TEXT,
-        prompt TEXT,
-        workflow TEXT
-      )
-    `);
-
-    // todo: define a new table to save twitter bots associated by id of agent, so some agents can have associated twitter bot, and the row contains its handle and api key,so that it can send tweets on its behalf
-  }
-
-  run(query: string, ...params: any[]) {
-    return this.db.run(query, ...params);
-  }
-
-  prepare(query: string) {
-    return this.db.prepare(query);
-  }
-}
-
-const dbHelper = new CustomDatabase(process.env.DB_NAME);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS twitter_bots (
+      agent_id TEXT PRIMARY KEY,
+      handle TEXT,
+      api_key TEXT,
+      FOREIGN KEY(agent_id) REFERENCES agents(id)
+    )
+  `);
 
 function htmlTemplate(scriptLink: string, serverData: string = '{}'): string {
   return `
@@ -152,9 +153,9 @@ const server = serve({
     const host = req.headers.get("host");
 
     // todo: dont use "default" subdomain, instead when we are on root domain theen we show "create-agent" app otherwise we show "ask-agent" if we find corresponding agent by subdomain and if not then we show 404 error message (these are for GET requests and we also support two POST requests: create-agent and ask-agent accordingly)
-    const subdomain = host ? host.split(".")[0] : "default";
+    const subdomain = host ? host.split(".")[0] : "";
 
-    const agentStmt = dbHelper.prepare("SELECT * FROM agents WHERE subdomain = ?");
+    const agentStmt = db.prepare("SELECT * FROM agents WHERE subdomain = ?");
     const agentData = agentStmt.get(subdomain);
 
     if (!agentData) {
@@ -174,30 +175,33 @@ const server = serve({
 
     if (req.method === "GET") {
       if (path === "/") {
-        // todo: should invoke htmlTemplate helper function in all get requests
-        const indexPage = `<html>
-          <head>
-            <link rel="stylesheet" href="${assets.style.href}">
-            <link rel="shortcut icon" href="${assets.favicon.href}" type="image/x-icon">
-          </head>
-          <body>
-            <div id="root"></div>
-            <script>
-              window.serverData = ${JSON.stringify(serverData)};
-            </script>
-            <script type="module" src="${assets.script.href}"></script>
-          </body>
-        </html>`;
-        return new Response(indexPage, {
-          headers: { "content-type": "text/html" },
-        });
+        if (!subdomain) {
+          return new Response(htmlTemplate(Assets.getLink('createAgentApp')), {
+            headers: { "content-type": "text/html" },
+          });
+        } else if (agentData) {
+          const serverData = {
+            mintAddress: process.env.MINT_ADDRESS,
+            botName: agentData.name,
+            alternativeBotTitles: JSON.parse(agentData.titles),
+            botTag: agentData.name,
+            scrollItemsLeft: JSON.parse(agentData.suggestionsLeft),
+            scrollItemsRight: JSON.parse(agentData.suggestionsRight),
+            socialMediaLinks: JSON.parse(agentData.links),
+          };
+          return new Response(htmlTemplate(Assets.getLink('askAgentApp'), JSON.stringify(serverData)), {
+            headers: { "content-type": "text/html" },
+          });
+        } else {
+          return new Response("Subdomain not found", { status: 404 });
+        }
       }
 
       // todo: we still have both / and /chat endpoints pointing to ask-agent app but remember only when there is a valid agent associated with subdomain 
-      if (path.startsWith("/chat")) {
+      if (path.startsWith("/chat") && agentData) {
         const chatId = path.split("/")[2];
         if (chatId) {
-          const chatStmt = dbHelper.prepare("SELECT * FROM chats WHERE id = ?");
+          const chatStmt = db.prepare("SELECT * FROM chats WHERE id = ?");
           const chatResponse = chatStmt.get(chatId);
 
           if (chatResponse) {
@@ -209,30 +213,18 @@ const server = serve({
               timestamp: chatResponse.timestamp,
             };
 
-            const chatPage = `<html>
-              <head>
-                <link rel="stylesheet" href="${assets.style.href}">
-                <link rel="shortcut icon" href="${assets.favicon.href}" type="image/x-icon">
-              </head>
-              <body>
-                <div id="root"></div>
-                <script>
-                  window.serverData = ${JSON.stringify(serverDataWithChat)};
-                </script>
-                <script type="module" src="${assets.script.href}"></script>
-              </body>
-            </html>`;
-            return new Response(chatPage, { headers: { "content-type": "text/html" } });
+            return new Response(htmlTemplate(Assets.getLink('askAgentApp'), JSON.stringify(serverDataWithChat)), {
+"content-type": "text/html" });
           }
         }
         return new Response("Chat not found", { status: 404 });
       }
 
-      if (hrefToPath[path]) {
-        const resource = Bun.file(hrefToPath[path]);
-        if (await resource.exists()) {
-          return new Response(resource);
-        }
+      try {
+        return new Response(Assets.getAssetByPath(path));
+      } catch (error) {
+        console.error(`Error serving ${path}:`, error);
+        return new Response("Not Found", { status: 404 });
       }
     }
 
@@ -240,11 +232,17 @@ const server = serve({
       if (path === "/api/ask-agent") {
         try {
           const data = await req.json();
-          const systemPromptStmt = dbHelper.prepare("SELECT prompt FROM agents WHERE subdomain = ?");
+          const systemPromptStmt = db.prepare("SELECT prompt FROM agents WHERE subdomain = ?");
+
           const systemPromptRow = systemPromptStmt.get(subdomain);
           const systemPrompt = systemPromptRow ? systemPromptRow.prompt : "You are an AI expert. Provide guidance and advice.";
 
           // todo: improve instruction and example to make it more focused on persona-based answering the question, todo: implement context fetching it from a new table we define scoped for every agent subdomain to find relevant context based on user question
+
+          const contextStmt = db.prepare("SELECT context FROM contexts WHERE agent_id = ? AND question LIKE ?");
+          const contextRow = contextStmt.get(agentData.id, `%${data.content}%`);
+          const context = contextRow ? contextRow.context : "";
+
           const result = await prompt(
             <>
               <output content="response" />
@@ -276,7 +274,16 @@ const server = serve({
             throw new Error("missing response fields");
           }
 
+          const twitterBotStmt = db.prepare("SELECT handle, api_key FROM twitter_bots WHERE agent_id = ?");
+          const twitterBotData = twitterBotStmt.get(agentData.id);
+
+          if (twitterBotData) {
           // todo: when we have a twitter bot associated with agent by its id then it should make a post to its own twitter and in responseData it should return a link to the post its made
+          const twitterPostLink = {};
+            responseData.twitterPostLink = twitterPostLink;
+          }
+
+
           const responseData = {
             id: randomUUID(),
             question: data.content,
@@ -284,7 +291,7 @@ const server = serve({
             timestamp: new Date().toISOString(),
           };
 
-          dbHelper.run(
+          db.run(
             "INSERT INTO chats (id, question, response, timestamp) VALUES (?, ?, ?, ?)",
             responseData.id,
             responseData.question,
@@ -319,8 +326,7 @@ const server = serve({
                     <name>Name of the bot</name>
                     <titles>List of alternative titles for the bot</titles>
                     <botTag>Tag for the bot</botTag>
-                    <suggestionsLeft>List of items to scroll on the left</suggestionsLeft>
-                    <suggestionsRight>List of items to scroll on the right</suggestionsRight>
+                    <suggestions>List of items to scroll</suggestions>
                     <links>Links to social media profiles</links>
                     <prompt>System prompt for the bot</prompt>
                   </fields>
@@ -329,8 +335,7 @@ const server = serve({
                   <name>AI Guide</name>
                   <titles>["Guide", "Counselor"]</titles>
                   <botTag>@AIGuide</botTag>
-                  <suggestionsLeft>["Incorporate practices", "Balance modern life"]</suggestionsLeft>
-                  <suggestionsRight>["Ethical living", "Investment principles"]</suggestionsRight>
+                  <suggestions>["Incorporate practices", "Balance modern life"]</suggestions>
                   <links>{"telegram": "https://t.me/aiguide", "twitter": "https://x.com/aiguide"}</links>
                   <prompt>You are an AI expert. Provide guidance and advice.</prompt>
                 </example>
@@ -341,7 +346,7 @@ const server = serve({
             </>,
           );
 
-          if (!result.name || !result.titles || !result.botTag || !result.suggestionsLeft || !result.suggestionsRight || !result.links || !result.prompt) {
+          if (!result.name || !result.titles || !result.suggestions || !result.prompt) {
             throw new Error("missing response fields");
           }
 
@@ -350,14 +355,14 @@ const server = serve({
             subdomain: `${result.name.toLowerCase().replace(/\s+/g, '-')}-${Math.floor(1000 + Math.random() * 9000)}`,
             name: result.name,
             titles: JSON.stringify(result.titles),
-            suggestionsLeft: JSON.stringify(result.suggestionsLeft),
-            suggestionsRight: JSON.stringify(result.suggestionsRight),
-            links: JSON.stringify(result.links),
+            suggestionsLeft: JSON.stringify(result.suggestions),
+            suggestionsRight: JSON.stringify(result.suggestions.reverse()),
+            links: JSON.stringify({}),
             prompt: result.prompt,
             workflow: "",
           };
 
-          dbHelper.run(
+          db.run(
             "INSERT INTO agents (id, subdomain, name, titles, suggestionsLeft, suggestionsRight, links, prompt, workflow) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             agentEntry.id,
             agentEntry.subdomain,
