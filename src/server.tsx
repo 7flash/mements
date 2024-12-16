@@ -3,7 +3,7 @@ import { $, serve, type BunFile } from "bun";
 import ShortUniqueId from "short-unique-id";
 import { Database } from "bun:sqlite";
 import React from 'react';
-// todo: can do normal import because we dont have extensions for sqlite below
+
 const { default: prompt } = await import("uai/src/uai.ts");
 
 export interface IAssets {
