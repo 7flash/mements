@@ -105,6 +105,15 @@ db.run(`
   )
 `);
 
+// New table for domain-agent mapping
+db.run(`
+  CREATE TABLE IF NOT EXISTS domains (
+    domain TEXT PRIMARY KEY,
+    agent_id TEXT,
+    FOREIGN KEY(agent_id) REFERENCES agents(id)
+  )
+`);
+
 function htmlTemplate(scriptLink: string, serverData: string = '{}'): string {
   return `
   <html>
@@ -112,17 +121,17 @@ function htmlTemplate(scriptLink: string, serverData: string = '{}'): string {
       <style>
         @font-face {
             font-family: "JetBrainsMono";
-            src: url(${Assets.getLink('fontMono')}) format("truetype");
+            src: url(${assets.getLink('fontMono')}) format("truetype");
             font-display: swap;
         }
         @font-face {
             font-family: "Geist";
-            src: url(${Assets.getLink('fontSans')}) format("truetype");
+            src: url(${assets.getLink('fontSans')}) format("truetype");
             font-display: swap;
         }
       </style>
-      <link rel="stylesheet" href="${Assets.getLink('style')}">
-      <link rel="shortcut icon" href="${Assets.getLink('favicon')}" type="image/x-icon">
+      <link rel="stylesheet" href="${assets.getLink('style')}">
+      <link rel="shortcut icon" href="${assets.getLink('favicon')}" type="image/x-icon">
       <script type="importmap">
         {
           "imports": {
@@ -147,29 +156,31 @@ const server = serve({
   async fetch(req) {
     const url = new URL(req.url);
     const path = url.pathname;
+
+    if (assets.hasAssetByPath(path)) {
+      return new Response(assets.getAssetByPath(path));
+    }
+
     const host = req.headers.get("host");
 
     const subdomain = host ? host.split(".")[0] : "";
-    // todo: implement a new table that allows to define new domains which are pointing to specific agent and resolve it as well so that can be pointing to specific agent from its own separate domain
+    const domainStmt = db.prepare("SELECT agent_id FROM domains WHERE domain = ?");
+    const domainData = domainStmt.get(host);
+    const agentWithItsOwnDomain = domainData ? true : false;
+
+    const itsRootCreationDomain = path === "/" && !subdomain && !agentWithItsOwnDomain;
 
     if (subdomain || agentWithItsOwnDomain) {
-      // todo: all about specific agent aka /ask-agent
-    } else if (itsRootCreationDomain) {
-      // about agent creation aka /create-agent
-    }
+      const agentId = agentWithItsOwnDomain ? domainData.agent_id : null;
+      const agentStmt = db.prepare("SELECT * FROM agents WHERE subdomain = ? OR id = ?");
+      const agentData = agentStmt.get(subdomain, agentId);
 
-    const agentStmt = db.prepare("SELECT * FROM agents WHERE subdomain = ?");
-    const agentData = agentStmt.get(subdomain);
-
-    // todo: replace Assets actually to assets variable we have now from lower case
-    if (req.method === "GET") {
-      if (path === "/") {
-        if (!subdomain) {
-          return new Response(htmlTemplate(Assets.getLink('createAgentApp')), {
-            headers: { "content-type": "text/html" },
-          });
-        } else if (agentData) {
-          // todo: try to resolve these issues like Property 'name' does not exist on type '{}'.ts(2339) below maybe agentData can be any or we define specific class for it
+      if (!agentData)
+        return new Response("Agent not found", { status: 404 });
+      
+      if (req.method === "GET") {
+        if (agentData) {
+          if (path == "/") {
           const serverData = {
             mintAddress: process.env.MINT_ADDRESS,
             botName: agentData.name,
@@ -179,53 +190,43 @@ const server = serve({
             scrollItemsRight: JSON.parse(agentData.suggestionsRight),
             socialMediaLinks: JSON.parse(agentData.links),
           };
-          return new Response(htmlTemplate(Assets.getLink('askAgentApp'), JSON.stringify(serverData)), {
+          return new Response(htmlTemplate(assets.getLink('askAgentApp'), JSON.stringify(serverData)), {
             headers: { "content-type": "text/html" },
           });
-        } else {
-          return new Response("Subdomain not found", { status: 404 });
-        }
-      }
-
-      if (path.startsWith("/chat") && agentData) {
-        const chatId = path.split("/")[2];
-        if (chatId) {
-          const chatStmt = db.prepare("SELECT * FROM chats WHERE id = ?");
-          const chatResponse = chatStmt.get(chatId);
-
-          if (chatResponse) {
-            const serverDataWithChat = {
-              mintAddress: process.env.MINT_ADDRESS,
-              botName: agentData.name,
-              alternativeBotTitles: JSON.parse(agentData.titles),
-              botTag: `@${agentData.name.replace(/\s+/g, '')}`,
-              scrollItemsLeft: JSON.parse(agentData.suggestionsLeft),
-              scrollItemsRight: JSON.parse(agentData.suggestionsRight),
-              socialMediaLinks: JSON.parse(agentData.links),
-              chatId: chatResponse.id,
-              question: encodeURIComponent(chatResponse.question.replaceAll('%', 'percent')),
-              content: encodeURIComponent(chatResponse.response.replaceAll('%', 'percent')),
-              timestamp: chatResponse.timestamp,
-            };
-
-            return new Response(htmlTemplate(Assets.getLink('askAgentApp'), JSON.stringify(serverDataWithChat)), {
-              headers: { "content-type": "text/html" }
-            });
+          } else if (path.startsWith("/chat") && agentData) {
+            const chatId = path.split("/")[2];
+            if (chatId) {
+              const chatStmt = db.prepare("SELECT * FROM chats WHERE id = ?");
+              const chatResponse = chatStmt.get(chatId);
+      
+              if (chatResponse) {
+                const serverDataWithChat = {
+                  mintAddress: process.env.MINT_ADDRESS,
+                  botName: agentData.name,
+                  alternativeBotTitles: JSON.parse(agentData.titles),
+                  botTag: `@${agentData.name.replace(/\s+/g, '')}`,
+                  scrollItemsLeft: JSON.parse(agentData.suggestionsLeft),
+                  scrollItemsRight: JSON.parse(agentData.suggestionsRight),
+                  socialMediaLinks: JSON.parse(agentData.links),
+                  chatId: chatResponse.id,
+                  question: encodeURIComponent(chatResponse.question.replaceAll('%', 'percent')),
+                  content: encodeURIComponent(chatResponse.response.replaceAll('%', 'percent')),
+                  timestamp: chatResponse.timestamp,
+                };
+      
+                return new Response(htmlTemplate(Assets.getLink('askAgentApp'), JSON.stringify(serverDataWithChat)), {
+                  headers: { "content-type": "text/html" }
+                });
+              }
+            }
+            return new Response("Chat not found", { status: 404 });
           }
+
+        } else {
         }
-        return new Response("Chat not found", { status: 404 });
       }
 
-      try {
-        return new Response(Assets.getAssetByPath(path));
-      } catch (error) {
-        console.error(`Error serving ${path}:`, error);
-        return new Response("Not Found", { status: 404 });
-      }
-    }
-
-    if (req.method === "POST") {
-      if (path === "/api/ask-agent" && agentData) {
+      if (req.method === "POST" && path === "/api/ask-agent") {
         try {
           const data = await req.json();
           const systemPromptStmt = db.prepare("SELECT prompt FROM agents WHERE subdomain = ?");
@@ -277,7 +278,6 @@ const server = serve({
           };
 
           if (twitterBotData) {
-            // Simulate posting to Twitter and returning a link
             const twitterPostLink = `https://twitter.com/${twitterBotData.handle}/status/${responseData.id}`;
             responseData.twitterPostLink = twitterPostLink;
           }
@@ -298,8 +298,14 @@ const server = serve({
           return new Response("Error generating response", { status: 500 });
         }
       }
+    } else if (itsRootCreationDomain) {
+      if (req.method === "GET" && path === "/") {
+        return new Response(htmlTemplate(assets.getLink('createAgentApp')), {
+          headers: { "content-type": "text/html" },
+        });
+      }
 
-      if (path === "/api/create-agent") {
+      if (req.method === "POST" && path === "/api/create-agent") {
         try {
           const data = await req.json();
           const result = await prompt(
@@ -371,7 +377,7 @@ const server = serve({
       }
     }
 
-    return new Response("four-zero-four", { status: 404 });
+      return new Response("Not Found", { status: 404 });
   },
 });
 
