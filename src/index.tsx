@@ -368,8 +368,13 @@ const server = serve({
           }
 
           const imgUrl = await generateImage(`image of artificial agent representing ${result.titles.join(' ')}`);
-// todo: fix it because .upload expects FormData's File but imgUrl is just a url
-          const cid = await Files.upload((imgUrl as File));
+
+          // Fetch the image and convert it to a File object
+          const response = await fetch(imgUrl);
+          const blob = await response.blob();
+          const file = new File([blob], "agent-image.png", { type: blob.type });
+
+          const cid = await Files.upload(file);
 
           const agentEntry = {
             id: randomUUIDForAgent(),
@@ -404,7 +409,6 @@ const server = serve({
       }
     }
 
-    // todo: fix it to include all other possible fields of the table
     if (req.method === "POST" && path === "/api/create-agent-from-markdown") {
       try {
         const data = await req.json();
@@ -415,6 +419,8 @@ const server = serve({
         let name = '';
         let titles = [];
         let suggestions = [];
+        let prompt = '';
+        let workflow = '';
         let currentSection = '';
 
         for (const line of lines) {
@@ -424,6 +430,10 @@ const server = serve({
             currentSection = 'titles';
           } else if (line.startsWith('# suggestions')) {
             currentSection = 'suggestions';
+          } else if (line.startsWith('# prompt')) {
+            currentSection = 'prompt';
+          } else if (line.startsWith('# workflow')) {
+            currentSection = 'workflow';
           } else if (line.trim()) {
             if (currentSection === 'name') {
               name = line.trim();
@@ -431,6 +441,10 @@ const server = serve({
               titles.push(line.trim());
             } else if (currentSection === 'suggestions') {
               suggestions.push(line.trim());
+            } else if (currentSection === 'prompt') {
+              prompt = line.trim();
+            } else if (currentSection === 'workflow') {
+              workflow = line.trim();
             }
           }
         }
@@ -441,8 +455,8 @@ const server = serve({
           name,
           titles: titles.join(','),
           suggestions: suggestions.join(','),
-          prompt: "You are an AI expert. Provide guidance and advice.",
-          workflow: "",
+          prompt: prompt || "You are an AI expert. Provide guidance and advice.",
+          workflow: workflow || "",
         };
 
         db.run(
