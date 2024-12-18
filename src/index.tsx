@@ -79,7 +79,7 @@ db.run(`
   )
 `);
 
-// Updated agents table schema
+// todo: fix its missing image cid it should be defined here and assigned everywhere agent is created
 db.run(`
   CREATE TABLE IF NOT EXISTS agents (
     id TEXT PRIMARY KEY,
@@ -92,7 +92,6 @@ db.run(`
   )
 `);
 
-// New table for links
 db.run(`
   CREATE TABLE IF NOT EXISTS links (
     id TEXT PRIMARY KEY,
@@ -369,7 +368,7 @@ const server = serve({
 
           const imgUrl = await generateImage(`image of artificial agent representing ${result.titles.join(' ')}`);
 
-          // Fetch the image and convert it to a File object
+          // todo: adjust this uploading correspondingly to our generation image fetch request b64 format response
           const response = await fetch(imgUrl);
           const blob = await response.blob();
           const file = new File([blob], "agent-image.png", { type: blob.type });
@@ -397,7 +396,6 @@ const server = serve({
             agentEntry.workflow,
           );
 
-          // Redirect to newly created agent subdomain
           return new Response(null, {
             status: 302,
             headers: { "Location": `http://${agentEntry.subdomain}.${host}` },
@@ -483,7 +481,8 @@ const server = serve({
   },
 });
 
-// Fixed generateImage function
+// todo: simplify this function we dont really need timeout and also we should set body.response_format to b64_json therefore it responds with a b64_json field instead of url field and also we dont need to have generateImage as separate function just do fetch call currently where its used
+
 async function generateImage(promptText: string): Promise<string> {
   const timeoutMs = 9000; // Set a reasonable timeout
   const fetchPromise = fetch("https://api.openai.com/v1/images/generations", {
