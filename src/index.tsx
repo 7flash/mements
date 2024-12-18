@@ -189,6 +189,9 @@ const server = serve({
     if (path === "/" && !subdomain && !agentWithItsOwnDomain) itsRootCreationDomain = true;
     if (path === "/" && host?.includes('localhost:')) itsRootCreationDomain = true;
 
+    console.log("agentWithItsOwnDomain ==> ", agentWithItsOwnDomain);
+    console.log("subdomain ==> ", subdomain);
+
     if (!itsRootCreationDomain && (subdomain || agentWithItsOwnDomain)) {
       const agentId = agentWithItsOwnDomain ? domainData.agent_id : null;
       const agentStmt = db.prepare("SELECT * FROM agents WHERE subdomain = ? OR id = ?");
@@ -364,8 +367,8 @@ const server = serve({
             throw new Error("missing response fields");
           }
 
-          // Implement image generation and upload
           const imgUrl = await generateImage(`image of artificial agent representing ${result.titles.join(' ')}`);
+// todo: fix it because .upload expects FormData's File but imgUrl is just a url
           const cid = await Files.upload((imgUrl as File));
 
           const agentEntry = {
@@ -401,7 +404,7 @@ const server = serve({
       }
     }
 
-    // New endpoint for markdown file processing
+    // todo: fix it to include all other possible fields of the table
     if (req.method === "POST" && path === "/api/create-agent-from-markdown") {
       try {
         const data = await req.json();
