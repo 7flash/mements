@@ -169,6 +169,43 @@ function htmlTemplate(scriptLink: string, serverData: string = '{}'): string {
   `;
 }
 
+async function processImageField(imageField: string, titles: string[]): Promise<string> {
+  if (imageField.startsWith('cid:')) {
+    // Extract the CID from the field
+    return imageField.replace('cid:', '').trim();
+  } else if (imageField.match(/^\/?[a-zA-Z0-9_\-\/.]+$/)) {
+    // Assuming this is a file path
+    const file = Bun.file(imageField);
+    if (await file.exists()) {
+      return await Files.upload(file);
+    }
+  } else {
+    // Assuming this is a prompt
+    const response = await fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "dall-e-3",
+        prompt: `image of artificial agent representing ${titles.join(' ')}`,
+        n: 1,
+        size: "1024x1024",
+        response_format: "b64_json"
+      }),
+    });
+
+    const imageData = await response.json();
+    const base64Image = imageData.data[0].b64_json;
+    const file = new File([Buffer.from(base64Image, 'base64')], "agent-image.png", { type: "image/png" });
+
+    return await Files.upload(file);
+  }
+
+  throw new Error("Invalid image field");
+}
+
 const server = serve({
   async fetch(req) {
     const url = new URL(req.url);
@@ -368,26 +405,7 @@ const server = serve({
             throw new Error("missing response fields");
           }
 
-          const response = await fetch("https://api.openai.com/v1/images/generations", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-            },
-            body: JSON.stringify({
-              model: "dall-e-3",
-              prompt: `image of artificial agent representing ${result.titles.join(' ')}`,
-              n: 1,
-              size: "1024x1024",
-              response_format: "b64_json"
-            }),
-          });
-
-          const imageData = await response.json();
-          const base64Image = imageData.data[0].b64_json;
-          const file = new File([Buffer.from(base64Image, 'base64')], "agent-image.png", { type: "image/png" });
-
-          const cid = await Files.upload(file);
+          const cid = await processImageField(result.image || '', result.titles);
 
           const agentEntry = {
             id: randomUUIDForAgent(),
@@ -435,6 +453,7 @@ const server = serve({
         let suggestions = [];
         let prompt = '';
         let workflow = '';
+        let imageField = '';
         let currentSection = '';
 
         for (const line of lines) {
@@ -448,6 +467,8 @@ const server = serve({
             currentSection = 'prompt';
           } else if (line.startsWith('# workflow')) {
             currentSection = 'workflow';
+          } else if (line.startsWith('# image')) {
+            currentSection = 'image';
           } else if (line.trim()) {
             if (currentSection === 'name') {
               name = line.trim();
@@ -459,32 +480,13 @@ const server = serve({
               prompt = line.trim();
             } else if (currentSection === 'workflow') {
               workflow = line.trim();
+            } else if (currentSection === 'image') {
+              imageField = line.trim();
             }
           }
         }
 
-        // todo: should support image field which actually can be either existing cid or it can be a local file path we can determine by its regexp what it is it and if there is such a file then we just upload it to files and store its cid, and if its just a cid then we dont upload, ah yes and it can be also a prompt text then we pass it to generations endpoint receive base64 and upload file from base64 to retrieve cid, so all these three options should be supported, and we should extract it into a new function which is called here after we parsed markdown into options object, we can pass this object into this new function which makes generation and file uploading just when necessary
-
-        const response = await fetch("https://api.openai.com/v1/images/generations", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: "dall-e-3",
-            prompt: `image of artificial agent representing ${titles.join(' ')}`,
-            n: 1,
-            size: "1024x1024",
-            response_format: "b64_json"
-          }),
-        });
-
-        const imageData = await response.json();
-        const base64Image = imageData.data[0].b64_json;
-        const file = new File([Buffer.from(base64Image, 'base64')], "agent-image.png", { type: "image/png" });
-
-        const cid = await Files.upload(file);
+        const cid = await processImageField(imageField, titles);
 
         const agentEntry = {
           id: randomUUIDForAgent(),
