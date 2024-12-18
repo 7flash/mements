@@ -111,6 +111,8 @@ db.run(`
   )
 `);
 
+// todo: implement a new table telegram_bots similarly
+
 db.run(`
   CREATE TABLE IF NOT EXISTS contexts (
     agent_id TEXT,
@@ -121,6 +123,7 @@ db.run(`
   )
 `);
 
+// todo: should support another field for a custom path to app script
 db.run(`
   CREATE TABLE IF NOT EXISTS domains (
     domain TEXT PRIMARY KEY,
@@ -167,38 +170,77 @@ function htmlTemplate(scriptLink: string, serverData: string = '{}'): string {
   `;
 }
 
-async function processImageField(imageField: string, titles: string[]): Promise<string> {
-  if (/^[a-f0-9]{40,}$/.test(imageField)) {
-    // If it's a CID
-    return imageField;
-  } else if (/^.+\.(png|jpg|jpeg|gif)$/.test(imageField)) {
-    // If it's a file path
-    const file = await Bun.file(imageField).read();
-    const uploadedCid = await Files.upload(new File([file], "agent-image.png", { type: "image/png" }));
-    return uploadedCid;
+async function createAgentEntry(options: {
+  subdomain?: string;
+  name: string;
+  titles: string[];
+  suggestions: string[];
+  prompt: string;
+  workflow: string;
+  imageField?: string;
+}): Promise<any> {
+  let imageCid: string;
+
+  if (options.imageField) {
+    if (/^[a-f0-9]{40,}$/.test(options.imageField)) {
+      // If it's a CID
+      imageCid = options.imageField;
+    } else if (/^.+\.(png|jpg|jpeg|gif)$/.test(options.imageField)) {
+      // If it's a file path
+      const file = await Bun.file(options.imageField).read();
+      imageCid = await Files.upload(new File([file], "agent-image.png", { type: "image/png" }));
+    } else {
+      // Assume it's a prompt text
+      const response = await fetch("https://api.openai.com/v1/images/generations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "dall-e-3",
+          prompt: options.imageField || `image of artificial agent representing ${options.titles.join(' ')}`,
+          n: 1,
+          size: "1024x1024",
+          response_format: "b64_json"
+        }),
+      });
+
+      const imageData = await response.json();
+      const base64Image = imageData.data[0].b64_json;
+      const file = new File([Buffer.from(base64Image, 'base64')], "agent-image.png", { type: "image/png" });
+      imageCid = await Files.upload(file);
+    }
   } else {
-    // Assume it's a prompt text
-    const response = await fetch("https://api.openai.com/v1/images/generations", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "dall-e-3",
-        prompt: imageField || `image of artificial agent representing ${titles.join(' ')}`,
-        n: 1,
-        size: "1024x1024",
-        response_format: "b64_json"
-      }),
-    });
-    
-    const imageData = await response.json();
-    const base64Image = imageData.data[0].b64_json;
-    const file = new File([Buffer.from(base64Image, 'base64')], "agent-image.png", { type: "image/png" });
-    const cid = await Files.upload(file);
-    return cid;
+    imageCid = "";
   }
+
+  const subdomain = options.subdomain ?? `${options.name.toLowerCase().replace(/\s+/g, '-')}-${Math.floor(1000 + Math.random() * 9000)}`
+
+  const agentEntry = {
+    id: randomUUIDForAgent(),
+    subdomain: subdomain,
+    name: options.name,
+    titles: options.titles.join(','),
+    suggestions: options.suggestions.join(','),
+    prompt: options.prompt,
+    workflow: options.workflow,
+    imageCid: imageCid
+  };
+
+  db.run(
+    "INSERT INTO agents (id, subdomain, name, titles, suggestions, prompt, workflow, imageCid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    agentEntry.id,
+    agentEntry.subdomain,
+    agentEntry.name,
+    agentEntry.titles,
+    agentEntry.suggestions,
+    agentEntry.prompt,
+    agentEntry.workflow,
+    agentEntry.imageCid
+  );
+
+  return agentEntry;
 }
 
 const server = serve({
@@ -247,6 +289,7 @@ const server = serve({
               agentImage: await Files.getUrl(agentData.imageCid, 3600),
             };
 
+            // todo: in case if it has a custom domain and its domain has a custom script path then instead of assets.getLink pass that script directly here resolved with join(import.meta.dir, ..)
             return new Response(htmlTemplate(assets.getLink('askAgentApp'), JSON.stringify(serverData)), {
               headers: { "content-type": "text/html" },
             });
@@ -334,6 +377,7 @@ const server = serve({
           };
 
           if (twitterBotData) {
+            // todo: should actually send message with twitter api
             const twitterPostLink = `https://twitter.com/${twitterBotData.handle}/status/${responseData.id}`;
             responseData.twitterPostLink = twitterPostLink;
           }
@@ -345,6 +389,8 @@ const server = serve({
             responseData.response,
             responseData.timestamp,
           );
+
+          // todo: check if have corresponding telegram bot for agent and then also send message from corresponding bot into its corresponding group
 
           return new Response(JSON.stringify(responseData), {
             headers: { "Content-Type": "application/json" },
@@ -398,34 +444,17 @@ const server = serve({
             throw new Error("missing response fields");
           }
 
-          const cid = await processImageField("", result.titles);
-
-          const agentEntry = {
-            id: randomUUIDForAgent(),
-            subdomain: `${result.name.toLowerCase().replace(/\s+/g, '-')}-${Math.floor(1000 + Math.random() * 9000)}`,
+          const entry = await createAgentEntry({
             name: result.name,
-            titles: result.titles.join(','),
-            suggestions: result.suggestions.join(','),
+            titles: result.titles,
+            suggestions: result.suggestions,
             prompt: result.prompt,
             workflow: "",
-            imageCid: cid
-          };
-
-          db.run(
-            "INSERT INTO agents (id, subdomain, name, titles, suggestions, prompt, workflow, imageCid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            agentEntry.id,
-            agentEntry.subdomain,
-            agentEntry.name,
-            agentEntry.titles,
-            agentEntry.suggestions,
-            agentEntry.prompt,
-            agentEntry.workflow,
-            agentEntry.imageCid
-          );
+          });
 
           return new Response(null, {
             status: 302,
-            headers: { "Location": `http://${agentEntry.subdomain}.${host}` },
+            headers: { "Location": `http://${entry.subdomain}.${host}` },
           });
         } catch (err) {
           console.error("Error creating agent:", err);
@@ -448,6 +477,7 @@ const server = serve({
         let workflow = '';
         let imageField = '';
         let currentSection = '';
+        let newAgentSubdomain = '';
 
         for (const line of lines) {
           if (line.startsWith('# name')) {
@@ -462,6 +492,8 @@ const server = serve({
             currentSection = 'workflow';
           } else if (line.startsWith('# image')) {
             currentSection = 'image';
+          } else if (line.startsWith('# subdomain')) {
+            currentSection = 'subdomain';
           } else if (line.trim()) {
             if (currentSection === 'name') {
               name = line.trim();
@@ -475,37 +507,26 @@ const server = serve({
               workflow = line.trim();
             } else if (currentSection === 'image') {
               imageField = line.trim();
+            } else if (currentSection === 'subdomain') {
+              newAgentSubdomain = line.trim();
             }
           }
         }
 
-        // todo: instead of incapsulating processImageField we should make a new function which is accepting options object and then it is doing what processImageField is currently doing plus then its constructing agentEntry, plus inserting it into agents, so options object is like this { subdomain, name, titles: [], suggestions: [], prompt, workflow, imageCid }
-        const cid = await processImageField(imageField, titles);
-
-        const agentEntry = {
-          id: randomUUIDForAgent(),
-          subdomain: `${name.toLowerCase().replace(/\s+/g, '-')}-${Math.floor(1000 + Math.random() * 9000)}`,
+        // todo: should also support to populate domains and links and twitter_bots as well, for example if we have "# domains" line then it should parse inside of this section subtitles "## domain" and then its value and then "## agent_id" and then its value etc okay, and as well our new telegram_bots table also
+        await createAgentEntry({
+          subdomain: newAgentSubdomain,
           name,
-          titles: titles.join(','),
-          suggestions: suggestions.join(','),
+          titles,
+          suggestions,
           prompt: prompt || "You are an AI expert. Provide guidance and advice.",
           workflow: workflow || "",
-          imageCid: cid
-        };
+          imageField,
+        });
 
-        db.run(
-          "INSERT INTO agents (id, subdomain, name, titles, suggestions, prompt, workflow, imageCid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-          agentEntry.id,
-          agentEntry.subdomain,
-          agentEntry.name,
-          agentEntry.titles,
-          agentEntry.suggestions,
-          agentEntry.prompt,
-          agentEntry.workflow,
-          agentEntry.imageCid
-        );
+        // todo: if it has a telegram bot defined, then since it might not have a group id, so if its missing group id, then it should start polling messages for that bot, and the first channel it has received message in, that one we assign as a group id, and only then we call createAgentEntry and give response
 
-        return new Response(JSON.stringify(agentEntry), {
+        return new Response(JSON.stringify({ name, titles, suggestions, prompt, workflow }), {
           headers: { "Content-Type": "application/json" },
         });
       } catch (err) {
