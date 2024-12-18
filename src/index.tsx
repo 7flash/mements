@@ -262,7 +262,7 @@ const server = serve({
     const host = req.headers.get("host");
 
     const subdomain = host ? host.split(".")[0] : "";
-    const domainStmt = db.prepare("SELECT agent_id FROM domains WHERE domain = ?");
+    const domainStmt = db.prepare("SELECT agent_id, custom_script_path FROM domains WHERE domain = ?");
     const domainData = domainStmt.get(host);
     const agentWithItsOwnDomain = domainData ? true : false;
 
@@ -511,8 +511,8 @@ const server = serve({
 
         let domains = [];
         let links = [];
-        let twitterBots = [];
-        let telegramBots = [];
+        let twitterBot = {};
+        let telegramBot = {};
 
         for (const line of lines) {
           if (line.startsWith('# name')) {
@@ -558,12 +558,12 @@ const server = serve({
             } else if (currentSection === 'links') {
               const [type, value] = line.split('||');
               links.push({ type: type.trim(), value: value.trim() });
-            } else if (currentSection === 'twitter_bots') {
+            } else if (currentSection === 'twitter_bot') {
               const [handle, apiKey] = line.split('||');
-              twitterBots.push({ handle: handle.trim(), api_key: apiKey.trim() });
-            } else if (currentSection === 'telegram_bots') {
+              twitterBot = { handle: handle.trim(), api_key: apiKey.trim() };
+            } else if (currentSection === 'telegram_bot') {
               const [botToken, groupId] = line.split('||');
-              telegramBots.push({ bot_token: botToken.trim(), group_id: groupId.trim() });
+              telegramBot = { bot_token: botToken.trim(), group_id: groupId.trim() };
             }
           }
         }
@@ -586,15 +586,25 @@ const server = serve({
           db.run("INSERT INTO links (id, agent_id, type, value) VALUES (?, ?, ?, ?)", randomUUIDForAgent(), agentEntry.id, type, value);
         });
 
-        twitterBots.forEach(({ handle, api_key }) => {
-          db.run("INSERT INTO twitter_bots (agent_id, handle, api_key) VALUES (?, ?, ?)", agentEntry.id, handle, api_key);
-        });
+        if (twitterBot) {
+          db.run(
+            "INSERT INTO twitter_bots (agent_id, handle, api_key) VALUES (?, ?, ?)",
+            agentEntry.id,
+            twitterBot.handle,
+            twitterBot.api_key,
+          );
+        }
+
+        if (telegramBot) {
+          db.run(
+            "INSERT INTO telegram_bots (agent_id, bot_token, group_id) VALUES (?, ?, ?)",
+            agentEntry.id,
+            telegramBot.bot_token,
+            telegramBot.group_id,
+          );
+        }
 
         // todo: if it has a telegram bot defined, then since it might not have a group id, so if its missing group id, then it should start polling messages for that bot, and the first channel it has received message in, that one we assign as a group id, and only then we call createAgentEntry and give response
-
-        telegramBots.forEach(({ bot_token, group_id }) => {
-          db.run("INSERT INTO telegram_bots (agent_id, bot_token, group_id) VALUES (?, ?, ?)", agentEntry.id, bot_token, group_id);
-        });
 
         return new Response(JSON.stringify({ name, titles, suggestions, prompt, workflow }), {
           headers: { "Content-Type": "application/json" },
