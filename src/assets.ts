@@ -47,7 +47,7 @@ class Assets implements IAssets {
       if (this.assets[it as AssetName].source && this.assets[it as AssetName].source?.includes('.ts')) {
         const entrypoint = dirname(this.assets[it as AssetName].source!.replace(join(process.cwd(), '/src'), '')).replaceAll('/', '-').substring(1) + '-' + basename(this.assets[it as AssetName].source!, extname(this.assets[it as AssetName].source!)) + '.js';
         this.assets[it as AssetName].path = join(process.cwd(), 'generated/build', entrypoint);
-        await $`bun build ${this.assets[it as AssetName].source} --outdir generated/build --target browser --entry-naming ${entrypoint} --external react-dom --external react`;
+        await $`bun build ${this.assets[it as AssetName].source} --outdir generated/build --target browser --entry-naming ${entrypoint} --external react-dom --external react --jsx=classic`;
       } 
     }
 

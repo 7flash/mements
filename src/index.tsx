@@ -3,6 +3,13 @@ import { $, serve, type BunFile } from "bun";
 import ShortUniqueId from "short-unique-id";
 import { Database } from "bun:sqlite";
 
+import Files from "./files";
+export interface IFiles {
+  upload(file: File): Promise<string>;
+  getUrl(cid: string, expires: number): Promise<string>;
+  createTemporaryAdminKey(): Promise<any>;
+}
+
 const { default: prompt } = await import("uai/src/uai.ts");
 
 export interface IAssets {
@@ -55,6 +62,7 @@ export interface IConfig {
 }
 
 import getConfigFromEnv from "./config";
+import React from "react";
 
 const config = getConfigFromEnv(['DB_NAME', 'BUN_PORT']);
 
@@ -72,6 +80,10 @@ db.run(`
   )
 `);
 
+// todo: should remove left and right suggestions, instead derive suggestionsRight when we format serverData
+// todo: titles and suggestions should not be stored and generated as JSON, but simply as a list of values separated by comma
+// todo: links field should be removed, instead create a new table with links (id, agent_id, type, value)
+  
 db.run(`
   CREATE TABLE IF NOT EXISTS agents (
     id TEXT PRIMARY KEY,
@@ -194,6 +206,8 @@ const server = serve({
             scrollItemsRight: JSON.parse(agentData.suggestionsRight),
             socialMediaLinks: JSON.parse(agentData.links),
           };
+// todo: should include serverData.agentImage = await Files.getUrl(agentData.cid, 3600);
+
           return new Response(htmlTemplate(assets.getLink('askAgentApp'), JSON.stringify(serverData)), {
             headers: { "content-type": "text/html" },
           });
@@ -346,6 +360,14 @@ const server = serve({
             throw new Error("missing response fields");
           }
 
+          /*
+todo: implement image generation, uploading it and saving it in agentEntry somehow like that:
+
+          const imgUrl = await generateImage(`image of artificial agent representing ${result.titels.join(' ')}`);
+
+          const cid = await Files.upload((imgUrl as File));
+          */
+
           const agentEntry = {
             id: randomUUIDForAgent(),
             subdomain: `${result.name.toLowerCase().replace(/\s+/g, '-')}-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -371,6 +393,7 @@ const server = serve({
             agentEntry.workflow,
           );
 
+          // todo: should redirect to newly created agent subdomain
           return new Response(JSON.stringify(agentEntry), {
             headers: { "Content-Type": "application/json" },
           });
@@ -380,9 +403,58 @@ const server = serve({
         }
       }
     }
+    /* todo: implement a new endpoint which accepts a path to markdown file and reads it to create agentEntry and insert it into agents table, for example, if file like this
 
+    # name
+    first
+
+    # titles
+    second
+    third
+
+    # suggestions
+    fourth
+    fifth
+    sixth
+
+    then it should create agentEntry with name field equal to first, then titles field equal to "second, third" and suggestions equal to "fourth, fifth, sixth" 
+    */
       return new Response("Not Found", { status: 404 });
   },
 });
+
+// todo: fix it
+async function generateImage(promptText: string): Promise<string> {
+  const timeoutMs = (timeoutInSec - (timeoutInSec / 10)) * 1000;
+  const fetchPromise = fetch("https://api.openai.com/v1/images/generations", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "dall-e-3",
+      prompt: promptText,
+      n: 1,
+      size: "1024x1024",
+    }),
+  });
+
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error("Image generation request timed out")), timeoutMs)
+  );
+
+  const response = await Promise.race([fetchPromise, timeoutPromise]);
+
+  if (!(response instanceof Response)) {
+    throw response; // if it's not a Response, it's the error from timeout
+  }
+
+  const data = await response.json();
+  console.debug("🖼️ Image generated:", data);
+
+  return data.data[0].url;
+}
+
 
 console.log(`🌐 Server is running on http://localhost:${server.port} 🚀`);
