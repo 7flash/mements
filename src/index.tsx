@@ -2,8 +2,8 @@ import { dirname, join } from "path";
 import { $, serve, type BunFile } from "bun";
 import ShortUniqueId from "short-unique-id";
 import { Database } from "bun:sqlite";
-
 import Files from "./files";
+
 export interface IFiles {
   upload(file: File): Promise<string>;
   getUrl(cid: string, expires: number): Promise<string>;
@@ -79,7 +79,6 @@ db.run(`
   )
 `);
 
-// Added imageCid column to store the image CID
 db.run(`
   CREATE TABLE IF NOT EXISTS agents (
     id TEXT PRIMARY KEY,
@@ -122,7 +121,6 @@ db.run(`
   )
 `);
 
-// New table for domain-agent mapping
 db.run(`
   CREATE TABLE IF NOT EXISTS domains (
     domain TEXT PRIMARY KEY,
@@ -170,17 +168,16 @@ function htmlTemplate(scriptLink: string, serverData: string = '{}'): string {
 }
 
 async function processImageField(imageField: string, titles: string[]): Promise<string> {
-  if (imageField.startsWith('cid:')) {
-    // Extract the CID from the field
-    return imageField.replace('cid:', '').trim();
-  } else if (imageField.match(/^\/?[a-zA-Z0-9_\-\/.]+$/)) {
-    // Assuming this is a file path
-    const file = Bun.file(imageField);
-    if (await file.exists()) {
-      return await Files.upload(file);
-    }
+  if (/^[a-f0-9]{40,}$/.test(imageField)) {
+    // If it's a CID
+    return imageField;
+  } else if (/^.+\.(png|jpg|jpeg|gif)$/.test(imageField)) {
+    // If it's a file path
+    const file = await Bun.file(imageField).read();
+    const uploadedCid = await Files.upload(new File([file], "agent-image.png", { type: "image/png" }));
+    return uploadedCid;
   } else {
-    // Assuming this is a prompt
+    // Assume it's a prompt text
     const response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
@@ -189,21 +186,19 @@ async function processImageField(imageField: string, titles: string[]): Promise<
       },
       body: JSON.stringify({
         model: "dall-e-3",
-        prompt: `image of artificial agent representing ${titles.join(' ')}`,
+        prompt: imageField || `image of artificial agent representing ${titles.join(' ')}`,
         n: 1,
         size: "1024x1024",
         response_format: "b64_json"
       }),
     });
-
+    
     const imageData = await response.json();
     const base64Image = imageData.data[0].b64_json;
     const file = new File([Buffer.from(base64Image, 'base64')], "agent-image.png", { type: "image/png" });
-
-    return await Files.upload(file);
+    const cid = await Files.upload(file);
+    return cid;
   }
-
-  throw new Error("Invalid image field");
 }
 
 const server = serve({
@@ -248,9 +243,7 @@ const server = serve({
               botTag: `@${agentData.name.replace(/\s+/g, '')}`,
               scrollItemsLeft: agentData.suggestions.split(','),
               scrollItemsRight: agentData.suggestions.split(',').reverse(),
-              // Fetch links from the new links table
               socialMediaLinks: db.prepare("SELECT type, value FROM links WHERE agent_id = ?").all(agentData.id),
-              // Include agent image URL
               agentImage: await Files.getUrl(agentData.imageCid, 3600),
             };
 
@@ -405,7 +398,7 @@ const server = serve({
             throw new Error("missing response fields");
           }
 
-          const cid = await processImageField(result.image || '', result.titles);
+          const cid = await processImageField("", result.titles);
 
           const agentEntry = {
             id: randomUUIDForAgent(),
