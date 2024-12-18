@@ -1,7 +1,5 @@
-import { type IConfig } from "./index";
-
-type ConfigKeys = 'DB_NAME' | 'BUN_PORT';
-
+import type { IConfig, ConfigKeys } from "./index";
+ 
 class Config implements IConfig {
   private config: Record<ConfigKeys, string>;
 
@@ -16,7 +14,7 @@ class Config implements IConfig {
     }
   }
 
-  static init(requiredEnvVars: any): Config {
+  static init(requiredEnvVars: ConfigKeys[]): Config {
     try {
       return new Config(requiredEnvVars);
     } catch (error) {
@@ -27,12 +25,12 @@ class Config implements IConfig {
 
   get(key: ConfigKeys): string {
     if (!(key in this.config)) {
-      throw new Error(`Configuration key ${key.toString()} is not available.`);
+      throw new Error(`Configuration key ${key} is not defined in required variables and therefore not available.`);
     }
     return this.config[key];
   }
 }
 
-export default function(envVariables: any) {
-  return Config.init(envVariables);
-}
+export default Config.init([
+'DB_NAME', 'BUN_PORT', 'OPENAI_API_KEY', 'PINATA_JWT', 'PINATA_GATEWAY_URL',
+]);

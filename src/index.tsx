@@ -57,13 +57,13 @@ export type AssetName = keyof typeof assets;
 
 export type IConstants = { BASE_URL: string };
 
+import config from './config';
+
 export interface IConfig {
-  get(key: string): string;
+  get(key: ConfigKeys): string;
 }
 
-import getConfigFromEnv from "./config";
-
-const config = getConfigFromEnv(['DB_NAME', 'BUN_PORT', 'OPENAI_API_KEY']);
+export type ConfigKeys = 'DB_NAME' | 'BUN_PORT' | 'OPENAI_API_KEY' | 'PINATA_JWT' | 'PINATA_GATEWAY_URL ';
 
 const { randomUUID: randomUUIDForAgent }  = new ShortUniqueId({ length: 4 });
 const { randomUUID: randomUUIDForChat } = new ShortUniqueId({ length: 10 });
@@ -79,7 +79,7 @@ db.run(`
   )
 `);
 
-// Added image_cid column to store the image CID
+// Added imageCid column to store the image CID
 db.run(`
   CREATE TABLE IF NOT EXISTS agents (
     id TEXT PRIMARY KEY,
@@ -89,7 +89,7 @@ db.run(`
     suggestions TEXT,
     prompt TEXT,
     workflow TEXT,
-    image_cid TEXT
+    imageCid TEXT
   )
 `);
 
@@ -189,6 +189,7 @@ const server = serve({
     if (path === "/" && !subdomain && !agentWithItsOwnDomain) itsRootCreationDomain = true;
     if (path === "/" && host?.includes('localhost:')) itsRootCreationDomain = true;
 
+    console.log("itsRootCreationDomain ==> ", itsRootCreationDomain);
     console.log("agentWithItsOwnDomain ==> ", agentWithItsOwnDomain);
     console.log("subdomain ==> ", subdomain);
 
@@ -213,7 +214,7 @@ const server = serve({
               // Fetch links from the new links table
               socialMediaLinks: db.prepare("SELECT type, value FROM links WHERE agent_id = ?").all(agentData.id),
               // Include agent image URL
-              agentImage: await Files.getUrl(agentData.image_cid, 3600),
+              agentImage: await Files.getUrl(agentData.imageCid, 3600),
             };
 
             return new Response(htmlTemplate(assets.getLink('askAgentApp'), JSON.stringify(serverData)), {
@@ -367,7 +368,6 @@ const server = serve({
             throw new Error("missing response fields");
           }
 
-          // Simplified image generation and upload
           const response = await fetch("https://api.openai.com/v1/images/generations", {
             method: "POST",
             headers: {
@@ -383,8 +383,8 @@ const server = serve({
             }),
           });
 
-          const data = await response.json();
-          const base64Image = data.data[0].b64_json;
+          const imageData = await response.json();
+          const base64Image = imageData.data[0].b64_json;
           const file = new File([Buffer.from(base64Image, 'base64')], "agent-image.png", { type: "image/png" });
 
           const cid = await Files.upload(file);
@@ -397,11 +397,11 @@ const server = serve({
             suggestions: result.suggestions.join(','),
             prompt: result.prompt,
             workflow: "",
-            image_cid: cid
+            imageCid: cid
           };
 
           db.run(
-            "INSERT INTO agents (id, subdomain, name, titles, suggestions, prompt, workflow, image_cid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO agents (id, subdomain, name, titles, suggestions, prompt, workflow, imageCid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             agentEntry.id,
             agentEntry.subdomain,
             agentEntry.name,
@@ -409,7 +409,7 @@ const server = serve({
             agentEntry.suggestions,
             agentEntry.prompt,
             agentEntry.workflow,
-            agentEntry.image_cid
+            agentEntry.imageCid
           );
 
           return new Response(null, {
@@ -463,7 +463,6 @@ const server = serve({
           }
         }
 
-        // Simplified image generation and upload
         const response = await fetch("https://api.openai.com/v1/images/generations", {
           method: "POST",
           headers: {
@@ -479,8 +478,8 @@ const server = serve({
           }),
         });
 
-        const data = await response.json();
-        const base64Image = data.data[0].b64_json;
+        const imageData = await response.json();
+        const base64Image = imageData.data[0].b64_json;
         const file = new File([Buffer.from(base64Image, 'base64')], "agent-image.png", { type: "image/png" });
 
         const cid = await Files.upload(file);
@@ -493,11 +492,11 @@ const server = serve({
           suggestions: suggestions.join(','),
           prompt: prompt || "You are an AI expert. Provide guidance and advice.",
           workflow: workflow || "",
-          image_cid: cid
+          imageCid: cid
         };
 
         db.run(
-          "INSERT INTO agents (id, subdomain, name, titles, suggestions, prompt, workflow, image_cid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+          "INSERT INTO agents (id, subdomain, name, titles, suggestions, prompt, workflow, imageCid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
           agentEntry.id,
           agentEntry.subdomain,
           agentEntry.name,
@@ -505,7 +504,7 @@ const server = serve({
           agentEntry.suggestions,
           agentEntry.prompt,
           agentEntry.workflow,
-          agentEntry.image_cid
+          agentEntry.imageCid
         );
 
         return new Response(JSON.stringify(agentEntry), {
