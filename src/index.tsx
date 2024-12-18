@@ -492,7 +492,72 @@ const server = serve({
         }
       }
     }
-// todo: implement /api/create-agent-from-toml similar method which parses toml file simply with await import(path) which gives json and then proceed similarly
+
+    if (req.method === "POST" && path === "/api/create-agent-from-toml") {
+      try {
+        const data = await req.json();
+        const tomlPath = data.path;
+        const tomlContent = await import(tomlPath);
+        
+        const { name, titles, suggestions, prompt, workflow, imageField, subdomain, domains, links, twitter_bot, telegram_bot } = tomlContent;
+
+        const agentEntry = await createAgentEntry({
+          subdomain,
+          name,
+          titles,
+          suggestions,
+          prompt: prompt || "You are an AI expert. Provide guidance and advice.",
+          workflow: workflow || "",
+          imageField,
+        });
+
+        domains.forEach(({ domain, custom_script_path }) => {
+          db.run("INSERT INTO domains (domain, agent_id, custom_script_path) VALUES (?, ?, ?)", domain, agentEntry.id, custom_script_path);
+        });
+
+        links.forEach(({ type, value }) => {
+          db.run("INSERT INTO links (id, agent_id, type, value) VALUES (?, ?, ?, ?)", randomUUIDForAgent(), agentEntry.id, type, value);
+        });
+
+        if (twitter_bot) {
+          db.run(
+            "INSERT INTO twitter_bots (agent_id, handle, api_key) VALUES (?, ?, ?)",
+            agentEntry.id,
+            twitter_bot.handle,
+            twitter_bot.api_key,
+          );
+        }
+
+        if (telegram_bot) {
+          if (!telegram_bot.group_id) {
+            // Start polling messages for the bot to assign group_id
+            const telegramApiUrl = `https://api.telegram.org/bot${telegram_bot.bot_token}/getUpdates`;
+            const response = await fetch(telegramApiUrl);
+            const updates = await response.json();
+
+            if (updates.result && updates.result.length > 0) {
+              const firstUpdate = updates.result[0];
+              telegram_bot.group_id = firstUpdate.message.chat.id;
+            }
+          }
+
+          db.run(
+            "INSERT INTO telegram_bots (agent_id, bot_token, group_id) VALUES (?, ?, ?)",
+            agentEntry.id,
+            telegram_bot.bot_token,
+            telegram_bot.group_id,
+          );
+        }
+
+        return new Response(JSON.stringify({ name, titles, suggestions, prompt, workflow }), {
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (err) {
+        console.error("Error processing TOML:", err);
+        return new Response("Error processing TOML", { status: 500 });
+      }
+    }
+
     if (req.method === "POST" && path === "/api/create-agent-from-markdown") {
       try {
         const data = await req.json();
@@ -596,6 +661,18 @@ const server = serve({
         }
 
         if (telegramBot) {
+          if (!telegramBot.group_id) {
+            // Start polling messages for the bot to assign group_id
+            const telegramApiUrl = `https://api.telegram.org/bot${telegramBot.bot_token}/getUpdates`;
+            const response = await fetch(telegramApiUrl);
+            const updates = await response.json();
+
+            if (updates.result && updates.result.length > 0) {
+              const firstUpdate = updates.result[0];
+              telegramBot.group_id = firstUpdate.message.chat.id;
+            }
+          }
+
           db.run(
             "INSERT INTO telegram_bots (agent_id, bot_token, group_id) VALUES (?, ?, ?)",
             agentEntry.id,
@@ -603,8 +680,6 @@ const server = serve({
             telegramBot.group_id,
           );
         }
-
-        // todo: if it has a telegram bot defined, then since it might not have a group id, so if its missing group id, then it should start polling messages for that bot, and the first channel it has received message in, that one we assign as a group id, and only then we call createAgentEntry and give response
 
         return new Response(JSON.stringify({ name, titles, suggestions, prompt, workflow }), {
           headers: { "Content-Type": "application/json" },
