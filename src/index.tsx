@@ -463,6 +463,8 @@ const server = serve({
           }
         }
 
+        // todo: should support image field which actually can be either existing cid or it can be a local file path we can determine by its regexp what it is it and if there is such a file then we just upload it to files and store its cid, and if its just a cid then we dont upload, ah yes and it can be also a prompt text then we pass it to generations endpoint receive base64 and upload file from base64 to retrieve cid, so all these three options should be supported, and we should extract it into a new function which is called here after we parsed markdown into options object, we can pass this object into this new function which makes generation and file uploading just when necessary
+
         const response = await fetch("https://api.openai.com/v1/images/generations", {
           method: "POST",
           headers: {
