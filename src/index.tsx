@@ -62,7 +62,6 @@ export interface IConfig {
 }
 
 import getConfigFromEnv from "./config";
-import React from "react";
 
 const config = getConfigFromEnv(['DB_NAME', 'BUN_PORT', 'OPENAI_API_KEY']);
 
@@ -80,21 +79,27 @@ db.run(`
   )
 `);
 
-// todo: should remove left and right suggestions, instead derive suggestionsRight when we format serverData
-// todo: titles and suggestions should not be stored and generated as JSON, but simply as a list of values separated by comma
-// todo: links field should be removed, instead create a new table with links (id, agent_id, type, value)
-
+// Updated agents table schema
 db.run(`
   CREATE TABLE IF NOT EXISTS agents (
     id TEXT PRIMARY KEY,
     subdomain TEXT UNIQUE,
     name TEXT,
     titles TEXT,
-    suggestionsLeft TEXT,
-    suggestionsRight TEXT,
-    links TEXT,
+    suggestions TEXT,
     prompt TEXT,
     workflow TEXT
+  )
+`);
+
+// New table for links
+db.run(`
+  CREATE TABLE IF NOT EXISTS links (
+    id TEXT PRIMARY KEY,
+    agent_id TEXT,
+    type TEXT,
+    value TEXT,
+    FOREIGN KEY(agent_id) REFERENCES agents(id)
   )
 `);
 
@@ -185,8 +190,6 @@ const server = serve({
     if (path === "/" && host?.includes('localhost:')) itsRootCreationDomain = true;
 
     if (!itsRootCreationDomain && (subdomain || agentWithItsOwnDomain)) {
-    console.log("agentWithItsOwnDomain ==> ", agentWithItsOwnDomain);
-    console.log("subdomain ==> ", subdomain);
       const agentId = agentWithItsOwnDomain ? domainData.agent_id : null;
       const agentStmt = db.prepare("SELECT * FROM agents WHERE subdomain = ? OR id = ?");
       const agentData = agentStmt.get(subdomain, agentId);
@@ -197,20 +200,22 @@ const server = serve({
       if (req.method === "GET") {
         if (agentData) {
           if (path == "/") {
-          const serverData = {
-            mintAddress: process.env.MINT_ADDRESS,
-            botName: agentData.name,
-            alternativeBotTitles: JSON.parse(agentData.titles),
-            botTag: `@${agentData.name.replace(/\s+/g, '')}`,
-            scrollItemsLeft: JSON.parse(agentData.suggestionsLeft),
-            scrollItemsRight: JSON.parse(agentData.suggestionsRight),
-            socialMediaLinks: JSON.parse(agentData.links),
-          };
-// todo: should include serverData.agentImage = await Files.getUrl(agentData.cid, 3600);
+            const serverData = {
+              mintAddress: process.env.MINT_ADDRESS,
+              botName: agentData.name,
+              alternativeBotTitles: agentData.titles.split(','),
+              botTag: `@${agentData.name.replace(/\s+/g, '')}`,
+              scrollItemsLeft: agentData.suggestions.split(','),
+              scrollItemsRight: agentData.suggestions.split(',').reverse(),
+              // Fetch links from the new links table
+              socialMediaLinks: db.prepare("SELECT type, value FROM links WHERE agent_id = ?").all(agentData.id),
+              // Include agent image URL
+              agentImage: await Files.getUrl(agentData.id, 3600),
+            };
 
-          return new Response(htmlTemplate(assets.getLink('askAgentApp'), JSON.stringify(serverData)), {
-            headers: { "content-type": "text/html" },
-          });
+            return new Response(htmlTemplate(assets.getLink('askAgentApp'), JSON.stringify(serverData)), {
+              headers: { "content-type": "text/html" },
+            });
           } else if (path.startsWith("/chat") && agentData) {
             const chatId = path.split("/")[2];
             if (chatId) {
@@ -221,18 +226,18 @@ const server = serve({
                 const serverDataWithChat = {
                   mintAddress: process.env.MINT_ADDRESS,
                   botName: agentData.name,
-                  alternativeBotTitles: JSON.parse(agentData.titles),
+                  alternativeBotTitles: agentData.titles.split(','),
                   botTag: `@${agentData.name.replace(/\s+/g, '')}`,
-                  scrollItemsLeft: JSON.parse(agentData.suggestionsLeft),
-                  scrollItemsRight: JSON.parse(agentData.suggestionsRight),
-                  socialMediaLinks: JSON.parse(agentData.links),
+                  scrollItemsLeft: agentData.suggestions.split(','),
+                  scrollItemsRight: agentData.suggestions.split(',').reverse(),
+                  socialMediaLinks: db.prepare("SELECT type, value FROM links WHERE agent_id = ?").all(agentData.id),
                   chatId: chatResponse.id,
                   question: encodeURIComponent(chatResponse.question.replaceAll('%', 'percent')),
                   content: encodeURIComponent(chatResponse.response.replaceAll('%', 'percent')),
                   timestamp: chatResponse.timestamp,
                 };
       
-                return new Response(htmlTemplate(Assets.getLink('askAgentApp'), JSON.stringify(serverDataWithChat)), {
+                return new Response(htmlTemplate(assets.getLink('askAgentApp'), JSON.stringify(serverDataWithChat)), {
                   headers: { "content-type": "text/html" }
                 });
               }
@@ -240,7 +245,6 @@ const server = serve({
             return new Response("Chat not found", { status: 404 });
           }
 
-        } else {
         }
       }
 
@@ -360,42 +364,35 @@ const server = serve({
             throw new Error("missing response fields");
           }
 
-          /*
-todo: implement image generation, uploading it and saving it in agentEntry somehow like that:
-
-          const imgUrl = await generateImage(`image of artificial agent representing ${result.titels.join(' ')}`);
-
+          // Implement image generation and upload
+          const imgUrl = await generateImage(`image of artificial agent representing ${result.titles.join(' ')}`);
           const cid = await Files.upload((imgUrl as File));
-          */
 
           const agentEntry = {
             id: randomUUIDForAgent(),
             subdomain: `${result.name.toLowerCase().replace(/\s+/g, '-')}-${Math.floor(1000 + Math.random() * 9000)}`,
             name: result.name,
-            titles: JSON.stringify(result.titles),
-            suggestionsLeft: JSON.stringify(result.suggestions),
-            suggestionsRight: JSON.stringify(result.suggestions.reverse()),
-            links: JSON.stringify({}),
+            titles: result.titles.join(','),
+            suggestions: result.suggestions.join(','),
             prompt: result.prompt,
             workflow: "",
           };
 
           db.run(
-            "INSERT INTO agents (id, subdomain, name, titles, suggestionsLeft, suggestionsRight, links, prompt, workflow) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO agents (id, subdomain, name, titles, suggestions, prompt, workflow) VALUES (?, ?, ?, ?, ?, ?, ?)",
             agentEntry.id,
             agentEntry.subdomain,
             agentEntry.name,
             agentEntry.titles,
-            agentEntry.suggestionsLeft,
-            agentEntry.suggestionsRight,
-            agentEntry.links,
+            agentEntry.suggestions,
             agentEntry.prompt,
             agentEntry.workflow,
           );
 
-          // todo: should redirect to newly created agent subdomain
-          return new Response(JSON.stringify(agentEntry), {
-            headers: { "Content-Type": "application/json" },
+          // Redirect to newly created agent subdomain
+          return new Response(null, {
+            status: 302,
+            headers: { "Location": `http://${agentEntry.subdomain}.${host}` },
           });
         } catch (err) {
           console.error("Error creating agent:", err);
@@ -403,29 +400,75 @@ todo: implement image generation, uploading it and saving it in agentEntry someh
         }
       }
     }
-    /* todo: implement a new endpoint which accepts a path to markdown file and reads it to create agentEntry and insert it into agents table, for example, if file like this
 
-    # name
-    first
+    // New endpoint for markdown file processing
+    if (req.method === "POST" && path === "/api/create-agent-from-markdown") {
+      try {
+        const data = await req.json();
+        const markdownPath = data.path;
+        const markdownContent = await Bun.file(markdownPath).text();
+        
+        const lines = markdownContent.split('\n');
+        let name = '';
+        let titles = [];
+        let suggestions = [];
+        let currentSection = '';
 
-    # titles
-    second
-    third
+        for (const line of lines) {
+          if (line.startsWith('# name')) {
+            currentSection = 'name';
+          } else if (line.startsWith('# titles')) {
+            currentSection = 'titles';
+          } else if (line.startsWith('# suggestions')) {
+            currentSection = 'suggestions';
+          } else if (line.trim()) {
+            if (currentSection === 'name') {
+              name = line.trim();
+            } else if (currentSection === 'titles') {
+              titles.push(line.trim());
+            } else if (currentSection === 'suggestions') {
+              suggestions.push(line.trim());
+            }
+          }
+        }
 
-    # suggestions
-    fourth
-    fifth
-    sixth
+        const agentEntry = {
+          id: randomUUIDForAgent(),
+          subdomain: `${name.toLowerCase().replace(/\s+/g, '-')}-${Math.floor(1000 + Math.random() * 9000)}`,
+          name,
+          titles: titles.join(','),
+          suggestions: suggestions.join(','),
+          prompt: "You are an AI expert. Provide guidance and advice.",
+          workflow: "",
+        };
 
-    then it should create agentEntry with name field equal to first, then titles field equal to "second, third" and suggestions equal to "fourth, fifth, sixth" 
-    */
-      return new Response("Not Found", { status: 404 });
+        db.run(
+          "INSERT INTO agents (id, subdomain, name, titles, suggestions, prompt, workflow) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          agentEntry.id,
+          agentEntry.subdomain,
+          agentEntry.name,
+          agentEntry.titles,
+          agentEntry.suggestions,
+          agentEntry.prompt,
+          agentEntry.workflow,
+        );
+
+        return new Response(JSON.stringify(agentEntry), {
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (err) {
+        console.error("Error processing markdown:", err);
+        return new Response("Error processing markdown", { status: 500 });
+      }
+    }
+
+    return new Response("Not Found", { status: 404 });
   },
 });
 
-// todo: fix it
+// Fixed generateImage function
 async function generateImage(promptText: string): Promise<string> {
-  const timeoutMs = (timeoutInSec - (timeoutInSec / 10)) * 1000;
+  const timeoutMs = 9000; // Set a reasonable timeout
   const fetchPromise = fetch("https://api.openai.com/v1/images/generations", {
     method: "POST",
     headers: {
@@ -455,6 +498,5 @@ async function generateImage(promptText: string): Promise<string> {
 
   return data.data[0].url;
 }
-
 
 console.log(`🌐 Server is running on http://localhost:${server.port} 🚀`);
