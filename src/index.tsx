@@ -111,7 +111,14 @@ db.run(`
   )
 `);
 
-// todo: implement a new table telegram_bots similarly
+db.run(`
+  CREATE TABLE IF NOT EXISTS telegram_bots (
+    agent_id TEXT PRIMARY KEY,
+    bot_token TEXT,
+    group_id TEXT,
+    FOREIGN KEY(agent_id) REFERENCES agents(id)
+  )
+`);
 
 db.run(`
   CREATE TABLE IF NOT EXISTS contexts (
@@ -123,11 +130,11 @@ db.run(`
   )
 `);
 
-// todo: should support another field for a custom path to app script
 db.run(`
   CREATE TABLE IF NOT EXISTS domains (
     domain TEXT PRIMARY KEY,
     agent_id TEXT,
+    custom_script_path TEXT,
     FOREIGN KEY(agent_id) REFERENCES agents(id)
   )
 `);
@@ -289,10 +296,16 @@ const server = serve({
               agentImage: await Files.getUrl(agentData.imageCid, 3600),
             };
 
-            // todo: in case if it has a custom domain and its domain has a custom script path then instead of assets.getLink pass that script directly here resolved with join(import.meta.dir, ..)
-            return new Response(htmlTemplate(assets.getLink('askAgentApp'), JSON.stringify(serverData)), {
-              headers: { "content-type": "text/html" },
-            });
+            if (agentWithItsOwnDomain && domainData.custom_script_path) {
+              const customScriptPath = join(import.meta.dir, domainData.custom_script_path);
+              return new Response(htmlTemplate(customScriptPath, JSON.stringify(serverData)), {
+                headers: { "content-type": "text/html" },
+              });
+            } else {
+              return new Response(htmlTemplate(assets.getLink('askAgentApp'), JSON.stringify(serverData)), {
+                headers: { "content-type": "text/html" },
+              });
+            }
           } else if (path.startsWith("/chat") && agentData) {
             const chatId = path.split("/")[2];
             if (chatId) {
@@ -390,7 +403,24 @@ const server = serve({
             responseData.timestamp,
           );
 
-          // todo: check if have corresponding telegram bot for agent and then also send message from corresponding bot into its corresponding group
+          // Find telegram bot details
+          const telegramBotStmt = db.prepare("SELECT bot_token, group_id FROM telegram_bots WHERE agent_id = ?");
+          const telegramBotData = telegramBotStmt.get(agentData.id);
+
+          if (telegramBotData && telegramBotData.group_id) {
+            // Example to send a message via Telegram API (using bot token and group ID)
+            const telegramApiUrl = `https://api.telegram.org/bot${telegramBotData.bot_token}/sendMessage`;
+            const messageBody = {
+              chat_id: telegramBotData.group_id,
+              text: `New response from bot ${agentData.name}: ${responseData.response}`
+            };
+
+            await fetch(telegramApiUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(messageBody)
+            });
+          }
 
           return new Response(JSON.stringify(responseData), {
             headers: { "Content-Type": "application/json" },
@@ -462,7 +492,7 @@ const server = serve({
         }
       }
     }
-
+// todo: implement /api/create-agent-from-toml similar method which parses toml file simply with await import(path) which gives json and then proceed similarly
     if (req.method === "POST" && path === "/api/create-agent-from-markdown") {
       try {
         const data = await req.json();
@@ -479,6 +509,11 @@ const server = serve({
         let currentSection = '';
         let newAgentSubdomain = '';
 
+        let domains = [];
+        let links = [];
+        let twitterBots = [];
+        let telegramBots = [];
+
         for (const line of lines) {
           if (line.startsWith('# name')) {
             currentSection = 'name';
@@ -494,6 +529,14 @@ const server = serve({
             currentSection = 'image';
           } else if (line.startsWith('# subdomain')) {
             currentSection = 'subdomain';
+          } else if (line.startsWith('# domains')) {
+            currentSection = 'domains';
+          } else if (line.startsWith('# links')) {
+            currentSection = 'links';
+          } else if (line.startsWith('# twitter_bots')) {
+            currentSection = 'twitter_bots';
+          } else if (line.startsWith('# telegram_bots')) {
+            currentSection = 'telegram_bots';
           } else if (line.trim()) {
             if (currentSection === 'name') {
               name = line.trim();
@@ -509,12 +552,23 @@ const server = serve({
               imageField = line.trim();
             } else if (currentSection === 'subdomain') {
               newAgentSubdomain = line.trim();
+            } else if (currentSection === 'domains') {
+              const [domain, customScriptPath] = line.split('||');
+              domains.push({ domain: domain.trim(), customScriptPath: customScriptPath?.trim() });
+            } else if (currentSection === 'links') {
+              const [type, value] = line.split('||');
+              links.push({ type: type.trim(), value: value.trim() });
+            } else if (currentSection === 'twitter_bots') {
+              const [handle, apiKey] = line.split('||');
+              twitterBots.push({ handle: handle.trim(), api_key: apiKey.trim() });
+            } else if (currentSection === 'telegram_bots') {
+              const [botToken, groupId] = line.split('||');
+              telegramBots.push({ bot_token: botToken.trim(), group_id: groupId.trim() });
             }
           }
         }
 
-        // todo: should also support to populate domains and links and twitter_bots as well, for example if we have "# domains" line then it should parse inside of this section subtitles "## domain" and then its value and then "## agent_id" and then its value etc okay, and as well our new telegram_bots table also
-        await createAgentEntry({
+        const agentEntry = await createAgentEntry({
           subdomain: newAgentSubdomain,
           name,
           titles,
@@ -524,7 +578,23 @@ const server = serve({
           imageField,
         });
 
+        domains.forEach(({ domain, customScriptPath }) => {
+          db.run("INSERT INTO domains (domain, agent_id, custom_script_path) VALUES (?, ?, ?)", domain, agentEntry.id, customScriptPath);
+        });
+
+        links.forEach(({ type, value }) => {
+          db.run("INSERT INTO links (id, agent_id, type, value) VALUES (?, ?, ?, ?)", randomUUIDForAgent(), agentEntry.id, type, value);
+        });
+
+        twitterBots.forEach(({ handle, api_key }) => {
+          db.run("INSERT INTO twitter_bots (agent_id, handle, api_key) VALUES (?, ?, ?)", agentEntry.id, handle, api_key);
+        });
+
         // todo: if it has a telegram bot defined, then since it might not have a group id, so if its missing group id, then it should start polling messages for that bot, and the first channel it has received message in, that one we assign as a group id, and only then we call createAgentEntry and give response
+
+        telegramBots.forEach(({ bot_token, group_id }) => {
+          db.run("INSERT INTO telegram_bots (agent_id, bot_token, group_id) VALUES (?, ?, ?)", agentEntry.id, bot_token, group_id);
+        });
 
         return new Response(JSON.stringify({ name, titles, suggestions, prompt, workflow }), {
           headers: { "Content-Type": "application/json" },
