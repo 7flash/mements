@@ -64,7 +64,7 @@ export interface IConfig {
 import getConfigFromEnv from "./config";
 import React from "react";
 
-const config = getConfigFromEnv(['DB_NAME', 'BUN_PORT']);
+const config = getConfigFromEnv(['DB_NAME', 'BUN_PORT', 'OPENAI_API_KEY']);
 
 const { randomUUID: randomUUIDForAgent }  = new ShortUniqueId({ length: 4 });
 const { randomUUID: randomUUIDForChat } = new ShortUniqueId({ length: 10 });
@@ -83,7 +83,7 @@ db.run(`
 // todo: should remove left and right suggestions, instead derive suggestionsRight when we format serverData
 // todo: titles and suggestions should not be stored and generated as JSON, but simply as a list of values separated by comma
 // todo: links field should be removed, instead create a new table with links (id, agent_id, type, value)
-  
+
 db.run(`
   CREATE TABLE IF NOT EXISTS agents (
     id TEXT PRIMARY KEY,
