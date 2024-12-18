@@ -479,6 +479,7 @@ const server = serve({
           }
         }
 
+        // todo: instead of incapsulating processImageField we should make a new function which is accepting options object and then it is doing what processImageField is currently doing plus then its constructing agentEntry, plus inserting it into agents, so options object is like this { subdomain, name, titles: [], suggestions: [], prompt, workflow, imageCid }
         const cid = await processImageField(imageField, titles);
 
         const agentEntry = {
