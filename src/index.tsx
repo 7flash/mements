@@ -79,7 +79,7 @@ db.run(`
   )
 `);
 
-// todo: fix its missing image cid it should be defined here and assigned everywhere agent is created
+// Added image_cid column to store the image CID
 db.run(`
   CREATE TABLE IF NOT EXISTS agents (
     id TEXT PRIMARY KEY,
@@ -88,7 +88,8 @@ db.run(`
     titles TEXT,
     suggestions TEXT,
     prompt TEXT,
-    workflow TEXT
+    workflow TEXT,
+    image_cid TEXT
   )
 `);
 
@@ -212,7 +213,7 @@ const server = serve({
               // Fetch links from the new links table
               socialMediaLinks: db.prepare("SELECT type, value FROM links WHERE agent_id = ?").all(agentData.id),
               // Include agent image URL
-              agentImage: await Files.getUrl(agentData.id, 3600),
+              agentImage: await Files.getUrl(agentData.image_cid, 3600),
             };
 
             return new Response(htmlTemplate(assets.getLink('askAgentApp'), JSON.stringify(serverData)), {
@@ -366,12 +367,25 @@ const server = serve({
             throw new Error("missing response fields");
           }
 
-          const imgUrl = await generateImage(`image of artificial agent representing ${result.titles.join(' ')}`);
+          // Simplified image generation and upload
+          const response = await fetch("https://api.openai.com/v1/images/generations", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+            },
+            body: JSON.stringify({
+              model: "dall-e-3",
+              prompt: `image of artificial agent representing ${result.titles.join(' ')}`,
+              n: 1,
+              size: "1024x1024",
+              response_format: "b64_json"
+            }),
+          });
 
-          // todo: adjust this uploading correspondingly to our generation image fetch request b64 format response
-          const response = await fetch(imgUrl);
-          const blob = await response.blob();
-          const file = new File([blob], "agent-image.png", { type: blob.type });
+          const data = await response.json();
+          const base64Image = data.data[0].b64_json;
+          const file = new File([Buffer.from(base64Image, 'base64')], "agent-image.png", { type: "image/png" });
 
           const cid = await Files.upload(file);
 
@@ -383,10 +397,11 @@ const server = serve({
             suggestions: result.suggestions.join(','),
             prompt: result.prompt,
             workflow: "",
+            image_cid: cid
           };
 
           db.run(
-            "INSERT INTO agents (id, subdomain, name, titles, suggestions, prompt, workflow) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO agents (id, subdomain, name, titles, suggestions, prompt, workflow, image_cid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             agentEntry.id,
             agentEntry.subdomain,
             agentEntry.name,
@@ -394,6 +409,7 @@ const server = serve({
             agentEntry.suggestions,
             agentEntry.prompt,
             agentEntry.workflow,
+            agentEntry.image_cid
           );
 
           return new Response(null, {
@@ -447,6 +463,28 @@ const server = serve({
           }
         }
 
+        // Simplified image generation and upload
+        const response = await fetch("https://api.openai.com/v1/images/generations", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "dall-e-3",
+            prompt: `image of artificial agent representing ${titles.join(' ')}`,
+            n: 1,
+            size: "1024x1024",
+            response_format: "b64_json"
+          }),
+        });
+
+        const data = await response.json();
+        const base64Image = data.data[0].b64_json;
+        const file = new File([Buffer.from(base64Image, 'base64')], "agent-image.png", { type: "image/png" });
+
+        const cid = await Files.upload(file);
+
         const agentEntry = {
           id: randomUUIDForAgent(),
           subdomain: `${name.toLowerCase().replace(/\s+/g, '-')}-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -455,10 +493,11 @@ const server = serve({
           suggestions: suggestions.join(','),
           prompt: prompt || "You are an AI expert. Provide guidance and advice.",
           workflow: workflow || "",
+          image_cid: cid
         };
 
         db.run(
-          "INSERT INTO agents (id, subdomain, name, titles, suggestions, prompt, workflow) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          "INSERT INTO agents (id, subdomain, name, titles, suggestions, prompt, workflow, image_cid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
           agentEntry.id,
           agentEntry.subdomain,
           agentEntry.name,
@@ -466,6 +505,7 @@ const server = serve({
           agentEntry.suggestions,
           agentEntry.prompt,
           agentEntry.workflow,
+          agentEntry.image_cid
         );
 
         return new Response(JSON.stringify(agentEntry), {
@@ -480,39 +520,5 @@ const server = serve({
     return new Response("Not Found", { status: 404 });
   },
 });
-
-// todo: simplify this function we dont really need timeout and also we should set body.response_format to b64_json therefore it responds with a b64_json field instead of url field and also we dont need to have generateImage as separate function just do fetch call currently where its used
-
-async function generateImage(promptText: string): Promise<string> {
-  const timeoutMs = 9000; // Set a reasonable timeout
-  const fetchPromise = fetch("https://api.openai.com/v1/images/generations", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: "dall-e-3",
-      prompt: promptText,
-      n: 1,
-      size: "1024x1024",
-    }),
-  });
-
-  const timeoutPromise = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error("Image generation request timed out")), timeoutMs)
-  );
-
-  const response = await Promise.race([fetchPromise, timeoutPromise]);
-
-  if (!(response instanceof Response)) {
-    throw response; // if it's not a Response, it's the error from timeout
-  }
-
-  const data = await response.json();
-  console.debug("🖼️ Image generated:", data);
-
-  return data.data[0].url;
-}
 
 console.log(`🌐 Server is running on http://localhost:${server.port} 🚀`);
