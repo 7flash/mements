@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 import { Link, Route, Switch, useLocation } from "wouter";
 
 import { DexIcon, TelegramIcon, XIcon, GitbookIcon } from "./icons";
-import { LoaderIcon } from "./icons";
+// import { LoaderIcon } from "./icons";
 
 const AppContext = React.createContext({
     inputValue: "",
@@ -183,7 +183,7 @@ const Footer = () => {
                                 className={styles.submitButton}
                             >
                                 {isLoading ? <div className="flex items-center justify-center gap-2.5">
-                                    <LoaderIcon />
+                                    {/* <LoaderIcon /> */}
                                     <p className="text-black text-sm font-medium leading-snug">
                                         Loading<span className="animate-pulse" >...</span></p>
 
@@ -328,7 +328,7 @@ const ChatPage = ({ params }: any) => {
     const [response, setResponse] = useState<any>(null);
 
     useEffect(() => {
-        if (window.serverData && window.serverData.chatid === params.id) {
+        if (window.serverData && window.serverData.chatId === params.id) {
             console.debug(1733219905, window.serverData);
 
             setResponse({
@@ -411,13 +411,14 @@ export default function App() {
             }
             const data = await response.json();
             if (data.twitterPostLink) {
-                window.open(data.twitterPostLink, '_blank');
-            } else if (data.response) {
+                // window.open(data.twitterPostLink, '_blank');
+                window.location = data.twitterPostLink;
+            } else if (data.chatId) {
                 window.serverData = {
                     ...window.serverData,
                     ...data,
                 };
-                setLocation(`/chat/${data.chatid}`);
+                setLocation(`/chat/${data.chatId}`);
             } else {
                 throw 'missing response value';
             }

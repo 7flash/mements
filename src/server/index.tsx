@@ -68,8 +68,8 @@ const assets = await buildAssets({
   },
 })
 
-const { randomUUID: randomUUIDForAgent } = new ShortUniqueId({ length: 4 });
-const { randomUUID: randomUUIDForChat } = new ShortUniqueId({ length: 10 });
+const { randomUUID: randomUUIDForAgent } = new ShortUniqueId({ length: 4, dictionary: 'alphanum_lower' });
+const { randomUUID: randomUUIDForChat } = new ShortUniqueId({ length: 10, dictionary: 'alphanum_lower' });
 
 function htmlTemplate(scriptLink: string, serverData: string = '{}'): string {
   return `
@@ -155,13 +155,16 @@ const server = serve({
 
         if (!telegramBot.group_id) throw 'missing telegram bot group id and cannot be retrieved from updates';
 
-        if (!/^.+\.(png|jpg|jpeg|gif)$/.test(agent.image)) {
-          throw 'invalid image';
+        let imageCid;
+        if (/^[a-z0-9]{59,}$/.test(agent.image)) {
+          imageCid = agent.image;
+        } else if (/^.+\.(png|jpg|jpeg|gif)$/.test(agent.image)) {
+          const file = await Bun.file(resolve(process.cwd(), agent.image)).bytes();
+          console.log("file ==> ", file.length);
+          imageCid = await files.upload(new File([file], "agent-image.png", { type: "image/png" }));
+        } else {
+          throw 'missing image field (should be file path or cid)';
         }
-
-        const file = await Bun.file(resolve(process.cwd(), agent.image)).bytes();
-        console.log("file ==> ", file.length);
-        const imageCid = await files.upload(new File([file], "agent-image.png", { type: "image/png" }));
         console.log("imageCid ==> ", imageCid);
 
         const transaction = db.transaction(() => {
@@ -189,7 +192,7 @@ const server = serve({
           } else {
             db.run(
               "INSERT INTO agents (subdomain, name, titles, suggestions, prompt, workflow, imageCid) VALUES (?, ?, ?, ?, ?, ?, ?)",
-              agentEntry.subdomain, agentEntry.name, agentEntry.titles, agentEntry.suggestions, agentEntry.prompt, agentEntry.workflow, agentEntry.imageCid
+              agentEntry.subdomain.toLowerCase(), agentEntry.name, agentEntry.titles, agentEntry.suggestions, agentEntry.prompt, agentEntry.workflow, agentEntry.imageCid
             );
           }
 
@@ -285,7 +288,7 @@ const server = serve({
       agentData = agentDataQuery.get({ $subdomain: domainData.subdomain });
       appName = domainData.custom_script_path;
     } else if (subdomain) {
-      agentData = agentDataQuery.get({ $subdomain: subdomain });
+          agentData = agentDataQuery.get({ $subdomain: subdomain });
     }
 
     console.log("agentData ==> ", agentData);
@@ -315,9 +318,11 @@ const server = serve({
           });
         } else if (path.startsWith("/chat")) {
           const chatId = path.split("/")[2];
+          console.log('chatId', chatId)
           if (chatId) {
             const chatQuery = db.query<Chat, { $id: string }>("SELECT * FROM chats WHERE id = $id");
             const chatResponse = chatQuery.get({ $id: chatId });
+            console.log('chatResponse', chatResponse)
 
             if (chatResponse) {
               const serverDataWithChat = {
@@ -424,9 +429,9 @@ const server = serve({
             console.error(err);
 
             const responseData: Chat = {
-              id: randomUUIDForChat(),
+              chatId: randomUUIDForChat(),
               question: data.content,
-              response: result.content,
+              content: result.answer,
               timestamp: new Date().toISOString(),
               subdomain: subdomain,
             };
@@ -434,7 +439,7 @@ const server = serve({
             const chatInsertQuery = db.query(
               "INSERT INTO chats (id, question, response, subdomain, timestamp) VALUES (?, ?, ?, ?, ?)"
             );
-            chatInsertQuery.run(responseData.id, responseData.question, responseData.response, responseData.subdomain, responseData.timestamp);
+            chatInsertQuery.run(responseData.chatId, responseData.question, responseData.content, responseData.subdomain, responseData.timestamp);
 
             return new Response(JSON.stringify(responseData), {
               headers: { "Content-Type": "application/json" },
