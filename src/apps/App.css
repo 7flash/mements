@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+@theme {
+    --font-serif: ui-serif, Georgia;
+    --font-sans: "Geist", system-ui, sans-serif;
+    --font-mono: "JetBrainsMono", ui-monospace;
+  }
+
+  @keyframes scroll {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+  
+  @keyframes scroll-reverse {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(50%);
+    }
+  }
+  
+  .animate-scroll-slower {
+    animation: scroll 120s linear infinite;
+  }
+  
+  .animate-scroll-slower-reverse {
+    animation: scroll-reverse 120s linear infinite;
+  }
+  
+  .animation-play-state-paused {
+    animation-play-state: paused;
+  }
+  
+  @keyframes typing {
+    0% {
+      width: 0;
+    }
+  
+    to {
+      width: 100%;
+    }
+  }
+  
+  @keyframes blink {
+    50% {
+      border-color: transparent;
+    }
+  
+    to {
+      border-color: #fff;
+    }
+  }
+  
+  .animate-typing {
+    animation: typing 1.2s steps(20), blink 1s infinite;
+  }
+  
+  @keyframes fadeInUp {
+    0% {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .input-transition {
+    transition: transform 0.4s ease-in-out, opacity 0.4s ease-in-out;
+  }
+  
+  .input-transition-active {
+    transform: translateY(-20px);
+    opacity: 0.5;
+  }
+  
+  .input-transition-inactive {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  
+  .fadeInUp {
+    animation: fadeInUp 0.4s both;
+  }
+  
