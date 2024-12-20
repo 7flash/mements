@@ -151,9 +151,9 @@ const server = serve({
               telegramBot.group_id = firstUpdate.channel_post ? firstUpdate.channel_post.chat.id : firstUpdate.message.chat.id;
             }
           }
-        }
+          if (!telegramBot.group_id) throw 'missing telegram bot group id and cannot be retrieved from updates';
 
-        if (!telegramBot.group_id) throw 'missing telegram bot group id and cannot be retrieved from updates';
+        }
 
         let imageCid;
         if (/^[a-z0-9]{59,}$/.test(agent.image)) {
