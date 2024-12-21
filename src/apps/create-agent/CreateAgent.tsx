@@ -3,30 +3,20 @@ import { Bot, MessageSquare, Terminal, Rss, Zap, Check, ArrowLeft, ArrowRight } 
 import { Link, Route, Switch, useLocation } from "wouter";
 
 interface AgentContextType {
-  agentConfig: AgentConfig;
+  agentConfig: Partial<AgentConfig>;
   updateAgentConfig: (updates: Partial<AgentConfig>) => void;
   resetConfig: () => void;
 }
 
-const defaultConfig: AgentConfig = {
+const defaultConfig: Partial<AgentConfig> = {
   type: 'chat',
   name: '',
   description: '',
   subdomain: '',
-  context: '',
   purpose: '',
-  titles: [],
-  suggestions: [],
-  prompt: '',
-  workflow: 'answer-as-mement',
-  image: '',
-  links: [],
-  twitterBot: { oauth_token: '', oauth_token_secret: '', user_id: '', screen_name: '' },
-  telegramBot: { bot_token: '' },
-  domains: []
 };
 
-// todo: fix our context, ensure it only has needed fields and ensure we are showing proper subdomain at our success page
+// Create the context with only needed fields
 const AgentContext = createContext<AgentContextType | undefined>(undefined);
 
 function useAgent() {
@@ -38,7 +28,7 @@ function useAgent() {
 }
 
 function AgentProvider({ children }: { children: React.ReactNode }) {
-  const [agentConfig, setAgentConfig] = useState<AgentConfig>(defaultConfig);
+  const [agentConfig, setAgentConfig] = useState<Partial<AgentConfig>>(defaultConfig);
 
   const updateAgentConfig = (updates: Partial<AgentConfig>) => {
     setAgentConfig(current => ({ ...current, ...updates }));
@@ -318,7 +308,7 @@ function StepNavigation({ currentStep, onBack, onNext, canProceed }: StepNavigat
 function CreateMementForm() {
   const [currentStep, setCurrentStep] = useState<Step>('handle');
   const [data, setData] = useState<MementData>({ handle: '', type: null, location: '', purpose: '' });
-  const [subdomain, setSubdomain] = useState<string | null>(null);
+  const { updateAgentConfig } = useAgent();
   const [location, setLocation] = useLocation();
 
   const updateField = <K extends keyof MementData>(field: K, value: MementData[K]) => {
@@ -359,7 +349,7 @@ function CreateMementForm() {
       }
 
       const result = await response.json();
-      setSubdomain(result.subdomain);
+      updateAgentConfig({ subdomain: result.subdomain });
       setLocation('/success');
     } catch (error) {
       console.error('Error deploying agent:', error);
