@@ -337,6 +337,7 @@ function CreateMementForm() {
         headers: {
           'Content-Type': 'application/json',
         },
+        // todo: should also pass type as we chosen terminal etc
         body: JSON.stringify({
           name: data.handle,
           location: data.location,

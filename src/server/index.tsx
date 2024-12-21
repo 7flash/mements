@@ -280,6 +280,77 @@ const server = serve({
       }
     }
 
+    if (req.method === "POST" && path === "/api/create-agent") {
+      try {
+        const { name, location, purpose, type } = await req.json();
+        console.log(requestId, "Received create-agent data", { name, location, purpose });
+
+        const result = await createAgentWorkflowFn()
+          .withName(name)
+          .withLocation(location)
+          .withPurpose(purpose);
+
+        console.log(requestId, "Workflow result", result);
+
+        // Handle image processing and upload
+        let imageCid = "";
+        const response = await fetch("https://api.openai.com/v1/images/generations", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "dall-e-3",
+            prompt: result.prompt,
+            n: 1,
+            size: "1024x1024",
+            response_format: "b64_json"
+          }),
+        });
+
+        const imageData = await response.json();
+        const base64Image = imageData.data[0].b64_json;
+        const file = new File([Buffer.from(base64Image, 'base64')], "agent-image.png", { type: "image/png" });
+        imageCid = await files.upload(file);
+
+        console.log(requestId, "Generated image CID", imageCid);
+
+        // Prepare data for /createAgent
+        const agentPayload = {
+          agent: {
+            ...result,
+            image: imageCid,
+          },
+          links: result.links || [],
+          twitterBot: null, // Not passing twitter bot info
+          telegramBot: null, // Not passing telegram bot info
+          domains: [], // Not passing domain info
+        };
+
+        // Call /createAgent endpoint
+        const createAgentResponse = await fetch(`http://localhost:${config.get('BUN_PORT')}/createAgent`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${process.env.CREATE_AGENT_SECRET}`,
+          },
+          body: JSON.stringify(agentPayload),
+        });
+
+        const createAgentData = await createAgentResponse.json();
+        console.log(requestId, "Agent created successfully", createAgentData);
+
+        return new Response(JSON.stringify(createAgentData), {
+          headers: { "Content-Type": "application/json" },
+        });
+
+      } catch (err) {
+        console.log(requestId, "Error creating agent via API", err);
+        return new Response("Error creating agent via API", { status: 500 });
+      }
+    }
+
     const agentDataQuery = db.query<Agent, { $subdomain?: string }>("SELECT * FROM agents WHERE subdomain = $subdomain");
 
     const domainDataQuery = db.query<Domain, { $domain: string }>("SELECT subdomain, custom_script_path FROM domains WHERE domain = $domain");
@@ -351,77 +422,6 @@ const server = serve({
         }
       }
 
-      if (req.method === "POST" && path === "/api/create-agent") {
-        try {
-          const { name, location, purpose } = await req.json();
-          console.log(requestId, "Received create-agent data", { name, location, purpose });
-
-          const { default: createAgentWorkflowFn } = await import("uai/workflows/createAgentWorkflowFn.tsx");
-          const result = await createAgentWorkflowFn()
-            .withName(name)
-            .withLocation(location)
-            .withPurpose(purpose);
-
-          console.log(requestId, "Workflow result", result);
-
-          // Handle image processing and upload
-          let imageCid = "";
-          const response = await fetch("https://api.openai.com/v1/images/generations", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-            },
-            body: JSON.stringify({
-              model: "dall-e-3",
-              prompt: result.prompt,
-              n: 1,
-              size: "1024x1024",
-              response_format: "b64_json"
-            }),
-          });
-
-          const imageData = await response.json();
-          const base64Image = imageData.data[0].b64_json;
-          const file = new File([Buffer.from(base64Image, 'base64')], "agent-image.png", { type: "image/png" });
-          imageCid = await files.upload(file);
-
-          console.log(requestId, "Generated image CID", imageCid);
-
-          // Prepare data for /createAgent
-          const agentPayload = {
-            agent: {
-              ...result,
-              image: imageCid,
-            },
-            links: result.links || [],
-            twitterBot: null, // Not passing twitter bot info
-            telegramBot: null, // Not passing telegram bot info
-            domains: [], // Not passing domain info
-          };
-
-          // Call /createAgent endpoint
-          const createAgentResponse = await fetch(`http://localhost:${config.get('BUN_PORT')}/createAgent`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${process.env.CREATE_AGENT_SECRET}`,
-            },
-            body: JSON.stringify(agentPayload),
-          });
-
-          const createAgentData = await createAgentResponse.json();
-          console.log(requestId, "Agent created successfully", createAgentData);
-
-          return new Response(JSON.stringify(createAgentData), {
-            headers: { "Content-Type": "application/json" },
-          });
-
-        } catch (err) {
-          console.log(requestId, "Error creating agent via API", err);
-          return new Response("Error creating agent via API", { status: 500 });
-        }
-      }
 
       if (req.method === "POST" && path === "/api/ask-agent") {
         try {
@@ -550,4 +550,7 @@ const server = serve({
 });
 
 console.log(`🌐 Server is running on http://localhost:${server.port} 🚀`);
-```
+
+function createAgentWorkflowFn() {
+  throw new Error("Function not implemented.");
+}
