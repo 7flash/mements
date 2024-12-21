@@ -2,7 +2,6 @@ import React, { useState, createContext, useContext } from 'react';
 import { Bot, MessageSquare, Terminal, Rss, Zap, Check, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Link, Route, Switch, useLocation } from "wouter";
 
-// Define the context for managing agent configurations
 interface AgentContextType {
   agentConfig: AgentConfig;
   updateAgentConfig: (updates: Partial<AgentConfig>) => void;
@@ -27,6 +26,7 @@ const defaultConfig: AgentConfig = {
   domains: []
 };
 
+// todo: fix our context, ensure it only has needed fields and ensure we are showing proper subdomain at our success page
 const AgentContext = createContext<AgentContextType | undefined>(undefined);
 
 function useAgent() {
@@ -318,6 +318,8 @@ function StepNavigation({ currentStep, onBack, onNext, canProceed }: StepNavigat
 function CreateMementForm() {
   const [currentStep, setCurrentStep] = useState<Step>('handle');
   const [data, setData] = useState<MementData>({ handle: '', type: null, location: '', purpose: '' });
+  const [subdomain, setSubdomain] = useState<string | null>(null);
+  const [location, setLocation] = useLocation();
 
   const updateField = <K extends keyof MementData>(field: K, value: MementData[K]) => {
     setData(prev => ({ ...prev, [field]: value }));
@@ -338,33 +340,30 @@ function CreateMementForm() {
     (currentStep === 'type' && data.type === 'chat') ||
     (currentStep === 'description' && data.location && data.purpose);
 
-  const handleDeploy = () => {
-    console.log('Deploying:', data);
-/*
-todo: since we have our backend endpoint defined like this
+  const handleDeploy = async () => {
+    try {
+      const response = await fetch('/api/create-agent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: data.handle,
+          location: data.location,
+          purpose: data.purpose,
+        }),
+      });
 
-      if (req.method === "POST" && path === "/api/create-agent") {
-        try {
-          const { name, location, purpose } = await req.json();
+      if (!response.ok) {
+        throw new Error('Failed to deploy agent');
+      }
 
-and since it returns           return new Response(JSON.stringify(createAgentData), {
-            headers: { "Content-Type": "application/json" },
-          });
-
-  where createAgentData looks like this
-
-            const agentEntry: Agent = {
-            subdomain: subdomain,
-            name: agent.name,
-            titles: agent.titles,
-            suggestions: agent.suggestions,
-            prompt: agent.prompt,
-            workflow: agent.workflow,
-            imageCid: imageCid
-          };
-
-          so we should implement this handleDeploy function accordingly showing correct subdomain in our success page 
-*/
+      const result = await response.json();
+      setSubdomain(result.subdomain);
+      setLocation('/success');
+    } catch (error) {
+      console.error('Error deploying agent:', error);
+    }
   };
 
   return (
@@ -436,7 +435,8 @@ function LandingHero({ onProceed }: LandingHeroProps) {
 
 // Deployment success component
 function DeploymentSuccess() {
-  const agentUrl = "https://example.com/mement"; // Placeholder for actual URL
+  const { agentConfig } = useAgent();
+  const agentUrl = `https://${agentConfig.subdomain}.example.com`; // Construct the URL using subdomain
   const { resetConfig } = useAgent();
 
   const handleEdit = () => {
