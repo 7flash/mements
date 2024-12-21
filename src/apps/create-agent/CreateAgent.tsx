@@ -343,7 +343,7 @@ function CreateMementForm() {
 
   const handleDeploy = () => {
     console.log('Deploying:', data);
-    // Navigate to success page
+    // todo: should simply do setLocation('/success') to avoid reloading page
     window.location.href = '/success';
   };
 
@@ -445,7 +445,6 @@ function DeploymentSuccess() {
   );
 }
 
-// Main app component
 function App() {
   const [location, setLocation] = useLocation();
   

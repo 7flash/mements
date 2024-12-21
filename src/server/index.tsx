@@ -351,6 +351,35 @@ const server = serve({
         }
       }
 
+/*
+todo: implement a user-facing endpoint /api/create-agent
+
+it should bot handle name, its context location, and its behaviour purpose, then it should pass it into await createAgentWorkflowFn().withName(handleName).withLocation(location).withPurpose(purpose) which returns all the fields needed for us to construct agent entry and so then we invoke /createAgent endpoint, but first we also generate an image, and pass its cid along as required by /createAgent (we dont pass telegram nor twitter bots, nor domain) and we generate image like this
+
+-          // Handle image processing and upload
+-          let imageCid = "";
+-          const response = await fetch("https://api.openai.com/v1/images/generations", {
+-            method: "POST",
+-            headers: {
+-              "Content-Type": "application/json",
+-              "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+-            },
+-            body: JSON.stringify({
+-              model: "dall-e-3",
+-              prompt: result.prompt,
+-              n: 1,
+-              size: "1024x1024",
+-              response_format: "b64_json"
+-            }),
+-          });
+-
+-          const imageData = await response.json();
+-          const base64Image = imageData.data[0].b64_json;
+-          const file = new File([Buffer.from(base64Image, 'base64')], "agent-image.png", { type: "image/png" });
+-          imageCid = await files.upload(file);
+-
+
+*/
       if (req.method === "POST" && path === "/api/ask-agent") {
         try {
           const data = await req.json();
