@@ -1,10 +1,6 @@
-import React from 'react';
-import { Header } from './components/Layout/Header';
-import { CreateMementForm } from './components/CreateMement/CreateMementForm';
+import React, { useState, createContext, useContext } from 'react';
 
-import { Bot } from 'lucide-react';
-import { MessageSquare, Terminal, Rss } from 'lucide-react';
-import { Zap, Bot } from 'lucide-react';
+import { Bot, MessageSquare, Terminal, Rss, Zap, Check, ArrowLeft, ArrowRight } from 'lucide-react';
 
 import { Disclosure } from '@headlessui/react'
 
@@ -13,17 +9,16 @@ import { Disclosure } from '@headlessui/react'
 // todo: define navigation routes as normally for all our pages/steps
 import { Link, Route, Switch, useLocation } from "wouter";
 
-// todo: should use single Context for app
 interface AgentContextType {
-  agentConfig: AgentConfig
-  updateAgentConfig: (updates: Partial<AgentConfig>) => void
-  resetConfig: () => void
+  agentConfig: AgentConfig;
+  updateAgentConfig: (updates: Partial<AgentConfig>) => void;
+  resetConfig: () => void;
 }
 
 const defaultConfig: AgentConfig = {
   type: 'chat',
   name: '',
-  description: '', // New field
+  description: '',
   subdomain: '',
   context: '',
   purpose: '',
@@ -33,36 +28,37 @@ const defaultConfig: AgentConfig = {
   workflow: 'answer-as-mement',
   image: '',
   links: [],
-  twitterBot: {
-    oauth_token: '',
-    oauth_token_secret: '',
-    user_id: '',
-    screen_name: ''
-  },
-  telegramBot: {
-    bot_token: ''
-  },
+  twitterBot: { oauth_token: '', oauth_token_secret: '', user_id: '', screen_name: '' },
+  telegramBot: { bot_token: '' },
   domains: []
+};
+
+const AgentContext = createContext<AgentContextType | undefined>(undefined);
+
+function useAgent() {
+  const context = useContext(AgentContext);
+  if (!context) {
+    throw new Error("useAgent must be used within a AgentProvider");
+  }
+  return context;
 }
 
-const AgentContext = createContext<AgentContextType | undefined>(undefined)
-
-function AgentProvider({ children }: { children: ReactNode }) {
-  const [agentConfig, setAgentConfig] = useState<AgentConfig>(defaultConfig)
+function AgentProvider({ children }: { children: React.ReactNode }) {
+  const [agentConfig, setAgentConfig] = useState<AgentConfig>(defaultConfig);
 
   const updateAgentConfig = (updates: Partial<AgentConfig>) => {
-    setAgentConfig(current => ({ ...current, ...updates }))
-  }
+    setAgentConfig(current => ({ ...current, ...updates }));
+  };
 
   const resetConfig = () => {
-    setAgentConfig(defaultConfig)
-  }
+    setAgentConfig(defaultConfig);
+  };
 
   return (
     <AgentContext.Provider value={{ agentConfig, updateAgentConfig, resetConfig }}>
       {children}
     </AgentContext.Provider>
-  )
+  );
 }
 
 
@@ -70,16 +66,19 @@ export function classNames(...classes: any) {
     return classes.filter(Boolean).join(" ");
 }
 
-// todo: should extract all of class names here into styles variable and use it everywhere
-const styles = {
-    nav: "sticky top-0 z-50 backdrop-blur-sm",
-}
+// todo: should extract all of styles currently inlined across the app, extract them all into this variable and then apply with className={styles.etc} or using classNames when needed to combine them
 
+const styles = {
+  nav: "sticky top-0 z-50 backdrop-blur-sm",
+  formButton: "w-full mt-8 px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors",
+  textButton: "flex items-center px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
+};
 
 export function Navigation() {
   const links = [
     { name: 'Home', href: '#' },
     { name: 'My Agents', href: '#' },
+    { name: 'Create Agent', href: '#' },
   ];
 
   return (
@@ -479,24 +478,15 @@ function StepNavigation({ currentStep, onBack, onNext, canProceed }: StepNavigat
   return (
     <div className="flex justify-between mt-8">
       {currentStep !== 'handle' && (
-        <button
-          onClick={onBack}
-          className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
-        >
+        <button onClick={onBack} className={styles.textButton}>
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back
         </button>
       )}
       {currentStep !== 'description' && (
-        <button
-          onClick={onNext}
-          disabled={!canProceed}
-          className={`ml-auto flex items-center px-6 py-2 rounded-md ${
-            canProceed
-              ? 'bg-purple-600 text-white hover:bg-purple-700'
-              : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-          } transition-colors`}
-        >
+        <button onClick={onNext} disabled={!canProceed} className={`ml-auto flex items-center px-6 py-2 rounded-md ${
+          canProceed ? 'bg-purple-600 text-white hover:bg-purple-700' : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+        } transition-colors`}>
           Next
           <ArrowRight className="w-4 h-4 ml-2" />
         </button>
@@ -505,14 +495,9 @@ function StepNavigation({ currentStep, onBack, onNext, canProceed }: StepNavigat
   );
 }
 
-export function CreateMementForm() {
+function CreateMementForm() {
   const [currentStep, setCurrentStep] = useState<Step>('handle');
-  const [data, setData] = useState<MementData>({
-    handle: '',
-    type: null,
-    location: '',
-    purpose: '',
-  });
+  const [data, setData] = useState<MementData>({ handle: '', type: null, location: '', purpose: '' });
 
   const updateField = <K extends keyof MementData>(field: K, value: MementData[K]) => {
     setData(prev => ({ ...prev, [field]: value }));
@@ -534,32 +519,23 @@ export function CreateMementForm() {
     (currentStep === 'description' && data.location && data.purpose);
 
   const handleDeploy = () => {
-    // Handle deployment logic
     console.log('Deploying:', data);
+    // Navigate to success page
+    window.location.href = '/success';
   };
 
   return (
     <div className="max-w-2xl mx-auto py-12 px-4">
       <StepHeader currentStep={currentStep} data={data} />
-      
       <div className="bg-white rounded-xl shadow-lg p-8">
         {currentStep === 'handle' && (
-          <HandleInput 
-            value={data.handle}
-            onChange={(value) => updateField('handle', value)}
-          />
+          <HandleInput value={data.handle} onChange={(value) => updateField('handle', value)} />
         )}
-
         {currentStep === 'type' && (
-          <TypeSelection
-            selected={data.type}
-            onSelect={(type) => updateField('type', type)}
-          />
+          <TypeSelection selected={data.type} onSelect={(type) => updateField('type', type)} />
         )}
-
         {currentStep === 'description' && (
           <>
-          {/* todo: should have similar deployment process as in AgentDescriptionForm */}
             <DescriptionInput
               location={data.location}
               purpose={data.purpose}
@@ -567,22 +543,13 @@ export function CreateMementForm() {
               onPurposeChange={(value) => updateField('purpose', value)}
             />
             {canProceed && (
-              <button
-                onClick={handleDeploy}
-                className="w-full mt-8 px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
-              >
+              <button onClick={handleDeploy} className={styles.formButton}>
                 Deploy Mement
               </button>
             )}
           </>
         )}
-
-        <StepNavigation
-          currentStep={currentStep}
-          onBack={handleBack}
-          onNext={handleNext}
-          canProceed={canProceed}
-        />
+        <StepNavigation currentStep={currentStep} onBack={handleBack} onNext={handleNext} canProceed={canProceed} />
       </div>
     </div>
   );
@@ -595,57 +562,83 @@ function LandingHero({ onProceed }: LandingHeroProps) {
         Deploy AI Agents with Ease
       </h1>
       <p className="text-lg text-gray-600 mb-12">
-        Create, manage, and scale your AI personalities effortlessly. Bring your
-        Mements to life with our cutting-edge deployment platform.
+        Create, manage, and scale your AI personalities effortlessly. Bring your Mements to life with our cutting-edge deployment platform.
       </p>
-
-{/* todo: do not need input field here, just a get started (create mement button) leading to the form */}
-      <div className="mb-12">
-        <textarea
-          placeholder="Paste your Mement configuration here..."
-          className="w-full h-32 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-        />
-      </div>
-
       <button
         onClick={onProceed}
         className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-purple-500 to-blue-600 text-white rounded-lg font-medium hover:opacity-90 transition-opacity mb-16"
       >
         Create New Mement
       </button>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100">
           <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
             <Bot className="w-6 h-6 text-purple-600" />
           </div>
           <h3 className="text-lg font-semibold mb-2">Intelligent Mements</h3>
-          <p className="text-gray-600">
-            Deploy state-of-the-art AI personalities with ease
-          </p>
+          <p className="text-gray-600">Deploy state-of-the-art AI personalities with ease</p>
         </div>
         <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100">
           <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
             <Zap className="w-6 h-6 text-blue-600" />
           </div>
           <h3 className="text-lg font-semibold mb-2">Lightning Fast</h3>
-          <p className="text-gray-600">
-            Optimized infrastructure for rapid deployment and scaling
-          </p>
+          <p className="text-gray-600">Optimized infrastructure for rapid deployment and scaling</p>
         </div>
       </div>
     </div>
   );
 }
 
-// todo: show landing first
-function App() {
+function DeploymentSuccess() {
+  const agentUrl = "https://example.com/mement"; // Placeholder for actual URL
+  const { resetConfig } = useAgent();
+
+  const handleEdit = () => {
+    // Reset the config and navigate back to form
+    window.location.href = '/create';
+    resetConfig();
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      <CreateMementForm />
+    <div className="text-center">
+      <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+        <Check className="h-6 w-6 text-green-600" />
+      </div>
+      <h3 className="text-lg font-medium text-gray-900 mb-2">Agent Successfully Deployed!</h3>
+      <p className="text-sm text-gray-500 mb-6">Your agent is now live and ready to interact</p>
+      <div className="bg-gray-50 rounded-lg p-4 mb-6">
+        <p className="text-sm font-medium text-gray-700 mb-2">Agent URL:</p>
+        <a href={agentUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 break-all">
+          {agentUrl}
+        </a>
+      </div>
+      <button onClick={handleEdit} className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+        Edit Agent Configuration
+      </button>
     </div>
   );
 }
 
-export default App;
+function App() {
+  const [location, setLocation] = useLocation();
+  
+  return (
+    <AgentProvider>
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <Switch>
+          <Route path="/">
+            <LandingHero onProceed={() => setLocation('/create')} />
+          </Route>
+          <Route path="/create">
+            <CreateMementForm />
+          </Route>
+          <Route path="/success">
+            <DeploymentSuccess />
+          </Route>
+        </Switch>
+      </div>
+    </AgentProvider>
+  );
+}
