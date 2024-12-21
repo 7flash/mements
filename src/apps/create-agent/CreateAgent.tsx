@@ -16,13 +16,12 @@ const defaultConfig: Partial<AgentConfig> = {
   purpose: '',
 };
 
-// Create the context with only needed fields
 const AgentContext = createContext<AgentContextType | undefined>(undefined);
 
 function useAgent() {
   const context = useContext(AgentContext);
   if (!context) {
-    throw new Error("useAgent must be used within a AgentProvider");
+    throw new Error("useAgent must be used within an AgentProvider");
   }
   return context;
 }
@@ -45,12 +44,10 @@ function AgentProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Utility function to combine class names
 export function classNames(...classes: any) {
   return classes.filter(Boolean).join(" ");
 }
 
-// Extracted styles for reuse
 const styles = {
   nav: "sticky top-0 z-50 backdrop-blur-sm",
   formButton: "w-full mt-8 px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors",
@@ -93,7 +90,6 @@ export function Navigation() {
   );
 }
 
-// Header component
 export function Header() {
   return (
     <header className={styles.header}>
@@ -117,7 +113,6 @@ export function Header() {
   );
 }
 
-// Step header component
 export function StepHeader({ currentStep, data }: StepHeaderProps) {
   if (currentStep === 'handle') return null;
 
@@ -144,7 +139,6 @@ export function StepHeader({ currentStep, data }: StepHeaderProps) {
   );
 }
 
-// Handle input component
 function HandleInput({ value, onChange }: HandleInputProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value.toLowerCase()
@@ -238,7 +232,6 @@ export function TypeSelection({ selected, onSelect }: TypeSelectionProps) {
   );
 }
 
-// Description input component
 function DescriptionInput({
   location,
   purpose,
@@ -283,7 +276,6 @@ function DescriptionInput({
   );
 }
 
-// Step navigation component
 function StepNavigation({ currentStep, onBack, onNext, canProceed }: StepNavigationProps) {
   return (
     <div className="flex justify-between mt-8">
@@ -337,9 +329,9 @@ function CreateMementForm() {
         headers: {
           'Content-Type': 'application/json',
         },
-        // todo: should also pass type as we chosen terminal etc
         body: JSON.stringify({
           name: data.handle,
+          type: data.type,
           location: data.location,
           purpose: data.purpose,
         }),
@@ -388,7 +380,6 @@ function CreateMementForm() {
   );
 }
 
-// Landing hero component
 function LandingHero({ onProceed }: LandingHeroProps) {
   return (
     <div className={styles.landingHero}>
@@ -424,11 +415,9 @@ function LandingHero({ onProceed }: LandingHeroProps) {
   );
 }
 
-// Deployment success component
 function DeploymentSuccess() {
-  const { agentConfig } = useAgent();
-  const agentUrl = `https://${agentConfig.subdomain}.example.com`; // Construct the URL using subdomain
-  const { resetConfig } = useAgent();
+  const { agentConfig, resetConfig } = useAgent();
+  const agentUrl = `https://${agentConfig.subdomain}.example.com`;
 
   const handleEdit = () => {
     resetConfig();
@@ -447,7 +436,6 @@ function DeploymentSuccess() {
           {agentUrl}
         </a>
       </div>
-      {/* show instructions link how to connect custom domain, add twitter and telegram bots to your agent, add custom knowledge base and etc */}
       <button onClick={handleEdit} className={styles.successButton}>
         Deploy new one
       </button>
