@@ -1,3 +1,41 @@
+```your-agent.toml
+[agent]
+subdomain = "jesus-ai-Lm0B"
+
+name = "Jesus"
+
+titles = ["Third", "Fourth"]
+
+suggestions = ["First", "Second"]
+
+prompt = "When X were walking around Y, he heard the voice asking him given question, and what might have been his response?"
+
+workflow = "answer-as-mement"
+
+image = "static/agent-images/.jpg"
+
+[[links]]
+type="twitter"
+value="https://x.com/"
+
+[[links]]
+type="telegram"
+value="https://t.me/"
+
+[twitterBot]
+oauth_token = ""
+oauth_token_secret = ""
+user_id = ""
+screen_name = ""
+
+[telegramBot]
+bot_token = ""
+
+[[domains]]
+domain="localhost:3000"
+custom_script_path=""
+```
+
 # askuai
 
 To install dependencies:

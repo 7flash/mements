@@ -70,6 +70,7 @@ const assets = await buildAssets({
 
 const { randomUUID: randomUUIDForAgent } = new ShortUniqueId({ length: 4, dictionary: 'alphanum_lower' });
 const { randomUUID: randomUUIDForChat } = new ShortUniqueId({ length: 10, dictionary: 'alphanum_lower' });
+const { randomUUID: randomUUIDForRequest } = new ShortUniqueId({ length: 6, dictionary: 'alphanum_lower' });
 
 function htmlTemplate(scriptLink: string, serverData: string = '{}'): string {
   return `
@@ -111,40 +112,45 @@ function htmlTemplate(scriptLink: string, serverData: string = '{}'): string {
 
 const server = serve({
   async fetch(req) {
+    const requestId = randomUUIDForRequest();
+    console.log(requestId, "Request received");
+
     const url = new URL(req.url);
     const path = url.pathname;
+    console.log(requestId, "path", path);
 
     if (assets.hasAssetByPath(path)) {
+      console.log(requestId, "Serving asset", path);
       return new Response(assets.getAssetByPath(path));
     }
 
     const host = req.headers.get("host");
-    console.log("host ==> ", host);
+    console.log(requestId, "host", host);
 
     const subdomain = host ? host.split(".")[0] : "";
-    console.log("subdomain ==> ", subdomain);
+    console.log(requestId, "subdomain", subdomain);
 
     if (req.method === "POST" && path === "/createAgent") {
       try {
         const authHeader = req.headers.get('Authorization');
         const token = authHeader?.split(' ')[1];
-        console.log("token ==> ", token);
+        console.log(requestId, "token", token);
 
         if (token !== process.env.CREATE_AGENT_SECRET) {
-          console.log("process.env.CREATE_AGENT_SECRET ==> ", process.env.CREATE_AGENT_SECRET);
+          console.log(requestId, "Unauthorized access attempt");
           return new Response("Unauthorized", { status: 403 });
         }
 
         const { agent, links, twitterBot, telegramBot, domains } = await req.json();
-        console.log("agent, links, twitterBot, telegramBot, domains ==> ", agent, links, twitterBot, telegramBot, domains);
+        console.log(requestId, "Received data", { agent, links, twitterBot, telegramBot, domains });
 
         if (telegramBot) {
-          console.log("telegramBot ==> ", telegramBot);
+          console.log(requestId, "telegramBot", telegramBot);
           if (!telegramBot.group_id) {
             const telegramApiUrl = `https://api.telegram.org/bot${telegramBot.bot_token}/getUpdates`;
             const response = await fetch(telegramApiUrl);
             const updates = await response.json();
-            console.log("updates ==> ", updates);
+            console.log(requestId, "Telegram updates", updates);
 
             if (updates.result && updates.result.length > 0) {
               const firstUpdate = updates.result[0];
@@ -152,7 +158,6 @@ const server = serve({
             }
           }
           if (!telegramBot.group_id) throw 'missing telegram bot group id and cannot be retrieved from updates';
-
         }
 
         let imageCid;
@@ -160,16 +165,16 @@ const server = serve({
           imageCid = agent.image;
         } else if (/^.+\.(png|jpg|jpeg|gif)$/.test(agent.image)) {
           const file = await Bun.file(resolve(process.cwd(), agent.image)).bytes();
-          console.log("file ==> ", file.length);
+          console.log(requestId, "file size", file.length);
           imageCid = await files.upload(new File([file], "agent-image.png", { type: "image/png" }));
         } else {
           throw 'missing image field (should be file path or cid)';
         }
-        console.log("imageCid ==> ", imageCid);
+        console.log(requestId, "imageCid", imageCid);
 
         const transaction = db.transaction(() => {
           const subdomain = agent.subdomain ?? `${agent.name.toLowerCase().replace(/\s+/g, '-')}-${randomUUIDForAgent()}`;
-          console.log("subdomain ==> ", subdomain);
+          console.log(requestId, "subdomain", subdomain);
 
           const agentEntry: Agent = {
             subdomain: subdomain,
@@ -180,9 +185,8 @@ const server = serve({
             workflow: agent.workflow,
             imageCid: imageCid
           };
-          console.log("agentEntry ==> ", agentEntry);
+          console.log(requestId, "agentEntry", agentEntry);
 
-          // Check if agent with this subdomain already exists
           const existingAgent = db.query("SELECT * FROM agents WHERE subdomain = ?").get(agentEntry.subdomain);
           if (existingAgent) {
             db.run(
@@ -209,7 +213,7 @@ const server = serve({
                 domain, agentEntry.subdomain, custom_script_path
               );
             }
-            console.log("domain, agentEntry.subdomain, custom_script_path ==> ", domain, agentEntry.subdomain, custom_script_path);
+            console.log(requestId, "Domain entry", { domain, subdomain: agentEntry.subdomain, custom_script_path });
           });
 
           links.forEach(({ type, value }: Link) => {
@@ -225,7 +229,7 @@ const server = serve({
                 agentEntry.subdomain, type, value
               );
             }
-            console.log("agentEntry.subdomain, type, value ==> ", agentEntry.subdomain, type, value);
+            console.log(requestId, "Link entry", { subdomain: agentEntry.subdomain, type, value });
           });
 
           if (twitterBot) {
@@ -241,11 +245,11 @@ const server = serve({
                 agentEntry.subdomain, twitterBot.oauth_token, twitterBot.oauth_token_secret, twitterBot.user_id, twitterBot.screen_name
               );
             }
-            console.log("agentEntry.subdomain, twitterBot.oauth_token, twitterBot.oauth_token_secret, twitterBot.user_id, twitterBot.screen_name ==> ", agentEntry.subdomain, twitterBot.oauth_token, twitterBot.oauth_token_secret, twitterBot.user_id, twitterBot.screen_name);
+            console.log(requestId, "Twitter bot entry", { subdomain: agentEntry.subdomain, twitterBot });
           }
 
           if (telegramBot) {
-            console.log("telegramBot ==> ", telegramBot);
+            console.log(requestId, "telegramBot", telegramBot);
             const existingTelegramBot = db.query("SELECT * FROM telegram_bots WHERE subdomain = ?").get(agentEntry.subdomain);
             if (existingTelegramBot) {
               db.run(
@@ -258,19 +262,20 @@ const server = serve({
                 agentEntry.subdomain, telegramBot.bot_token, telegramBot.group_id
               );
             }
-            console.log("agentEntry.subdomain, telegramBot.bot_token, telegramBot.group_id ==> ", agentEntry.subdomain, telegramBot.bot_token, telegramBot.group_id);
+            console.log(requestId, "Telegram bot entry", { subdomain: agentEntry.subdomain, telegramBot });
           }
 
           return agentEntry;
         });
 
         const agentEntry = transaction();
+        console.log(requestId, "Agent created", agentEntry);
 
         return new Response(JSON.stringify(agentEntry), {
           headers: { "Content-Type": "application/json" },
         });
       } catch (err) {
-        console.error("Error creating agent, transaction reverted", err);
+        console.log(requestId, "Error creating agent, transaction reverted", err);
         return new Response("Error creating agent", { status: 500 });
       }
     }
@@ -279,7 +284,7 @@ const server = serve({
 
     const domainDataQuery = db.query<Domain, { $domain: string }>("SELECT subdomain, custom_script_path FROM domains WHERE domain = $domain");
     const domainData = domainDataQuery.get({ $domain: host! });
-    console.log("domainData ==> ", domainData);
+    console.log(requestId, "domainData", domainData);
 
     let agentData;
     let appName;
@@ -288,14 +293,14 @@ const server = serve({
       agentData = agentDataQuery.get({ $subdomain: domainData.subdomain });
       appName = domainData.custom_script_path;
     } else if (subdomain) {
-          agentData = agentDataQuery.get({ $subdomain: subdomain });
+      agentData = agentDataQuery.get({ $subdomain: subdomain });
     }
 
-    console.log("agentData ==> ", agentData);
+    console.log(requestId, "agentData", agentData);
 
     if (agentData) {
       appName = appName || 'askAgentApp';
-      console.log("appName ==> ", appName);
+      console.log(requestId, "appName", appName);
 
       if (req.method === "GET") {
         const linksQuery = db.query<Link, { $subdomain: string }>("SELECT * FROM links WHERE subdomain = $subdomain");
@@ -313,16 +318,17 @@ const server = serve({
         };
 
         if (path == "/") {
+          console.log(requestId, "Serving main page");
           return new Response(htmlTemplate(assets.getLink(appName), JSON.stringify(serverData)), {
             headers: { "content-type": "text/html" },
           });
         } else if (path.startsWith("/chat")) {
           const chatId = path.split("/")[2];
-          console.log('chatId', chatId)
+          console.log(requestId, 'chatId', chatId);
           if (chatId) {
             const chatQuery = db.query<Chat, { $id: string }>("SELECT * FROM chats WHERE id = $id");
             const chatResponse = chatQuery.get({ $id: chatId });
-            console.log('chatResponse', chatResponse)
+            console.log(requestId, 'chatResponse', chatResponse);
 
             if (chatResponse) {
               const serverDataWithChat = {
@@ -333,11 +339,13 @@ const server = serve({
                 timestamp: chatResponse.timestamp,
               };
 
+              console.log(requestId, "Serving chat page");
               return new Response(htmlTemplate(assets.getLink(appName), JSON.stringify(serverDataWithChat)), {
                 headers: { "content-type": "text/html" }
               });
             }
           } else {
+            console.log(requestId, "Chat not found");
             return new Response("Chat not found", { status: 404 });
           }
         }
@@ -346,6 +354,7 @@ const server = serve({
       if (req.method === "POST" && path === "/api/ask-agent") {
         try {
           const data = await req.json();
+          console.log(requestId, "Received question", data.content);
 
           const { default: workflowFn } = await import(`uai/workflows/${agentData.workflow || "answer-as-mement"}.tsx`);
 
@@ -355,6 +364,8 @@ const server = serve({
             success: 'Can be TRUE or FALSE. Signifies whether provided question is appropriate to the task and confident answer can be derived.',
             answer: 'Text of the final complete answer to the question in task context.',
           });
+
+          console.log(requestId, "Workflow result", result);
 
           if (result?.success?.toLowerCase() !== 'true') {
             throw new Error('not appropriate question: ' + JSON.stringify(result));
@@ -375,6 +386,7 @@ const server = serve({
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(messageBody)
             }).catch(console.error);
+            console.log(requestId, "Message sent to Telegram");
           }
 
           try {
@@ -399,7 +411,7 @@ const server = serve({
               url: twitterEndpointURL,
               method: 'POST',
             }, token));
-            console.log("authHeader ==> ", authHeader);
+            console.log(requestId, "authHeader", authHeader);
 
             const twitterResponse = await fetch(twitterEndpointURL, {
               method: 'POST',
@@ -413,7 +425,7 @@ const server = serve({
             });
 
             const twitterResponseData = await twitterResponse.json();
-            console.log("twitterResponseData ==> ", twitterResponseData);
+            console.log(requestId, "twitterResponseData", twitterResponseData);
 
             if (!twitterResponseData.data) {
               throw `failed to make twitter post, fallback to web post`;
@@ -422,11 +434,12 @@ const server = serve({
             const tweetId = twitterResponseData.data.id;
             const twitterPostLink = `https://twitter.com/${twitterBotData.screen_name}/status/${tweetId}`;
 
+            console.log(requestId, "Tweet posted successfully", twitterPostLink);
             return new Response(JSON.stringify({ twitterPostLink }), {
               headers: { "Content-Type": "application/json" },
             });
           } catch (err) {
-            console.error(err);
+            console.log(requestId, "Error posting to Twitter, fallback to web post", err);
 
             const responseData: Chat = {
               chatId: randomUUIDForChat(),
@@ -441,17 +454,19 @@ const server = serve({
             );
             chatInsertQuery.run(responseData.chatId, responseData.question, responseData.content, responseData.subdomain, responseData.timestamp);
 
+            console.log(requestId, "Response stored in database", responseData);
             return new Response(JSON.stringify(responseData), {
               headers: { "Content-Type": "application/json" },
             });
           }
         } catch (err) {
-          console.error("Error generating response:", err);
+          console.log(requestId, "Error generating response", err);
           return new Response("Error generating response", { status: 500 });
         }
       }
     }
 
+    console.log(requestId, "Not Found");
     return new Response("Not Found", { status: 404 });
   },
 });
