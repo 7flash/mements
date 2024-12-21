@@ -83,7 +83,6 @@ const styles = {
   landingButton: "w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-purple-500 to-blue-600 text-white rounded-lg font-medium hover:opacity-90 transition-opacity mb-16",
 };
 
-// Navigation component
 export function Navigation() {
   const links = [
     { name: 'Home', href: '/' },
@@ -215,7 +214,6 @@ const agentTypes = [
   }
 ] as const;
 
-// Type selection component
 export function TypeSelection({ selected, onSelect }: TypeSelectionProps) {
   return (
     <div className="text-center">
@@ -317,7 +315,6 @@ function StepNavigation({ currentStep, onBack, onNext, canProceed }: StepNavigat
   );
 }
 
-// Create Mement form component
 function CreateMementForm() {
   const [currentStep, setCurrentStep] = useState<Step>('handle');
   const [data, setData] = useState<MementData>({ handle: '', type: null, location: '', purpose: '' });
@@ -343,7 +340,31 @@ function CreateMementForm() {
 
   const handleDeploy = () => {
     console.log('Deploying:', data);
-    // todo: should simply do setLocation('/success') to avoid reloading page
+/*
+todo: since we have our backend endpoint defined like this
+
+      if (req.method === "POST" && path === "/api/create-agent") {
+        try {
+          const { name, location, purpose } = await req.json();
+
+and since it returns           return new Response(JSON.stringify(createAgentData), {
+            headers: { "Content-Type": "application/json" },
+          });
+
+  where createAgentData looks like this
+
+            const agentEntry: Agent = {
+            subdomain: subdomain,
+            name: agent.name,
+            titles: agent.titles,
+            suggestions: agent.suggestions,
+            prompt: agent.prompt,
+            workflow: agent.workflow,
+            imageCid: imageCid
+          };
+
+          so we should implement this handleDeploy function accordingly
+*/
     window.location.href = '/success';
   };
 
@@ -420,8 +441,6 @@ function DeploymentSuccess() {
   const { resetConfig } = useAgent();
 
   const handleEdit = () => {
-    // Reset the config and navigate back to form
-    window.location.href = '/create';
     resetConfig();
   };
 
@@ -438,8 +457,9 @@ function DeploymentSuccess() {
           {agentUrl}
         </a>
       </div>
+      {/* show instructions link how to connect custom domain, add twitter and telegram bots to your agent, add custom knowledge base and etc */}
       <button onClick={handleEdit} className={styles.successButton}>
-        Edit Agent Configuration
+        Deploy new one
       </button>
     </div>
   );

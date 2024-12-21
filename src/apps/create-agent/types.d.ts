@@ -28,44 +28,44 @@ type DescriptionInputProps = {
   onPurposeChange: (value: string) => void;
 };
 
-export type MementData = {
-    handle: string;
-    type: 'chat' | 'terminal' | 'feed' | null;
-    location: string;
-    purpose: string;
-  };
-  
-export type Step = 'handle' | 'type' | 'description';
+type MementData = {
+  handle: string;
+  type: 'chat' | 'terminal' | 'feed' | null;
+  location: string;
+  purpose: string;
+};
+
+type Step = 'handle' | 'type' | 'description';
 
 type StepNavigationProps = {
-currentStep: Step;
-onBack: () => void;
-onNext: () => void;
-canProceed: boolean;
+  currentStep: Step;
+  onBack: () => void;
+  onNext: () => void;
+  canProceed: boolean;
 };
 
 type UsernameInputProps = {
-id: string;
-value: string;
-onChange: (value: string) => void;
-placeholder?: string;
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
 };
 
 type LandingHeroProps = {
-onProceed: () => void;
+  onProceed: () => void;
 };
 
 type AgentDescriptionFormProps = {
-values: {
+  values: {
     name: string;
     location: string;
     purpose: string;
+  };
+  onChange: (field: string, value: string) => void;
+  onDeploy: () => void;
+  isDeploying: boolean;
 };
-onChange: (field: string, value: string) => void;
-onDeploy: () => void;
-isDeploying: boolean;
-};
-  
+
 type AgentType = 'chat' | 'terminal' | 'feed';
 
 type AgentTypeCardProps = {
@@ -76,50 +76,49 @@ type AgentTypeCardProps = {
 };
 
 type DeploymentSuccessProps = {
-    agentUrl: string;
-    onEdit: () => void;
-  };
+  agentUrl: string;
+  onEdit: () => void;
+};
 
-  export type AgentType = 'chat' | 'terminal' | 'feed'
-  export type WorkflowType = 'answer-as-mement' | 'other-workflow'
-  export type LinkType = 'twitter' | 'telegram'
-  
-  export interface Link {
-    type: LinkType
-    value: string
-  }
-  
-  export interface TwitterBot {
-    oauth_token: string
-    oauth_token_secret: string
-    user_id: string
-    screen_name: string
-  }
-  
-  export interface TelegramBot {
-    bot_token: string
-  }
-  
-  export interface Domain {
-    domain: string
-    custom_script_path: string
-  }
-  
-  export interface AgentConfig {
-    type: AgentType
-    name: string
-    description: string // New field
-    subdomain: string
-    context: string
-    purpose: string
-    titles: string[]
-    suggestions: string[]
-    prompt: string
-    workflow: WorkflowType
-    image: string
-    links: Link[]
-    twitterBot: TwitterBot
-    telegramBot: TelegramBot
-    domains: Domain[]
-  }
-  
+type AgentType = 'chat' | 'terminal' | 'feed'
+type WorkflowType = 'answer-as-mement' | 'other-workflow'
+type LinkType = 'twitter' | 'telegram'
+
+interface Link {
+  type: LinkType
+  value: string
+}
+
+interface TwitterBot {
+  oauth_token: string
+  oauth_token_secret: string
+  user_id: string
+  screen_name: string
+}
+
+interface TelegramBot {
+  bot_token: string
+}
+
+interface Domain {
+  domain: string
+  custom_script_path: string
+}
+
+interface AgentConfig {
+  type: AgentType
+  name: string
+  description: string // New field
+  subdomain: string
+  context: string
+  purpose: string
+  titles: string[]
+  suggestions: string[]
+  prompt: string
+  workflow: WorkflowType
+  image: string
+  links: Link[]
+  twitterBot: TwitterBot
+  telegramBot: TelegramBot
+  domains: Domain[]
+}
