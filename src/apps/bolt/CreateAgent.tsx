@@ -8,6 +8,7 @@ import { Zap, Bot } from 'lucide-react';
 
 import { Disclosure } from '@headlessui/react'
 
+// todo: rewrite our app to ensure its completeness with following pages: Landing Home, then once you click to create mement its create page with three steps: handle name, then next step its location and purpose, and then deploy button which only available once phantom wallet is connected and then its deployment progress bar and then success page that's it (all within same layout of landing page)
 
 // todo: define navigation routes as normally for all our pages/steps
 import { Link, Route, Switch, useLocation } from "wouter";
