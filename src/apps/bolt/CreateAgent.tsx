@@ -6,14 +6,79 @@ import { Bot } from 'lucide-react';
 import { MessageSquare, Terminal, Rss } from 'lucide-react';
 import { Zap, Bot } from 'lucide-react';
 
+import { Disclosure } from '@headlessui/react'
+
+
 // todo: define navigation routes as normally for all our pages/steps
 import { Link, Route, Switch, useLocation } from "wouter";
 
+// todo: should use single Context for app
+interface AgentContextType {
+  agentConfig: AgentConfig
+  updateAgentConfig: (updates: Partial<AgentConfig>) => void
+  resetConfig: () => void
+}
+
+const defaultConfig: AgentConfig = {
+  type: 'chat',
+  name: '',
+  description: '', // New field
+  subdomain: '',
+  context: '',
+  purpose: '',
+  titles: [],
+  suggestions: [],
+  prompt: '',
+  workflow: 'answer-as-mement',
+  image: '',
+  links: [],
+  twitterBot: {
+    oauth_token: '',
+    oauth_token_secret: '',
+    user_id: '',
+    screen_name: ''
+  },
+  telegramBot: {
+    bot_token: ''
+  },
+  domains: []
+}
+
+const AgentContext = createContext<AgentContextType | undefined>(undefined)
+
+function AgentProvider({ children }: { children: ReactNode }) {
+  const [agentConfig, setAgentConfig] = useState<AgentConfig>(defaultConfig)
+
+  const updateAgentConfig = (updates: Partial<AgentConfig>) => {
+    setAgentConfig(current => ({ ...current, ...updates }))
+  }
+
+  const resetConfig = () => {
+    setAgentConfig(defaultConfig)
+  }
+
+  return (
+    <AgentContext.Provider value={{ agentConfig, updateAgentConfig, resetConfig }}>
+      {children}
+    </AgentContext.Provider>
+  )
+}
+
+
+export function classNames(...classes: any) {
+    return classes.filter(Boolean).join(" ");
+}
+
+// todo: should extract all of class names here into styles variable and use it everywhere
+const styles = {
+    nav: "sticky top-0 z-50 backdrop-blur-sm",
+}
+
+
 export function Navigation() {
   const links = [
-    { name: 'Dashboard', href: '#' },
-    { name: 'Agents', href: '#' },
-    { name: 'Analytics', href: '#' },
+    { name: 'Home', href: '#' },
+    { name: 'My Agents', href: '#' },
   ];
 
   return (
@@ -30,6 +95,7 @@ export function Navigation() {
     </nav>
   );
 }
+
 
 function AgentDescriptionForm({ values, onChange, onDeploy, isDeploying }: AgentDescriptionFormProps) {
   return (
@@ -100,6 +166,7 @@ function AgentDescriptionForm({ values, onChange, onDeploy, isDeploying }: Agent
   );
 }
 
+// todo: show this form after completed deployment so user can edit htem
 function AgentDetailsForm({ values, onChange }: AgentDetailsFormProps) {
   return (
     <div className="space-y-6">
@@ -177,7 +244,7 @@ export function Header() {
           </div>
           <div className="flex items-center">
             <button className="ml-4 px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900">
-              Profile
+              Connect Wallet
             </button>
           </div>
         </div>
@@ -185,45 +252,6 @@ export function Header() {
     </header>
   );
 }
-
-function StepIndicator({ currentStep, totalSteps }: StepIndicatorProps) {
-  return (
-    <div className="flex items-center justify-center space-x-4 mb-8">
-      {Array.from({ length: totalSteps }).map((_, index) => (
-        <React.Fragment key={index}>
-          <div className="flex items-center">
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                index < currentStep
-                  ? 'bg-blue-600 text-white'
-                  : index === currentStep
-                  ? 'bg-blue-100 border-2 border-blue-600 text-blue-600'
-                  : 'bg-gray-100 text-gray-400'
-              }`}
-            >
-              {index < currentStep ? (
-                <Check size={16} />
-              ) : (
-                <span>{index + 1}</span>
-              )}
-            </div>
-            <span className="ml-2 text-sm text-gray-600">
-              {index === 0 ? 'Type' : index === 1 ? 'Details' : 'Review'}
-            </span>
-          </div>
-          {index < totalSteps - 1 && (
-            <div
-              className={`h-0.5 w-12 ${
-                index < currentStep ? 'bg-blue-600' : 'bg-gray-200'
-              }`}
-            />
-          )}
-        </React.Fragment>
-      ))}
-    </div>
-  );
-}
-
 
 export function StepHeader({ currentStep, data }: StepHeaderProps) {
   if (currentStep === 'handle') return null;
@@ -286,26 +314,7 @@ function HandleInput({ value, onChange }: HandleInputProps) {
   );
 }
 
-
-const agentTypeConfig = {
-  chat: {
-    icon: MessageSquare,
-    title: 'Chat',
-    description: 'Interactive conversational agent',
-  },
-  terminal: {
-    icon: Terminal,
-    title: 'Terminal',
-    description: 'Command-line interface agent',
-  },
-  feed: {
-    icon: Rss,
-    title: 'Feed',
-    description: 'Content stream processing agent',
-  },
-};
-
-const types = [
+const agentTypes = [
   {
     id: 'chat',
     icon: MessageSquare,
@@ -329,6 +338,7 @@ const types = [
   }
 ] as const;
 
+// todo: should show this page after deployment
 function DeploymentSuccess({ agentUrl, onEdit }: DeploymentSuccessProps) {
   return (
     <div className="text-center">
@@ -360,42 +370,14 @@ function DeploymentSuccess({ agentUrl, onEdit }: DeploymentSuccessProps) {
   );
 }
 
-function AgentTypeCard({ type, isSelected, disabled = false, onClick }: AgentTypeCardProps) {
-  const config = agentTypeConfig[type];
-  const Icon = config.icon;
-
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`p-6 rounded-lg border-2 transition-all w-full ${
-        isSelected
-          ? 'border-blue-600 bg-blue-50'
-          : disabled
-          ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
-          : 'border-gray-200 hover:border-blue-400 hover:bg-blue-50'
-      }`}
-    >
-      <div className="flex flex-col items-center text-center">
-        <Icon
-          size={32}
-          className={isSelected ? 'text-blue-600' : disabled ? 'text-gray-400' : 'text-gray-600'}
-        />
-        <h3 className="mt-4 font-semibold">{config.title}</h3>
-        <p className="mt-2 text-sm text-gray-600">{config.description}</p>
-      </div>
-    </button>
-  );
-}
-
+// todo: ensure its responsive aka one column on smaller screens
 export function TypeSelection({ selected, onSelect }: TypeSelectionProps) {
   return (
     <div className="text-center">
       <h2 className="text-2xl font-bold mb-2">Choose Your Mement Type</h2>
       <p className="text-gray-600 mb-8">Select how your Mement will interact</p>
-
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {types.map(({ id, icon: Icon, title, description, disabled }) => (
+        {agentTypes.map(({ id, icon: Icon, title, description, disabled }) => (
           <button
             key={id}
             onClick={() => !disabled && onSelect(id)}
@@ -576,6 +558,7 @@ export function CreateMementForm() {
 
         {currentStep === 'description' && (
           <>
+          {/* todo: should have similar deployment process as in AgentDescriptionForm */}
             <DescriptionInput
               location={data.location}
               purpose={data.purpose}

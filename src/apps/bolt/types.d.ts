@@ -79,3 +79,47 @@ type DeploymentSuccessProps = {
     agentUrl: string;
     onEdit: () => void;
   };
+
+  export type AgentType = 'chat' | 'terminal' | 'feed'
+  export type WorkflowType = 'answer-as-mement' | 'other-workflow'
+  export type LinkType = 'twitter' | 'telegram'
+  
+  export interface Link {
+    type: LinkType
+    value: string
+  }
+  
+  export interface TwitterBot {
+    oauth_token: string
+    oauth_token_secret: string
+    user_id: string
+    screen_name: string
+  }
+  
+  export interface TelegramBot {
+    bot_token: string
+  }
+  
+  export interface Domain {
+    domain: string
+    custom_script_path: string
+  }
+  
+  export interface AgentConfig {
+    type: AgentType
+    name: string
+    description: string // New field
+    subdomain: string
+    context: string
+    purpose: string
+    titles: string[]
+    suggestions: string[]
+    prompt: string
+    workflow: WorkflowType
+    image: string
+    links: Link[]
+    twitterBot: TwitterBot
+    telegramBot: TelegramBot
+    domains: Domain[]
+  }
+  
