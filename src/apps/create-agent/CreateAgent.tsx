@@ -363,9 +363,8 @@ and since it returns           return new Response(JSON.stringify(createAgentDat
             imageCid: imageCid
           };
 
-          so we should implement this handleDeploy function accordingly
+          so we should implement this handleDeploy function accordingly showing correct subdomain in our success page 
 */
-    window.location.href = '/success';
   };
 
   return (
