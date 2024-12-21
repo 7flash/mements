@@ -1,14 +1,8 @@
 import React, { useState, createContext, useContext } from 'react';
-
 import { Bot, MessageSquare, Terminal, Rss, Zap, Check, ArrowLeft, ArrowRight } from 'lucide-react';
-
-import { Disclosure } from '@headlessui/react'
-
-// todo: rewrite our app to ensure its completeness with following pages: Landing Home, then once you click to create mement its create page with three steps: handle name, then next step its location and purpose, and then deploy button which only available once phantom wallet is connected and then its deployment progress bar and then success page that's it (all within same layout of landing page)
-
-// todo: define navigation routes as normally for all our pages/steps
 import { Link, Route, Switch, useLocation } from "wouter";
 
+// Define the context for managing agent configurations
 interface AgentContextType {
   agentConfig: AgentConfig;
   updateAgentConfig: (updates: Partial<AgentConfig>) => void;
@@ -61,189 +55,70 @@ function AgentProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-
+// Utility function to combine class names
 export function classNames(...classes: any) {
-    return classes.filter(Boolean).join(" ");
+  return classes.filter(Boolean).join(" ");
 }
 
-// todo: should extract all of styles currently inlined across the app, extract them all into this variable and then apply with className={styles.etc} or using classNames when needed to combine them
-
+// Extracted styles for reuse
 const styles = {
   nav: "sticky top-0 z-50 backdrop-blur-sm",
   formButton: "w-full mt-8 px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors",
-  textButton: "flex items-center px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
+  textButton: "flex items-center px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors",
+  header: "bg-white border-b border-gray-200",
+  headerContainer: "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
+  headerContent: "flex justify-between h-16",
+  headerTitle: "flex-shrink-0 flex items-center gap-2",
+  headerButton: "ml-4 px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900",
+  stepContainer: "max-w-2xl mx-auto py-12 px-4",
+  stepContent: "bg-white rounded-xl shadow-lg p-8",
+  successIcon: "mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4",
+  successText: "text-lg font-medium text-gray-900 mb-2",
+  successSubText: "text-sm text-gray-500 mb-6",
+  successLink: "text-blue-600 hover:text-blue-800 break-all",
+  successButton: "inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50",
+  landingHero: "text-center max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16",
+  landingTitle: "text-4xl sm:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-600 mb-6",
+  landingDescription: "text-lg text-gray-600 mb-12",
+  landingButton: "w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-purple-500 to-blue-600 text-white rounded-lg font-medium hover:opacity-90 transition-opacity mb-16",
 };
 
+// Navigation component
 export function Navigation() {
   const links = [
-    { name: 'Home', href: '#' },
+    { name: 'Home', href: '/' },
     { name: 'My Agents', href: '#' },
-    { name: 'Create Agent', href: '#' },
+    { name: 'Create Agent', href: '/create' },
   ];
 
   return (
     <nav className="hidden sm:ml-6 sm:flex sm:space-x-8">
       {links.map((link) => (
-        <a
-          key={link.name}
-          href={link.href}
-          className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900"
-        >
-          {link.name}
-        </a>
+        <Link key={link.name} href={link.href}>
+          <a className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900">
+            {link.name}
+          </a>
+        </Link>
       ))}
     </nav>
   );
 }
 
-
-function AgentDescriptionForm({ values, onChange, onDeploy, isDeploying }: AgentDescriptionFormProps) {
-  return (
-    <div className="space-y-6">
-      <div>
-        <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-          Mement Handle
-        </label>
-        <UsernameInput
-          id="name"
-          value={values.name}
-          onChange={(value) => onChange('name', value)}
-          placeholder="jesus"
-        />
-        <p className="mt-1 text-sm text-gray-500">Choose a unique identifier for your Mement</p>
-      </div>
-
-      <div>
-        <label htmlFor="location" className="block text-sm font-medium text-gray-700">
-          Location/Context
-        </label>
-        <input
-          type="text"
-          id="location"
-          value={values.location}
-          onChange={(e) => onChange('location', e.target.value)}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          placeholder="Ancient Jerusalem, 30 AD"
-        />
-        <p className="mt-1 text-sm text-gray-500">Describe where and when your Mement exists</p>
-      </div>
-
-      <div>
-        <label htmlFor="purpose" className="block text-sm font-medium text-gray-700">
-          Purpose/Behavior
-        </label>
-        <textarea
-          id="purpose"
-          value={values.purpose}
-          onChange={(e) => onChange('purpose', e.target.value)}
-          rows={4}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          placeholder="Provides wisdom and guidance through parables and teachings, focusing on love, forgiveness, and spiritual growth"
-        />
-        <p className="mt-1 text-sm text-gray-500">Describe what your Mement does and how it behaves</p>
-      </div>
-
-      <div className="mt-8">
-        <button
-          onClick={onDeploy}
-          disabled={isDeploying || !values.name || !values.location || !values.purpose}
-          className="w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-        >
-          {isDeploying ? (
-            <>
-              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Deploying Mement...
-            </>
-          ) : (
-            'Create Mement'
-          )}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// todo: show this form after completed deployment so user can edit htem
-function AgentDetailsForm({ values, onChange }: AgentDetailsFormProps) {
-  return (
-    <div className="space-y-6">
-      <div>
-        <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-          Agent Name
-        </label>
-        <input
-          type="text"
-          id="name"
-          value={values.name}
-          onChange={(e) => onChange('name', e.target.value)}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          placeholder="e.g., Jesus"
-        />
-      </div>
-
-      <div>
-        <label htmlFor="subdomain" className="block text-sm font-medium text-gray-700">
-          Subdomain
-        </label>
-        <input
-          type="text"
-          id="subdomain"
-          value={values.subdomain}
-          onChange={(e) => onChange('subdomain', e.target.value)}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          placeholder="e.g., jesus-ai-Lm0B"
-        />
-      </div>
-
-      <div>
-        <label htmlFor="prompt" className="block text-sm font-medium text-gray-700">
-          Prompt
-        </label>
-        <textarea
-          id="prompt"
-          value={values.prompt}
-          onChange={(e) => onChange('prompt', e.target.value)}
-          rows={4}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          placeholder="When X were walking around Y, he heard the voice asking him given question, and what might have been his response?"
-        />
-      </div>
-
-      <div>
-        <label htmlFor="workflow" className="block text-sm font-medium text-gray-700">
-          Workflow
-        </label>
-        <select
-          id="workflow"
-          value={values.workfloAw}
-          onChange={(e) => onChange('workflow', e.target.value)}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-        >
-          <option value="answer-as-mement">Answer as Mement</option>
-          <option value="custom">Custom</option>
-        </select>
-      </div>
-    </div>
-  );
-}
-
+// Header component
 export function Header() {
   return (
-    <header className="bg-white border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
+    <header className={styles.header}>
+      <div className={styles.headerContainer}>
+        <div className={styles.headerContent}>
           <div className="flex">
-            <div className="flex-shrink-0 flex items-center gap-2">
+            <div className={styles.headerTitle}>
               <Bot className="w-6 h-6 text-purple-600" />
               <span className="text-xl font-bold text-gray-900">Mements</span>
             </div>
             <Navigation />
           </div>
           <div className="flex items-center">
-            <button className="ml-4 px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900">
+            <button className={styles.headerButton}>
               Connect Wallet
             </button>
           </div>
@@ -253,6 +128,7 @@ export function Header() {
   );
 }
 
+// Step header component
 export function StepHeader({ currentStep, data }: StepHeaderProps) {
   if (currentStep === 'handle') return null;
 
@@ -279,6 +155,7 @@ export function StepHeader({ currentStep, data }: StepHeaderProps) {
   );
 }
 
+// Handle input component
 function HandleInput({ value, onChange }: HandleInputProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value.toLowerCase()
@@ -338,39 +215,7 @@ const agentTypes = [
   }
 ] as const;
 
-// todo: should show this page after deployment
-function DeploymentSuccess({ agentUrl, onEdit }: DeploymentSuccessProps) {
-  return (
-    <div className="text-center">
-      <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
-        <Check className="h-6 w-6 text-green-600" />
-      </div>
-      <h3 className="text-lg font-medium text-gray-900 mb-2">Agent Successfully Deployed!</h3>
-      <p className="text-sm text-gray-500 mb-6">Your agent is now live and ready to interact</p>
-      
-      <div className="bg-gray-50 rounded-lg p-4 mb-6">
-        <p className="text-sm font-medium text-gray-700 mb-2">Agent URL:</p>
-        <a
-          href={agentUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-600 hover:text-blue-800 break-all"
-        >
-          {agentUrl}
-        </a>
-      </div>
-
-      <button
-        onClick={onEdit}
-        className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-      >
-        Edit Agent Configuration
-      </button>
-    </div>
-  );
-}
-
-// todo: ensure its responsive aka one column on smaller screens
+// Type selection component
 export function TypeSelection({ selected, onSelect }: TypeSelectionProps) {
   return (
     <div className="text-center">
@@ -405,6 +250,7 @@ export function TypeSelection({ selected, onSelect }: TypeSelectionProps) {
   );
 }
 
+// Description input component
 function DescriptionInput({
   location,
   purpose,
@@ -449,31 +295,7 @@ function DescriptionInput({
   );
 }
 
-function UsernameInput({ id, value, onChange, placeholder }: UsernameInputProps) {
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value.toLowerCase()
-      .replace(/[^a-z0-9_]/g, '') // Only allow lowercase letters, numbers, and underscore
-      .replace(/^[^a-z]+/, ''); // Must start with a letter
-    onChange(newValue);
-  };
-
-  return (
-    <div className="mt-1 flex rounded-md shadow-sm">
-      <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
-        @
-      </span>
-      <input
-        type="text"
-        id={id}
-        value={value}
-        onChange={handleChange}
-        className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-r-md border border-gray-300 focus:ring-blue-500 focus:border-blue-500"
-        placeholder={placeholder}
-      />
-    </div>
-  );
-}
-
+// Step navigation component
 function StepNavigation({ currentStep, onBack, onNext, canProceed }: StepNavigationProps) {
   return (
     <div className="flex justify-between mt-8">
@@ -495,6 +317,7 @@ function StepNavigation({ currentStep, onBack, onNext, canProceed }: StepNavigat
   );
 }
 
+// Create Mement form component
 function CreateMementForm() {
   const [currentStep, setCurrentStep] = useState<Step>('handle');
   const [data, setData] = useState<MementData>({ handle: '', type: null, location: '', purpose: '' });
@@ -525,9 +348,9 @@ function CreateMementForm() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto py-12 px-4">
+    <div className={styles.stepContainer}>
       <StepHeader currentStep={currentStep} data={data} />
-      <div className="bg-white rounded-xl shadow-lg p-8">
+      <div className={styles.stepContent}>
         {currentStep === 'handle' && (
           <HandleInput value={data.handle} onChange={(value) => updateField('handle', value)} />
         )}
@@ -555,18 +378,19 @@ function CreateMementForm() {
   );
 }
 
+// Landing hero component
 function LandingHero({ onProceed }: LandingHeroProps) {
   return (
-    <div className="text-center max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-      <h1 className="text-4xl sm:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-600 mb-6">
+    <div className={styles.landingHero}>
+      <h1 className={styles.landingTitle}>
         Deploy AI Agents with Ease
       </h1>
-      <p className="text-lg text-gray-600 mb-12">
+      <p className={styles.landingDescription}>
         Create, manage, and scale your AI personalities effortlessly. Bring your Mements to life with our cutting-edge deployment platform.
       </p>
       <button
         onClick={onProceed}
-        className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-purple-500 to-blue-600 text-white rounded-lg font-medium hover:opacity-90 transition-opacity mb-16"
+        className={styles.landingButton}
       >
         Create New Mement
       </button>
@@ -590,6 +414,7 @@ function LandingHero({ onProceed }: LandingHeroProps) {
   );
 }
 
+// Deployment success component
 function DeploymentSuccess() {
   const agentUrl = "https://example.com/mement"; // Placeholder for actual URL
   const { resetConfig } = useAgent();
@@ -602,24 +427,25 @@ function DeploymentSuccess() {
 
   return (
     <div className="text-center">
-      <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+      <div className={styles.successIcon}>
         <Check className="h-6 w-6 text-green-600" />
       </div>
-      <h3 className="text-lg font-medium text-gray-900 mb-2">Agent Successfully Deployed!</h3>
-      <p className="text-sm text-gray-500 mb-6">Your agent is now live and ready to interact</p>
+      <h3 className={styles.successText}>Agent Successfully Deployed!</h3>
+      <p className={styles.successSubText}>Your agent is now live and ready to interact</p>
       <div className="bg-gray-50 rounded-lg p-4 mb-6">
         <p className="text-sm font-medium text-gray-700 mb-2">Agent URL:</p>
-        <a href={agentUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 break-all">
+        <a href={agentUrl} target="_blank" rel="noopener noreferrer" className={styles.successLink}>
           {agentUrl}
         </a>
       </div>
-      <button onClick={handleEdit} className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+      <button onClick={handleEdit} className={styles.successButton}>
         Edit Agent Configuration
       </button>
     </div>
   );
 }
 
+// Main app component
 function App() {
   const [location, setLocation] = useLocation();
   
@@ -642,3 +468,5 @@ function App() {
     </AgentProvider>
   );
 }
+
+export default App;
