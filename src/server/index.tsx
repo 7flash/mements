@@ -466,6 +466,12 @@ const server = serve({
       }
     }
 
+    if (path === "/") {
+      return new Response(htmlTemplate(assets.getLink('createAgentApp'), JSON.stringify({})), {
+        headers: { "content-type": "text/html" }
+      });
+    }
+
     console.log(requestId, "Not Found");
     return new Response("Not Found", { status: 404 });
   },
