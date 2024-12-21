@@ -34,7 +34,8 @@ const twitterOauth = new OAuth({
   },
 });
 
-const { default: prompt } = await import("uai/src/uai.ts");
+const { default: uai } = await import(`../workflows/create-mement-agent.tsx`);
+
 import buildAssets from './assets';
 
 const assets = await buildAssets({
@@ -285,10 +286,17 @@ const server = serve({
         const { name, location, purpose, type } = await req.json();
         console.log(requestId, "Received create-agent data", { name, location, purpose });
 
-        const result = await createAgentWorkflowFn()
-          .withName(name)
-          .withLocation(location)
-          .withPurpose(purpose);
+        const result = await uai.from({
+          name, location, purpose
+        }).to({
+          question: '',
+        }).exec(`
+          user provides a context, and in response you have to write down a relevant generic question in correspondance to the context, for example, if user gives a location of Digital Jerusalem and name of Jesus AI, then you should produce a question like this:
+
+When Jesus Artifical Replica were walking around the New Digital Jerusalem, he heard the voice asking him given question, and what might have been his response, much cryptic yet in the spirit of love?
+        `);
+
+        if (!result.question) throw 'invalid prompt response';
 
         console.log(requestId, "Workflow result", result);
 
@@ -428,7 +436,7 @@ const server = serve({
           const data = await req.json();
           console.log(requestId, "Received question", data.content);
 
-          const { default: workflowFn } = await import(`uai/workflows/${agentData.workflow || "answer-as-mement"}.tsx`);
+          const { default: workflowFn } = await import(`../workflows/${agentData.workflow || "answer-as-mement"}.tsx`);
 
           const result = await workflowFn().withTask(
             agentData.prompt || "What is appropriate answer to the following question in a twitter post format?"
@@ -550,7 +558,3 @@ const server = serve({
 });
 
 console.log(`🌐 Server is running on http://localhost:${server.port} 🚀`);
-
-function createAgentWorkflowFn() {
-  throw new Error("Function not implemented.");
-}
