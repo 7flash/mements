@@ -40,6 +40,7 @@ const styles = {
     textMoveAnimation: "transition-transform duration-700 ease-in-out transform scale-105",
 };
 
+// todo: improve layout, ensure all of elements are referencing this mapping
 const els = {
     nav: cls("sticky top-0 z-50 backdrop-blur-sm", styles.maxWidthContainer),
     navContent: cls(styles.flexBetween, "h-14 sm:h-16 md:h-20"),
@@ -101,9 +102,11 @@ const Navbar = ({ connectWallet, publicKey }: { connectWallet: () => void; publi
                             onClick={connectWallet}
                             className={cls(els.button, els.connectButton)}
                         >
+                            {/* fix currently buttons is invoked */}
                             Connect Wallet
                         </button>
                     )}
+                    {/* we dont need buy button here, instead we show all the links as icons DexIcon, TelegramIcon, XIcon, GitbookIcon */}
                     <a
                         target="_blank"
                         rel="noopener noreferrer"
@@ -181,7 +184,7 @@ const Footer = () => {
                                 onChange={(e) => setInputValue(e.target.value)}
                                 onKeyPress={handleKeyPress}
                                 className={cls(els.input, animateText && els.textMoveAnimation)}
-                                placeholder="Ask anything..."
+                                placeholder="Ask me some questions..."
                                 disabled={isLoading}
                             />
                             <button
@@ -396,6 +399,7 @@ export default function App() {
 
     const connectWallet = async () => {
         const provider = getProvider();
+        console.log("provider ==> ", provider);
         if (provider) {
             const resp = await provider.connect();
             setPublicKey(resp.publicKey.toString());
@@ -456,11 +460,23 @@ const Header = () => {
         <div className={els.header}>
             <div className={els.headerContent}>
                 <div className={els.avatar}>
+                                                    {/* we should use serverData.agentImage to apply as semi transparent blurred background image of a whole page and can keep here in middle as well */}
+
                     <img src={window.serverData.agentImage} alt={window.serverData.botName} className="w-full h-full object-cover" />
                 </div>
                 <div className="flex flex-col items-center gap-2 md:gap-3">
                     <h1 className={els.headerTitle}>
                         <span className={els.animation}>
+                            {/* it should go more like:
+                            
+                            Hi! I am {botName}
+
+                            My pumpfun: {mintAddress}
+
+                            My twitter: {twitter link}
+
+                            // ... all other links
+                            */}
                             {window.serverData.mintAddress ? `CA: ${window.serverData.mintAddress}` : window.serverData.botName}
                         </span>
                     </h1>
