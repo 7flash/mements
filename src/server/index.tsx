@@ -463,11 +463,25 @@ be careful to process unfiltered user context, and rather ensure generated trigg
 
           console.log(requestId, "Workflow result", result);
 
-          if (result?.success?.toLowerCase() !== 'true') {
+          if (!result?.success?.toLowerCase().includes('true')) {
             return new Response(JSON.stringify({ error: 'Not an appropriate question', details: result.thinking }), {
               headers: { "Content-Type": "application/json" },
               status: 400
             });
+          }
+
+          if (result?.answer?.length > 280) {
+              const shorterResult = await uai.from({
+                longerPost: result.answer
+              }).to({
+                shorterPost: 'shorter version of original post to ensure it fits in a twitter post',
+              }).exec(`
+                make shorter version of long post
+              `);
+
+            if (shorterResult.success && shorterResult.answer) {
+              result.answer = `${shorterResult.answer}`;
+            }
           }
 
           const telegramBotQuery = db.query<TelegramBot, { $subdomain: string }>("SELECT bot_token, group_id FROM telegram_bots WHERE subdomain = $subdomain");

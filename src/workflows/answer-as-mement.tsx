@@ -32,7 +32,7 @@ export default function() {
               });            
 
             const result = await executePrompt(<>
-                <settings temperature={0.0} model="gpt-4o" enablesPrediction={false} />
+                <settings temperature={0.0} model="grok-beta" enablesPrediction={false} />
                 <system>
                     <instruction>Think about response to the question in described situation, then make a twitter post from the first person and return the result in following exact response format, avoid using hashtags, yet make it personal message to the audience.</instruction>
                     <responseFormat>
