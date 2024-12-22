@@ -198,33 +198,20 @@ const ResponseDisplay = React.forwardRef<
             return () => clearTimeout(timer);
         }, []);
 
+        // todo: it should be actually used on CA mintAddress click
         const copyLink = async () => {
             try {
                 const url = window.location.href;
                 if (navigator.clipboard && navigator.clipboard.writeText) {
                     await navigator.clipboard.writeText(url);
                     toast.success("Link copied to clipboard!");
-                    return;
-                }
-                const textarea = document.createElement("textarea");
-                textarea.value = url;
-                textarea.style.position = "fixed";
-                document.body.appendChild(textarea);
-                textarea.focus();
-                textarea.select();
-                try {
-                    document.execCommand("copy");
-                    textarea.remove();
-                    toast.success("Link copied to clipboard!");
-                } catch (err) {
-                    textarea.remove();
-                    toast.error("Failed to copy link. Please copy it manually.");
+                } else {
+                    throw new Error("Clipboard API not available");
                 }
             } catch (err) {
-                console.error("Sharing failed:", err);
                 toast.error("Failed to share. Please try copying the URL manually.");
             }
-        };
+        };    
 
         return (
             <div className="flex flex-col items-center justify-center w-full">
