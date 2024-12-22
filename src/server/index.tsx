@@ -531,7 +531,7 @@ be careful to process unfiltered user context, and rather ensure generated trigg
             const tweetId = twitterResponseData.data.id;
             const twitterPostLink = `https://twitter.com/${twitterBotData.screen_name}/status/${tweetId}`;
 
-            // in case if its actually posted on twitter it must still proceed with normal flow which should be moved away from catch case and should be normal we still insert into chats and return responseData but just adding twitterPostLink into our responseData
+            // todo: in case if its actually posted on twitter it must still proceed with normal flow which should be moved away from catch case and should be normal we still insert into chats and return responseData but just adding twitterPostLink into our responseData
             console.log(requestId, "Tweet posted successfully", twitterPostLink);
             return new Response(JSON.stringify({ twitterPostLink }), {
               headers: { "Content-Type": "application/json" },
