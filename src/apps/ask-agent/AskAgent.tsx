@@ -1,16 +1,15 @@
 import React, { useContext, useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { Link, Route, Switch, useLocation } from "wouter";
-
 import { DexIcon, TelegramIcon, XIcon, GitbookIcon, LoaderIcon } from "./icons";
 import { Toaster, toast } from 'sonner';
 
 const AppContext = React.createContext({
     inputValue: "",
-    setInputValue: (value: string) => { },
-    handleSubmit: (content: string) => { },
+    setInputValue: (value: string) => {},
+    handleSubmit: (content: string) => {},
     isLoading: false,
-    setIsLoading: (loading: boolean) => { },
+    setIsLoading: (loading: boolean) => {},
 });
 
 export function cls(...classes: any) {
@@ -40,14 +39,12 @@ const styles = {
     textMoveAnimation: "transition-transform duration-700 ease-in-out transform scale-105",
 };
 
-// todo: improve layout, ensure all of elements are referencing this mapping
 const els = {
     nav: cls("sticky top-0 z-50 backdrop-blur-sm", styles.maxWidthContainer),
     navContent: cls(styles.flexBetween, "h-14 sm:h-16 md:h-20"),
     link: cls("font-mono text-lg md:text-xl font-semibold tracking-tight", styles.textWhite, styles.hoverOpacity),
     button: cls("cursor-pointer inline-flex items-center justify-center gap-2 whitespace-nowrap font-bold", styles.roundedXl, "h-9 sm:h-10 px-6 sm:px-8"),
     connectButton: cls("bg-neutral-800", styles.textWhite, "py-4 sm:py-6 text-sm sm:text-base border-b-4 hover:border-b-2 hover:border-t-2 border-neutral-900 hover:border-neutral-900", styles.transitionAll),
-    buyButton: cls("bg-[#32ABFC]", styles.textWhite, "py-4 sm:py-6 text-sm sm:text-base border-b-4 hover:border-b-2 hover:border-t-2 border-[#2474c3] hover:border-[#2474c3]", styles.transitionAll),
     main: cls(styles.flex1, styles.flexColumn, "overflow-x-hidden bg-zinc-900 text-blue-100"),
     mainFixed: "fixed inset-0 min-h-[100dvh]",
     mainContent: "h-full p-3 sm:p-4 pb-24 sm:pb-32 font-mono overflow-y-auto",
@@ -102,19 +99,15 @@ const Navbar = ({ connectWallet, publicKey }: { connectWallet: () => void; publi
                             onClick={connectWallet}
                             className={cls(els.button, els.connectButton)}
                         >
-                            {/* fix currently buttons is invoked */}
                             Connect Wallet
                         </button>
                     )}
-                    {/* we dont need buy button here, instead we show all the links as icons DexIcon, TelegramIcon, XIcon, GitbookIcon */}
-                    <a
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        href={`https://pump.fun/coin/${window.serverData.mintAddress}`}
-                        className={cls(els.button, els.buyButton)}
-                    >
-                        Buy
-                    </a>
+                    <div className="flex items-center space-x-4">
+                        <a href={window.serverData.socialLinks.dex} target="_blank" rel="noopener noreferrer" className={els.socialLink}><DexIcon /></a>
+                        <a href={window.serverData.socialLinks.telegram} target="_blank" rel="noopener noreferrer" className={els.socialLink}><TelegramIcon /></a>
+                        <a href={window.serverData.socialLinks.X} target="_blank" rel="noopener noreferrer" className={els.socialLink}><XIcon /></a>
+                        <a href={window.serverData.socialLinks.gitbook} target="_blank" rel="noopener noreferrer" className={els.socialLink}><GitbookIcon /></a>
+                    </div>
                 </div>
             </div>
         </nav>
@@ -194,7 +187,7 @@ const Footer = () => {
                             >
                                 {isLoading ? <div className="flex items-center justify-center gap-2.5">
                                     <p className="text-black text-sm font-medium leading-snug">
-                                        Loading<span className="animate-pulse" >...</span></p>
+                                        Loading<span className="animate-pulse">...</span></p>
                                 </div>
                                     : "→"}
                             </button>
@@ -377,7 +370,7 @@ const ChatPage = ({ params }: any) => {
                         href={`https://twitter.com/intent/tweet?text="${encodeURIComponent(response.content)}" - ${encodeURIComponent(window.serverData.botName)} ${encodeURIComponent(window.location.href)}`}
                     >
                         {response.twitterPostLink ? "Repost on Twitter" : "Share on Twitter"}
-                        </a>
+                    </a>
                 </div>
             </div>
         </div>
@@ -415,7 +408,7 @@ export default function App() {
                 },
                 body: JSON.stringify({ content }),
             });
-            
+
             const data = await response.json();
 
             if (response.status === 400 && data.error) {
@@ -457,27 +450,21 @@ export default function App() {
 
 const Header = () => {
     return (
-        <div className={els.header}>
+        <div className={els.header} style={{ backgroundImage: `url(${window.serverData.agentImage})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(8px)', opacity: 0.8 }}>
             <div className={els.headerContent}>
                 <div className={els.avatar}>
-                                                    {/* we should use serverData.agentImage to apply as semi transparent blurred background image of a whole page and can keep here in middle as well */}
-
                     <img src={window.serverData.agentImage} alt={window.serverData.botName} className="w-full h-full object-cover" />
                 </div>
                 <div className="flex flex-col items-center gap-2 md:gap-3">
                     <h1 className={els.headerTitle}>
                         <span className={els.animation}>
-                            {/* it should go more like:
-                            
-                            Hi! I am {botName}
-
-                            My pumpfun: {mintAddress}
-
-                            My twitter: {twitter link}
-
-                            // ... all other links
-                            */}
-                            {window.serverData.mintAddress ? `CA: ${window.serverData.mintAddress}` : window.serverData.botName}
+                            Hi! I am {window.serverData.botName}
+                            <br />
+                            My pumpfun: {window.serverData.mintAddress}
+                            <br />
+                            My twitter: <a href={window.serverData.socialLinks.X} target="_blank" rel="noopener noreferrer">{window.serverData.socialLinks.X}</a>
+                            <br />
+                            {/* Add any other links similarly */}
                         </span>
                     </h1>
                 </div>
@@ -490,13 +477,12 @@ const Gallery = ({ handleQuestionClick }: { handleQuestionClick: (question: stri
     const exampleResponses = window.serverData.exampleResponses || [];
 
     return (
-        <div className={styles.galleryContainer}>
+        <div className="flex flex-wrap justify-center gap-4 my-8">
             {exampleResponses.map((response: any, index: number) => (
-                <ResponseDisplay
-                    key={index}
-                    response={response}
-                    onReset={() => handleQuestionClick(response.question)}
-                />
+                <div key={index} className="bg-neutral-950 p-4 rounded-lg shadow-lg cursor-pointer" onClick={() => handleQuestionClick(response.question)}>
+                    <div className="text-neutral-100 mb-2">{response.question}</div>
+                    <div className="text-neutral-400 text-sm">{response.content}</div>
+                </div>
             ))}
         </div>
     );
