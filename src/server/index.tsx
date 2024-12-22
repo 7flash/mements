@@ -300,23 +300,21 @@ const server = serve({
         const { name, location, purpose, type } = await req.json();
         console.log(requestId, "Received create-agent data", { name, location, purpose });
 
-        // todo: make this conversion more clean and ensure trigger field in to function is not empty
-        const result = await uai.from({
-          name, location, purpose
+        // Clean conversion and ensure trigger field is not empty
+        const { trigger } = await uai.from({
+          name,
+          location,
+          purpose,
         }).to({
-          trigger: '',
+          trigger: 'Example: When Jesus Artificial Replica walks around the New Digital Jerusalem, he hears a question, what might his response be, much cryptic yet in the spirit of love?',
         }).exec(`
-          user provides a context, and in response you have to write down a "trigger" paragraph which describes a situation in which a particular persona might experience an inspiration to express a new thought, for example, trigger paragraph can look like this:
-
-When Jesus Artifical Replica were walking around the New Digital Jerusalem, he heard a voice asking a question, and what might have been his response, much cryptic yet in the spirit of love?
-
-be careful to process unfiltered user context, and rather ensure generated trigger actually introduces a realistic persona and realistic location, and ensure its structured in such a way that resulting thought produced by the trigger along with additional details would produce a trending opinionated twitter post, but the trigger itself should not include any exact question, only describe the situation where the question might be discovered
+          You are to write a "trigger" paragraph given a persona name and context of location where the persona gets an inspiration for a new thought. 
+          As shown in trigger example, its important to incorporate persona name, its location, and its purpose, but avoid to mention any exact specific question.
         `);
 
-        // name+location+purpose = trigger, trigger + question = thought, => twitter post
-        if (!result.trigger) throw 'invalid prompt response';
+        if (!trigger) throw new Error('Invalid prompt response');
 
-        console.log(requestId, "Workflow result", result);
+        console.log(requestId, "Workflow result", { trigger });
 
         // Handle image processing and upload
         let imageCid = "";
@@ -328,7 +326,7 @@ be careful to process unfiltered user context, and rather ensure generated trigg
           },
           body: JSON.stringify({
             model: "dall-e-3",
-            prompt: result.trigger,
+            prompt: trigger,
             n: 1,
             size: "1024x1024",
             response_format: "b64_json"
@@ -336,8 +334,6 @@ be careful to process unfiltered user context, and rather ensure generated trigg
         });
 
         const imageData = await response.json();
-        console.log("imageData ==> ", imageData.data[0].revised_prompt);
-
         const base64Image = imageData.data[0].b64_json;
         const file = new File([Buffer.from(base64Image, 'base64')], "agent-image.png", { type: "image/png" });
         imageCid = await files.upload(file);
@@ -349,7 +345,7 @@ be careful to process unfiltered user context, and rather ensure generated trigg
           agent: {
             name: name,
             image: imageCid,
-            prompt: result.trigger,
+            prompt: trigger,
           },
         };
 
@@ -503,18 +499,17 @@ be careful to process unfiltered user context, and rather ensure generated trigg
             console.log(requestId, "Message sent to Telegram");
           }
 
+          let twitterPostLink = null;
           try {
             const twitterBotQuery = db.query<TwitterBot, { $subdomain: string }>("SELECT oauth_token, oauth_token_secret, user_id FROM twitter_bots WHERE subdomain = $subdomain");
             const twitterBotData = twitterBotQuery.get({ $subdomain: agentData.subdomain });
 
             if (!twitterBotData) {
-              throw `${agentData.subdomain} does not have twitter account, fallback to web post`
+              throw `No Twitter account associated with ${agentData.subdomain}, falling back to web post`;
             }
 
             const twitterEndpointURL = 'https://api.twitter.com/2/tweets';
-            const tweetData = {
-              text: result.answer,
-            };
+            const tweetData = { text: result.answer };
 
             const token = {
               key: twitterBotData.oauth_token,
@@ -542,39 +537,35 @@ be careful to process unfiltered user context, and rather ensure generated trigg
             console.log(requestId, "twitterResponseData", twitterResponseData);
 
             if (!twitterResponseData.data) {
-              throw `failed to make twitter post, fallback to web post`;
+              throw `Failed to post on Twitter, fallback to web post`;
             }
 
             const tweetId = twitterResponseData.data.id;
-            const twitterPostLink = `https://twitter.com/${twitterBotData.screen_name}/status/${tweetId}`;
-
-            // todo: in case if its actually posted on twitter it must still proceed with normal flow which should be moved away from catch case and should be normal we still insert into chats and return responseData but just adding twitterPostLink into our responseData (we also need to expand our chats table accordingly)
-            
+            twitterPostLink = `https://twitter.com/${twitterBotData.screen_name}/status/${tweetId}`;
             console.log(requestId, "Tweet posted successfully", twitterPostLink);
-            return new Response(JSON.stringify({ twitterPostLink }), {
-              headers: { "Content-Type": "application/json" },
-            });
           } catch (err) {
-            console.log(requestId, "Error posting to Twitter, fallback to web post", err);
-
-            const responseData: Chat = {
-              chatId: randomUUIDForChat(),
-              question: data.content,
-              content: result.answer,
-              timestamp: new Date().toISOString(),
-              subdomain: subdomain,
-            };
-
-            const chatInsertQuery = db.query(
-              "INSERT INTO chats (id, question, response, subdomain, timestamp) VALUES (?, ?, ?, ?, ?)"
-            );
-            chatInsertQuery.run(responseData.chatId, responseData.question, responseData.content, responseData.subdomain, responseData.timestamp);
-
-            console.log(requestId, "Response stored in database", responseData);
-            return new Response(JSON.stringify(responseData), {
-              headers: { "Content-Type": "application/json" },
-            });
+            console.log(requestId, "Error posting to Twitter, continuing with web post", err);
           }
+
+          const responseData: Chat = {
+            chatId: randomUUIDForChat(),
+            question: data.content,
+            content: result.answer,
+            timestamp: new Date().toISOString(),
+            subdomain: subdomain,
+            twitterPostLink // Include the Twitter post link if available
+          };
+
+          const chatInsertQuery = db.query(
+            "INSERT INTO chats (id, question, response, subdomain, timestamp, twitter_post_link) VALUES (?, ?, ?, ?, ?, ?)"
+          );
+          chatInsertQuery.run(responseData.chatId, responseData.question, responseData.content, responseData.subdomain, responseData.timestamp, responseData.twitterPostLink);
+
+          console.log(requestId, "Response stored in database", responseData);
+          return new Response(JSON.stringify(responseData), {
+            headers: { "Content-Type": "application/json" },
+          });
+
         } catch (err) {
           console.log(requestId, "Error generating response", err);
           return new Response("Error generating response", { status: 500 });
