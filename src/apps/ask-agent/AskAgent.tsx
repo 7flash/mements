@@ -2,8 +2,8 @@ import React, { useContext, useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { Link, Route, Switch, useLocation } from "wouter";
 
-import { DexIcon, TelegramIcon, XIcon, GitbookIcon } from "./icons";
-// import { LoaderIcon } from "./icons";
+import { DexIcon, TelegramIcon, XIcon, GitbookIcon, LoaderIcon } from "./icons";
+import { Toaster, toast } from 'sonner';
 
 const AppContext = React.createContext({
     inputValue: "",
@@ -17,19 +17,14 @@ export function cls(...classes: any) {
     return classes.filter(Boolean).join(" ");
 }
 
-// todo: clean up styles towards more uniformity and extract commonly used combinations of classes here into styles then combine them together for specific elements using cls inline, so here keys of the styles should not point to specific elements but rather describe what this combination of classes is doing
 const styles = {
     nav: "sticky top-0 z-50 backdrop-blur-sm",
     navContainer: "max-w-7xl mx-auto px-4",
     navContent: "flex items-center justify-between h-14 sm:h-16 md:h-20",
-    link:
-        "font-mono text-lg md:text-xl font-semibold tracking-tight text-white hover:opacity-80 transition-opacity flex items-center",
-    button:
-        "cursor-pointer inline-flex items-center justify-center gap-2 whitespace-nowrap font-bold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-neutral-950 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 dark:focus-visible:ring-neutral-300 rounded-xl h-9 sm:h-10 px-6 sm:px-8",
-    connectButton:
-        "bg-neutral-800 text-white py-4 sm:py-6 text-sm sm:text-base border-b-4 hover:border-b-2 hover:border-t-2 border-neutral-900 hover:border-neutral-900 transition-all duration-100 dark:bg-neutral-700 dark:border-neutral-800 text-neutral-300 hover:text-white transition-colors",
-    buyButton:
-        "bg-[#32ABFC] text-white py-4 sm:py-6 text-sm sm:text-base border-b-4 hover:border-b-2 hover:border-t-2 border-[#2474c3] hover:border-[#2474c3] transition-all duration-100",
+    link: "font-mono text-lg md:text-xl font-semibold tracking-tight text-white hover:opacity-80 transition-opacity flex items-center",
+    button: "cursor-pointer inline-flex items-center justify-center gap-2 whitespace-nowrap font-bold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-neutral-950 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 dark:focus-visible:ring-neutral-300 rounded-xl h-9 sm:h-10 px-6 sm:px-8",
+    connectButton: "bg-neutral-800 text-white py-4 sm:py-6 text-sm sm:text-base border-b-4 hover:border-b-2 hover:border-t-2 border-neutral-900 hover:border-neutral-900 transition-all duration-100 dark:bg-neutral-700 dark:border-neutral-800 text-neutral-300 hover:text-white transition-colors",
+    buyButton: "bg-[#32ABFC] text-white py-4 sm:py-6 text-sm sm:text-base border-b-4 hover:border-b-2 hover:border-t-2 border-[#2474c3] hover:border-[#2474c3] transition-all duration-100",
     main: "flex-1 flex flex-col overflow-x-hidden bg-zinc-900 text-blue-100",
     mainFixed: "fixed inset-0 min-h-[100dvh]",
     mainContent: "h-full p-3 sm:p-4 pb-24 sm:pb-32 font-mono overflow-y-auto",
@@ -39,29 +34,21 @@ const styles = {
     footerInner: "max-w-2xl mx-auto",
     form: "w-full max-w-3xl mx-auto",
     inputContainer: "relative",
-    input:
-        "flex w-full px-3 shadow-sm file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-neutral-950 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-neutral-950 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-800 dark:file:text-neutral-50 dark:placeholder:text-neutral-400 dark:focus-visible:ring-neutral-700 py-4 sm:py-3 pr-10 rounded-xl bg-white/5 border-[1.5px] border-white/10 hover:border-white/20 focus:border-white/20 focus:ring-0 focus:outline-none text-white placeholder:text-neutral-400 transition-colors text-[18px]",
-    submitButton:
-        "font-sans text-base md:text-lg font-semibold leading-6 md:leading-7 absolute right-2 top-1/2 -translate-y-1/2 p-2 text-neutral-400 hover:text-white rounded-xl disabled:opacity-50 transition-colors",
-    responseContainer:
-        "w-full max-w-xl bg-neutral-950 rounded-xl border border-neutral-800/50 shadow-xl overflow-hidden relative",
+    input: "flex w-full px-3 shadow-sm file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-neutral-950 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-neutral-950 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-800 dark:file:text-neutral-50 dark:placeholder:text-neutral-400 dark:focus-visible:ring-neutral-700 py-4 sm:py-3 pr-10 rounded-xl bg-white/5 border-[1.5px] border-white/10 hover:border-white/20 focus:border-white/20 focus:ring-0 focus:outline-none text-white placeholder:text-neutral-400 transition-colors text-[18px]",
+    submitButton: "font-sans text-base md:text-lg font-semibold leading-6 md:leading-7 absolute right-2 top-1/2 -translate-y-1/2 p-2 text-neutral-400 hover:text-white rounded-xl disabled:opacity-50 transition-colors",
+    responseContainer: "w-full max-w-xl bg-neutral-950 rounded-xl border border-neutral-800/50 shadow-xl overflow-hidden relative",
     responseHeader: "px-4 sm:px-7 py-3 sm:py-5 border-b border-neutral-800/50 bg-neutral-900/50",
     responseContent: "px-4 sm:px-7 py-4 sm:py-6",
     responseMeta: "mt-4 sm:mt-6 flex items-center gap-1",
-    shareButton:
-        "bg-blue-600 text-white font-bold rounded-xl px-6 py-3 flex-1 hover:bg-blue-700 transition-all duration-200 transform hover:scale-105",
+    shareButton: "bg-blue-600 text-white font-bold rounded-xl px-6 py-3 flex-1 hover:bg-blue-700 transition-all duration-200 transform hover:scale-105",
     pageContainer: "flex flex-col items-center justify-center min-h-screen bg-neutral-900",
     scrollContainer: "relative w-full max-w-full space-y-2 sm:space-y-3 mb-4 overflow-hidden",
     scrollInner: "relative w-full overflow-hidden",
     scrollInnerContent: "inline-flex gap-3 animate-scroll-slower hover:pause-animation",
-    questionButton:
-        "flex items-center gap-2.5 px-4 py-2.5 bg-[#1a1b1e] hover:bg-[#25262A] border border-white/[0.08] transition-all duration-200 group rounded-xl min-w-[260px] max-w-[400px] w-fit shrink-0 hover:cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
-    questionButtonInner:
-        "font-sans md:text-sm leading-7 text-lg flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity",
-    questionButtonText:
-        "font-mono text-xs md:text-sm leading-5 md:leading-6 text-[#A1A1AA] font-medium whitespace-nowrap group-hover:text-white/90 transition-colors",
-    socialLink:
-        "flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-neutral-200 transition-all hover:scale-110 transform duration-200",
+    questionButton: "flex items-center gap-2.5 px-4 py-2.5 bg-[#1a1b1e] hover:bg-[#25262A] border border-white/[0.08] transition-all duration-200 group rounded-xl min-w-[260px] max-w-[400px] w-fit shrink-0 hover:cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
+    questionButtonInner: "font-sans md:text-sm leading-7 text-lg flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity",
+    questionButtonText: "font-mono text-xs md:text-sm leading-5 md:leading-6 text-[#A1A1AA] font-medium whitespace-nowrap group-hover:text-white/90 transition-colors",
+    socialLink: "flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-neutral-200 transition-all hover:scale-110 transform duration-200",
     header: "mb-6 sm:mb-12",
     headerContent: "text-center flex flex-col items-center gap-4 sm:gap-6 md:gap-12 pt-4 sm:pt-8",
     avatar: "w-24 h-24 sm:w-32 sm:h-32 md:w-56 md:h-56 rounded-full overflow-hidden border-4 border-white",
@@ -91,7 +78,7 @@ const Navbar = ({ connectWallet, publicKey }: { connectWallet: () => void; publi
                         {publicKey ? <span className="text-white font-mono">{shortenPublicKey(publicKey)}</span> : (
                             <button
                                 onClick={connectWallet}
-                                className={classNames(styles.button, styles.connectButton)}
+                                className={cls(styles.button, styles.connectButton)}
                             >
                                 Connect Wallet
                             </button>
@@ -100,7 +87,7 @@ const Navbar = ({ connectWallet, publicKey }: { connectWallet: () => void; publi
                             target="_blank"
                             rel="noopener noreferrer"
                             href={`https://pump.fun/coin/${window.serverData.mintAddress}`}
-                            className={classNames(styles.button, styles.buyButton)}
+                            className={cls(styles.button, styles.buyButton)}
                         >
                             Buy
                         </a>
@@ -173,7 +160,7 @@ const Footer = () => {
                                 value={inputValue}
                                 onChange={(e) => setInputValue(e.target.value)}
                                 onKeyPress={handleKeyPress}
-                                className={classNames(styles.input, animateText && styles.textMoveAnimation)}
+                                className={cls(styles.input, animateText && styles.textMoveAnimation)}
                                 placeholder="Ask anything..."
                                 disabled={isLoading}
                             />
@@ -183,12 +170,9 @@ const Footer = () => {
                                 className={styles.submitButton}
                             >
                                 {isLoading ? <div className="flex items-center justify-center gap-2.5">
-                                    {/*
-                                    todo: fix adding icon here causes page to throw an error after isLoading switched back to false
-                                    <LoaderIcon /> */}
+                                    <LoaderIcon />
                                     <p className="text-black text-sm font-medium leading-snug">
                                         Loading<span className="animate-pulse" >...</span></p>
-
                                 </div>
                                     : "→"}
                             </button>
@@ -219,7 +203,7 @@ const ResponseDisplay = React.forwardRef<
                 const url = window.location.href;
                 if (navigator.clipboard && navigator.clipboard.writeText) {
                     await navigator.clipboard.writeText(url);
-                    alert("Link copied to clipboard!");
+                    toast.success("Link copied to clipboard!");
                     return;
                 }
                 const textarea = document.createElement("textarea");
@@ -231,37 +215,14 @@ const ResponseDisplay = React.forwardRef<
                 try {
                     document.execCommand("copy");
                     textarea.remove();
-                    alert("Link copied to clipboard!");
+                    toast.success("Link copied to clipboard!");
                 } catch (err) {
                     textarea.remove();
-                    alert("Failed to copy link. Please copy it manually.");
+                    toast.error("Failed to copy link. Please copy it manually.");
                 }
             } catch (err) {
                 console.error("Sharing failed:", err);
-                alert("Failed to share. Please try copying the URL manually.");
-                /*
-insetad of alerts we should use toast
-
-import { Toaster, toast } from 'sonner'
-
-// ...
-
-function App() {
-  return (
-    <div>
-      <Toaster richColors  />
-      <button onClick={() => toast.error('Event has not been created')}>
-        Give me a toast
-      </button>
-    </div>
-  )
-}
-
-// ...
-
-
-
-                */
+                toast.error("Failed to share. Please try copying the URL manually.");
             }
         };
 
@@ -269,7 +230,7 @@ function App() {
             <div className="flex flex-col items-center justify-center w-full">
                 <div
                     ref={ref}
-                    className={classNames(styles.responseContainer, visible ? "animate-ios-like" : "opacity-0")}
+                    className={cls(styles.responseContainer, visible ? "animate-ios-like" : "opacity-0")}
                 >
                     <div className={styles.responseHeader}>
                         <div className="text-neutral-200 text-sm sm:text-base">{response.question}</div>
@@ -362,7 +323,7 @@ const ChatPage = ({ params }: any) => {
                 timestamp: window.serverData.timestamp,
             });
         } else {
-            alert(`Error: chat not found`);
+            toast.error("Error: chat not found");
             const fetchResponse = async () => {
                 try {
                     const res = await fetch(`/chat/${params.id}`);
@@ -436,7 +397,6 @@ export default function App() {
             }
             const data = await response.json();
             if (data.twitterPostLink) {
-                // window.open(data.twitterPostLink, '_blank');
                 window.location = data.twitterPostLink;
             } else if (data.chatId) {
                 window.serverData = {
@@ -449,16 +409,16 @@ export default function App() {
             }
         } catch (error) {
             console.error("Error submitting question:", error);
-            alert("Failed to submit question. Please, ensure its appropriate to the agent domain of expertise and then try again.");
+            toast.error("Failed to submit question. Please, ensure it's appropriate to the agent domain of expertise and then try again.");
         } finally {
             setIsLoading(false);
         }
-
     };
 
     return (
         <AppContext.Provider value={{ inputValue, setInputValue, handleSubmit, isLoading, setIsLoading }}>
             <div className="h-screen w-screen font-sans antialiased flex flex-col bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-900 animate-wave bg-[length:400%_400%] overflow-hidden">
+                <Toaster richColors />
                 <Navbar connectWallet={connectWallet} publicKey={publicKey} />
                 <Switch>
                     <Route path="/buy" component={BuyPage} />
@@ -470,28 +430,17 @@ export default function App() {
     );
 };
 
-// todo: we dont need to show bot titles, instead just show "CA:" + serverData.mintAddress if its present
 const Header = () => {
-    const [titleIndex, setTitleIndex] = useState(0);
-
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setTitleIndex((prevIndex) => (prevIndex + 1) % window.serverData.alternativeBotTitles.length);
-        }, 5000);
-
-        return () => clearInterval(interval);
-    }, []);
-
     return (
         <div className={styles.header}>
-            <div className={stylxes.headerContent}>
+            <div className={styles.headerContent}>
                 <div className={styles.avatar}>
                     <img src={window.serverData.agentImage} alt={window.serverData.botName} className="w-full h-full object-cover" />
                 </div>
                 <div className="flex flex-col items-center gap-2 md:gap-3">
-                    <h1 key={`title-${titleIndex}`} className={styles.headerTitle}>
+                    <h1 className={styles.headerTitle}>
                         <span className={styles.animation}>
-                            {window.serverData.alternativeBotTitles[titleIndex]}
+                            {window.serverData.mintAddress ? `CA: ${window.serverData.mintAddress}` : window.serverData.botName}
                         </span>
                     </h1>
                 </div>
@@ -500,13 +449,12 @@ const Header = () => {
     );
 };
 
-// todo: instead of scrolling these questions we should have kind of a switching slideshow of actual question/answer pairs rotating the same kind of cards as we have in response display, and scroll items instead should be used for typing animation of input question placeholder
 const ScrollingQuestions = React.memo((
     { handleQuestionClick }: { handleQuestionClick: (question: string) => void },
 ) => (
     <div className={styles.scrollContainer}>
         <div id="line-scrolled-left" className={styles.scrollInner}>
-            <div className={classNames(styles.scrollInnerContent)} style={{ animationDuration: "120s", width: "3984px" }}>
+            <div className={cls(styles.scrollInnerContent)} style={{ animationDuration: "120s", width: "3984px" }}>
                 {window.serverData.scrollItemsLeft.map((item: string, index: number) => (
                     <QuestionButton key={index} item={item} handleQuestionClick={handleQuestionClick} />
                 ))}
@@ -514,7 +462,7 @@ const ScrollingQuestions = React.memo((
         </div>
         <div id="line-scrolled-right" className={styles.scrollInner}>
             <div
-                className={classNames(styles.scrollInnerContent)}
+                className={cls(styles.scrollInnerContent)}
                 style={{ animationDuration: "120s", width: "3984px", animationDirection: "reverse" }}
             >
                 {window.serverData.scrollItemsRight.map((item: string, index: number) => (
@@ -546,7 +494,6 @@ const QuestionButton = (
     );
 };
 
-// todo: these social links must be moved top left corner along with title
 const SocialLinks = () => {
     const socialLinks = window.serverData?.socialLinks || {};
     return (
