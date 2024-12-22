@@ -104,7 +104,8 @@ function htmlTemplate(scriptLink: string, serverData: string = '{}'): string {
         {
           "imports": {
             "react": "https://esm.sh/react@19.0.0/?dev",
-            "react-dom/client": "https://esm.sh/react-dom@19.0.0/client/?dev"
+            "react-dom/client": "https://esm.sh/react-dom@19.0.0/client/?dev",
+            "sonner": "https://esm.sh/sonner@1.7.1/?dev"
           }
         }
       </script>

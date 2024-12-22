@@ -50,23 +50,21 @@ export function classNames(...classes: any) {
   return classes.filter(Boolean).join(" ");
 }
 
-// todo: clean up styles towards more uniformity and extract commonly used combinations of classes here into styles then combine them together for specific elements using cls inline, so here keys of the styles should not point to specific elements but rather describe what this combination of classes is doing
 const styles = {
   nav: "sticky top-0 z-50 backdrop-blur-sm",
-  formButton: "w-full mt-8 px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors",
+  buttonPrimary: "w-full mt-8 px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors",
+  buttonSecondary: "ml-4 px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50",
   textButton: "flex items-center px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors",
   header: "bg-white border-b border-gray-200",
   headerContainer: "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
   headerContent: "flex justify-between h-16",
   headerTitle: "flex-shrink-0 flex items-center gap-2",
-  headerButton: "ml-4 px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900",
   stepContainer: "max-w-2xl mx-auto py-12 px-4",
   stepContent: "bg-white rounded-xl shadow-lg p-8",
   successIcon: "mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4",
   successText: "text-lg font-medium text-gray-900 mb-2",
   successSubText: "text-sm text-gray-500 mb-6",
   successLink: "text-blue-600 hover:text-blue-800 break-all",
-  successButton: "inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50",
   landingHero: "text-center max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16",
   landingTitle: "text-4xl sm:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-600 mb-6",
   landingDescription: "text-lg text-gray-600 mb-12",
@@ -91,21 +89,23 @@ export function Navigation() {
 }
 
 export function Header() {
+  const handleConnectWallet = () => {
+    console.log("Connect Wallet clicked");
+  };
+
   return (
     <header className={styles.header}>
       <div className={styles.headerContainer}>
         <div className={styles.headerContent}>
           <div className="flex">
             <div className={styles.headerTitle}>
-              <img src={assets.logomark} />
-              {/* logo should be 24x24px with 8px between title and its title should be in bold geohumanist-sans font with color 006DD8 and overall app colors to be adjusted accordingly */}
-              <span className="text-xl font-bold text-gray-900">Mements</span>
+              <img src={assets.logomark} alt="Logo" style={{ width: '24px', height: '24px', marginRight: '8px' }} />
+              <span className="text-xl font-bold text-[#006DD8]">Mements</span>
             </div>
             <Navigation />
           </div>
           <div className="flex items-center">
-            {/* todo: it should looke like a secondary button and should have click handler */}
-            <button className={styles.headerButton}>
+            <button className={styles.buttonSecondary} onClick={handleConnectWallet}>
               Connect Wallet
             </button>
           </div>
@@ -370,7 +370,7 @@ function CreateMementForm() {
               onPurposeChange={(value) => updateField('purpose', value)}
             />
             {canProceed && (
-              <button onClick={handleDeploy} className={styles.formButton}>
+              <button onClick={handleDeploy} className={styles.buttonPrimary}>
                 Deploy Mement
               </button>
             )}
@@ -438,7 +438,7 @@ function DeploymentSuccess() {
           {agentUrl}
         </a>
       </div>
-      <button onClick={handleEdit} className={styles.successButton}>
+      <button onClick={handleEdit} className={styles.buttonSecondary}>
         Deploy new one
       </button>
     </div>
