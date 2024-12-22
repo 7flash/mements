@@ -136,7 +136,7 @@ const MainContent = () => {
                     <div className={els.mainContent}>
                         <div className={els.mainInner}>
                             <Header />
-                            <ScrollingQuestions handleQuestionClick={handleQuestionClick} />
+                            <Gallery handleQuestionClick={handleQuestionClick} />
                             <SocialLinks />
                         </div>
                     </div>
@@ -411,13 +411,15 @@ export default function App() {
                 },
                 body: JSON.stringify({ content }),
             });
-            if (!response.ok) {
-                throw new Error("Network response was not ok");
-            }
+            
             const data = await response.json();
-            if (data.twitterPostLink) {
-                window.location = data.twitterPostLink;
-            } else if (data.chatId) {
+
+            if (!response.ok) {
+                toast.error(`Error: ${data.error}. ${data.details}`);
+                return;
+            }            
+
+            if (data.chatId) {
                 window.serverData = {
                     ...window.serverData,
                     ...data,
@@ -468,48 +470,19 @@ const Header = () => {
     );
 };
 
-const ScrollingQuestions = React.memo((
-    { handleQuestionClick }: { handleQuestionClick: (question: string) => void },
-) => (
-    <div className={els.scrollContainer}>
-        <div id="line-scrolled-left" className={els.scrollInner}>
-            <div className={cls(els.scrollInnerContent)} style={{ animationDuration: "120s", width: "3984px" }}>
-                {window.serverData.scrollItemsLeft.map((item: string, index: number) => (
-                    <QuestionButton key={index} item={item} handleQuestionClick={handleQuestionClick} />
-                ))}
-            </div>
-        </div>
-        <div id="line-scrolled-right" className={els.scrollInner}>
-            <div
-                className={cls(els.scrollInnerContent)}
-                style={{ animationDuration: "120s", width: "3984px", animationDirection: "reverse" }}
-            >
-                {window.serverData.scrollItemsRight.map((item: string, index: number) => (
-                    <QuestionButton key={index} item={item} handleQuestionClick={handleQuestionClick} />
-                ))}
-            </div>
-        </div>
-    </div>
-));
-
-const QuestionButton = (
-    { item, handleQuestionClick }: { item: string; handleQuestionClick: (question: string) => void },
-) => {
-    const { isLoading } = useContext(AppContext);
+const Gallery = ({ handleQuestionClick }: { handleQuestionClick: (question: string) => void }) => {
+    const exampleResponses = window.serverData.exampleResponses || [];
 
     return (
-        <button
-            onClick={() => handleQuestionClick(item)}
-            className={els.questionButton}
-            disabled={isLoading}
-        >
-            <span className={els.questionButtonInner}>
-                
-            </span>
-            <span className={els.questionButtonText}>
-                {item}
-            </span>
-        </button>
+        <div className={styles.galleryContainer}>
+            {exampleResponses.map((response: any, index: number) => (
+                <ResponseDisplay
+                    key={index}
+                    response={response}
+                    onReset={() => handleQuestionClick(response.question)}
+                />
+            ))}
+        </div>
     );
 };
 
