@@ -17,6 +17,7 @@ export function cls(...classes: any) {
     return classes.filter(Boolean).join(" ");
 }
 
+// todo: styles key should not point to specific elements but should describe what each style is doing like "fixedAtTheBottom" and "blurredZincBackground" can be two different styles
 const styles = {
     nav: "sticky top-0 z-50 backdrop-blur-sm",
     navContainer: "max-w-7xl mx-auto px-4",
@@ -57,6 +58,9 @@ const styles = {
     transitionText: "transition-transform duration-500 ease-in-out",
     textMoveAnimation: "transition-transform duration-700 ease-in-out transform scale-105",
 };
+
+// todo: extract all styles for specific elements in here by combining common styles for each for example "footer" key can be equal to cls(styles.fixedAtTheBottom, cls.blurredZincBackground) ensure all elements then are pointing to corresponding element style
+const els = {};
 
 const Navbar = ({ connectWallet, publicKey }: { connectWallet: () => void; publicKey: string }) => {
     const shortenPublicKey = (key: string) => {
