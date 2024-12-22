@@ -464,8 +464,10 @@ be careful to process unfiltered user context, and rather ensure generated trigg
           console.log(requestId, "Workflow result", result);
 
           if (result?.success?.toLowerCase() !== 'true') {
-            // todo: when this specific error is handled it shoudl actually take result.thinking value and pass it in response to frontend
-            throw new Error('not appropriate question: ' + JSON.stringify(result));
+            return new Response(JSON.stringify({ error: 'Not an appropriate question', details: result.thinking }), {
+              headers: { "Content-Type": "application/json" },
+              status: 400
+            });
           }
 
           const telegramBotQuery = db.query<TelegramBot, { $subdomain: string }>("SELECT bot_token, group_id FROM telegram_bots WHERE subdomain = $subdomain");
@@ -532,6 +534,7 @@ be careful to process unfiltered user context, and rather ensure generated trigg
             const twitterPostLink = `https://twitter.com/${twitterBotData.screen_name}/status/${tweetId}`;
 
             // todo: in case if its actually posted on twitter it must still proceed with normal flow which should be moved away from catch case and should be normal we still insert into chats and return responseData but just adding twitterPostLink into our responseData
+            
             console.log(requestId, "Tweet posted successfully", twitterPostLink);
             return new Response(JSON.stringify({ twitterPostLink }), {
               headers: { "Content-Type": "application/json" },

@@ -398,7 +398,20 @@ export default function App() {
             if (!response.ok) {
                 throw new Error("Network response was not ok");
             }
+
+/*
+todo: sometimes, response can be like this
+
+            return new Response(JSON.stringify({ error: 'Not an appropriate question', details: result.thinking }), {
+              headers: { "Content-Type": "application/json" },
+              status: 400
+            });
+
+            in which case we should just show an error toast message with response details to explain why it was rejected and allow user to edit and submit his question again
+*/
+
             const data = await response.json();
+            // todo: even if there is data.twitterPostLink we should still show a normal /chat but now it should also show a link data.twitterPostLink
             if (data.twitterPostLink) {
                 window.location = data.twitterPostLink;
             } else if (data.chatId) {
