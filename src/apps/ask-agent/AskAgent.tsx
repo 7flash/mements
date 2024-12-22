@@ -17,50 +17,68 @@ export function cls(...classes: any) {
     return classes.filter(Boolean).join(" ");
 }
 
-// todo: styles key should not point to specific elements but should describe what each style is doing like "fixedAtTheBottom" and "blurredZincBackground" can be two different styles
 const styles = {
-    nav: "sticky top-0 z-50 backdrop-blur-sm",
-    navContainer: "max-w-7xl mx-auto px-4",
-    navContent: "flex items-center justify-between h-14 sm:h-16 md:h-20",
-    link: "font-mono text-lg md:text-xl font-semibold tracking-tight text-white hover:opacity-80 transition-opacity flex items-center",
-    button: "cursor-pointer inline-flex items-center justify-center gap-2 whitespace-nowrap font-bold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-neutral-950 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 dark:focus-visible:ring-neutral-300 rounded-xl h-9 sm:h-10 px-6 sm:px-8",
-    connectButton: "bg-neutral-800 text-white py-4 sm:py-6 text-sm sm:text-base border-b-4 hover:border-b-2 hover:border-t-2 border-neutral-900 hover:border-neutral-900 transition-all duration-100 dark:bg-neutral-700 dark:border-neutral-800 text-neutral-300 hover:text-white transition-colors",
-    buyButton: "bg-[#32ABFC] text-white py-4 sm:py-6 text-sm sm:text-base border-b-4 hover:border-b-2 hover:border-t-2 border-[#2474c3] hover:border-[#2474c3] transition-all duration-100",
-    main: "flex-1 flex flex-col overflow-x-hidden bg-zinc-900 text-blue-100",
+    fixedAtTheBottom: "fixed bottom-0 left-0 right-0",
+    blurredZincBackground: "bg-zinc-900/80 backdrop-blur-sm",
+    maxWidthContainer: "max-w-7xl mx-auto px-4",
+    flexCenter: "flex items-center justify-center",
+    flexBetween: "flex items-center justify-between",
+    flexColumn: "flex flex-col",
+    flex1: "flex-1",
+    textWhite: "text-white",
+    textNeutral: "text-neutral-200",
+    transitionOpacity: "transition-opacity",
+    hoverOpacity: "hover:opacity-80",
+    roundedXl: "rounded-xl",
+    borderNeutral: "border border-neutral-800/50",
+    shadowXl: "shadow-xl",
+    overflowHidden: "overflow-hidden",
+    transitionAll: "transition-all duration-100",
+    transitionColors: "transition-colors",
+    animateTyping: "animate-typing overflow-hidden whitespace-nowrap border-r-2 border-white pr-1",
+    transitionTransform: "transition-transform duration-500 ease-in-out",
+    textMoveAnimation: "transition-transform duration-700 ease-in-out transform scale-105",
+};
+
+const els = {
+    nav: cls("sticky top-0 z-50 backdrop-blur-sm", styles.maxWidthContainer),
+    navContent: cls(styles.flexBetween, "h-14 sm:h-16 md:h-20"),
+    link: cls("font-mono text-lg md:text-xl font-semibold tracking-tight", styles.textWhite, styles.hoverOpacity),
+    button: cls("cursor-pointer inline-flex items-center justify-center gap-2 whitespace-nowrap font-bold", styles.roundedXl, "h-9 sm:h-10 px-6 sm:px-8"),
+    connectButton: cls("bg-neutral-800", styles.textWhite, "py-4 sm:py-6 text-sm sm:text-base border-b-4 hover:border-b-2 hover:border-t-2 border-neutral-900 hover:border-neutral-900", styles.transitionAll),
+    buyButton: cls("bg-[#32ABFC]", styles.textWhite, "py-4 sm:py-6 text-sm sm:text-base border-b-4 hover:border-b-2 hover:border-t-2 border-[#2474c3] hover:border-[#2474c3]", styles.transitionAll),
+    main: cls(styles.flex1, styles.flexColumn, "overflow-x-hidden bg-zinc-900 text-blue-100"),
     mainFixed: "fixed inset-0 min-h-[100dvh]",
     mainContent: "h-full p-3 sm:p-4 pb-24 sm:pb-32 font-mono overflow-y-auto",
-    mainInner: "h-full flex flex-col items-center justify-center -mx-2 sm:-mx-4",
-    footer: "fixed bottom-0 left-0 right-0 bg-zinc-900/80 backdrop-blur-sm",
+    mainInner: cls("h-full", styles.flexColumn, styles.flexCenter, "-mx-2 sm:-mx-4"),
+    footer: cls(styles.fixedAtTheBottom, styles.blurredZincBackground),
     footerContent: "w-full pb-3 px-3 sm:pb-4 sm:px-4",
     footerInner: "max-w-2xl mx-auto",
     form: "w-full max-w-3xl mx-auto",
     inputContainer: "relative",
-    input: "flex w-full px-3 shadow-sm file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-neutral-950 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-neutral-950 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-800 dark:file:text-neutral-50 dark:placeholder:text-neutral-400 dark:focus-visible:ring-neutral-700 py-4 sm:py-3 pr-10 rounded-xl bg-white/5 border-[1.5px] border-white/10 hover:border-white/20 focus:border-white/20 focus:ring-0 focus:outline-none text-white placeholder:text-neutral-400 transition-colors text-[18px]",
-    submitButton: "font-sans text-base md:text-lg font-semibold leading-6 md:leading-7 absolute right-2 top-1/2 -translate-y-1/2 p-2 text-neutral-400 hover:text-white rounded-xl disabled:opacity-50 transition-colors",
-    responseContainer: "w-full max-w-xl bg-neutral-950 rounded-xl border border-neutral-800/50 shadow-xl overflow-hidden relative",
+    input: cls("flex w-full px-3 shadow-sm file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-neutral-950", "py-4 sm:py-3 pr-10", styles.roundedXl, "bg-white/5 border-[1.5px] border-white/10 hover:border-white/20", styles.textWhite, "placeholder:text-neutral-400", styles.transitionColors, "text-[18px]"),
+    submitButton: cls("font-sans text-base md:text-lg font-semibold leading-6 md:leading-7 absolute right-2 top-1/2 -translate-y-1/2 p-2 text-neutral-400 hover:text-white", styles.roundedXl, styles.transitionColors),
+    responseContainer: cls("w-full max-w-xl bg-neutral-950", styles.roundedXl, styles.borderNeutral, styles.shadowXl, styles.overflowHidden, "relative"),
     responseHeader: "px-4 sm:px-7 py-3 sm:py-5 border-b border-neutral-800/50 bg-neutral-900/50",
     responseContent: "px-4 sm:px-7 py-4 sm:py-6",
     responseMeta: "mt-4 sm:mt-6 flex items-center gap-1",
-    shareButton: "bg-blue-600 text-white font-bold rounded-xl px-6 py-3 flex-1 hover:bg-blue-700 transition-all duration-200 transform hover:scale-105",
-    pageContainer: "flex flex-col items-center justify-center min-h-screen bg-neutral-900",
+    shareButton: cls("bg-blue-600", styles.textWhite, "font-bold", styles.roundedXl, "px-6 py-3 flex-1 hover:bg-blue-700", styles.transitionAll, "transform hover:scale-105"),
+    pageContainer: cls(styles.flexColumn, styles.flexCenter, "min-h-screen bg-neutral-900"),
     scrollContainer: "relative w-full max-w-full space-y-2 sm:space-y-3 mb-4 overflow-hidden",
     scrollInner: "relative w-full overflow-hidden",
     scrollInnerContent: "inline-flex gap-3 animate-scroll-slower hover:pause-animation",
-    questionButton: "flex items-center gap-2.5 px-4 py-2.5 bg-[#1a1b1e] hover:bg-[#25262A] border border-white/[0.08] transition-all duration-200 group rounded-xl min-w-[260px] max-w-[400px] w-fit shrink-0 hover:cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
-    questionButtonInner: "font-sans md:text-sm leading-7 text-lg flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity",
-    questionButtonText: "font-mono text-xs md:text-sm leading-5 md:leading-6 text-[#A1A1AA] font-medium whitespace-nowrap group-hover:text-white/90 transition-colors",
-    socialLink: "flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-neutral-200 transition-all hover:scale-110 transform duration-200",
+    questionButton: cls("flex items-center gap-2.5 px-4 py-2.5 bg-[#1a1b1e] hover:bg-[#25262A] border border-white/[0.08]", styles.transitionAll, "duration-200 group", styles.roundedXl, "min-w-[260px] max-w-[400px] w-fit shrink-0 hover:cursor-pointer"),
+    questionButtonInner: cls("font-sans md:text-sm leading-7 text-lg flex-shrink-0 opacity-0 group-hover:opacity-100", styles.transitionOpacity),
+    questionButtonText: cls("font-mono text-xs md:text-sm leading-5 md:leading-6 text-[#A1A1AA] font-medium whitespace-nowrap group-hover:text-white/90", styles.transitionColors),
+    socialLink: cls("flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12", styles.roundedXl, "bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-neutral-200", styles.transitionAll, "hover:scale-110 transform duration-200"),
     header: "mb-6 sm:mb-12",
-    headerContent: "text-center flex flex-col items-center gap-4 sm:gap-6 md:gap-12 pt-4 sm:pt-8",
-    avatar: "w-24 h-24 sm:w-32 sm:h-32 md:w-56 md:h-56 rounded-full overflow-hidden border-4 border-white",
-    headerTitle: "font-mono text-3xl md:text-4xl font-black tracking-tight inline-flex",
-    animation: "animate-typing overflow-hidden whitespace-nowrap border-r-2 border-white pr-1",
-    transitionText: "transition-transform duration-500 ease-in-out",
-    textMoveAnimation: "transition-transform duration-700 ease-in-out transform scale-105",
+    headerContent: cls("text-center", styles.flexColumn, styles.flexCenter, "gap-4 sm:gap-6 md:gap-12 pt-4 sm:pt-8"),
+    avatar: cls("w-24 h-24 sm:w-32 sm:h-32 md:w-56 md:h-56", styles.roundedXl, "overflow-hidden border-4 border-white"),
+    headerTitle: cls("font-mono text-3xl md:text-4xl font-black tracking-tight", "inline-flex"),
+    animation: styles.animateTyping,
+    transitionText: styles.transitionTransform,
+    textMoveAnimation: styles.textMoveAnimation,
 };
-
-// todo: extract all styles for specific elements in here by combining common styles for each for example "footer" key can be equal to cls(styles.fixedAtTheBottom, cls.blurredZincBackground) ensure all elements then are pointing to corresponding element style
-const els = {};
 
 const Navbar = ({ connectWallet, publicKey }: { connectWallet: () => void; publicKey: string }) => {
     const shortenPublicKey = (key: string) => {
@@ -68,34 +86,32 @@ const Navbar = ({ connectWallet, publicKey }: { connectWallet: () => void; publi
     };
 
     return (
-        <nav className={styles.nav}>
-            <div className={styles.navContainer}>
-                <div className={styles.navContent}>
-                    <Link
-                        className={styles.link}
-                        to="/"
-                    >
-                        <span className="text-neutral-200">Chat</span>
-                        <span className="text-red-500">{window.serverData.botName}</span>
-                    </Link>
-                    <div className="flex-shrink-0 flex items-center space-x-4">
-                        {publicKey ? <span className="text-white font-mono">{shortenPublicKey(publicKey)}</span> : (
-                            <button
-                                onClick={connectWallet}
-                                className={cls(styles.button, styles.connectButton)}
-                            >
-                                Connect Wallet
-                            </button>
-                        )}
-                        <a
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            href={`https://pump.fun/coin/${window.serverData.mintAddress}`}
-                            className={cls(styles.button, styles.buyButton)}
+        <nav className={els.nav}>
+            <div className={els.navContent}>
+                <Link
+                    className={els.link}
+                    to="/"
+                >
+                    <span className={styles.textNeutral}>Chat</span>
+                    <span className="text-red-500">{window.serverData.botName}</span>
+                </Link>
+                <div className="flex-shrink-0 flex items-center space-x-4">
+                    {publicKey ? <span className={cls(styles.textWhite, "font-mono")}>{shortenPublicKey(publicKey)}</span> : (
+                        <button
+                            onClick={connectWallet}
+                            className={cls(els.button, els.connectButton)}
                         >
-                            Buy
-                        </a>
-                    </div>
+                            Connect Wallet
+                        </button>
+                    )}
+                    <a
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        href={`https://pump.fun/coin/${window.serverData.mintAddress}`}
+                        className={cls(els.button, els.buyButton)}
+                    >
+                        Buy
+                    </a>
                 </div>
             </div>
         </nav>
@@ -114,11 +130,11 @@ const MainContent = () => {
     };
 
     return (
-        <div className="flex-1">
-            <main className={styles.main}>
-                <div className={styles.mainFixed}>
-                    <div className={styles.mainContent}>
-                        <div className={styles.mainInner}>
+        <div className={styles.flex1}>
+            <main className={els.main}>
+                <div className={els.mainFixed}>
+                    <div className={els.mainContent}>
+                        <div className={els.mainInner}>
                             <Header />
                             <ScrollingQuestions handleQuestionClick={handleQuestionClick} />
                             <SocialLinks />
@@ -154,24 +170,24 @@ const Footer = () => {
     };
 
     return (
-        <div className={styles.footer}>
-            <div className={styles.footerContent}>
-                <div className={styles.footerInner}>
-                    <form className={styles.form} onSubmit={handleFormSubmit}>
-                        <div className={styles.inputContainer}>
+        <div className={els.footer}>
+            <div className={els.footerContent}>
+                <div className={els.footerInner}>
+                    <form className={els.form} onSubmit={handleFormSubmit}>
+                        <div className={els.inputContainer}>
                             <input
                                 type="text"
                                 value={inputValue}
                                 onChange={(e) => setInputValue(e.target.value)}
                                 onKeyPress={handleKeyPress}
-                                className={cls(styles.input, animateText && styles.textMoveAnimation)}
+                                className={cls(els.input, animateText && els.textMoveAnimation)}
                                 placeholder="Ask anything..."
                                 disabled={isLoading}
                             />
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className={styles.submitButton}
+                                className={els.submitButton}
                             >
                                 {isLoading ? <div className="flex items-center justify-center gap-2.5">
                                     <p className="text-black text-sm font-medium leading-snug">
@@ -230,15 +246,15 @@ const ResponseDisplay = React.forwardRef<
         };
 
         return (
-            <div className="flex flex-col items-center justify-center w-full">
+            <div className={cls(styles.flexColumn, styles.flexCenter, "w-full")}>
                 <div
                     ref={ref}
-                    className={cls(styles.responseContainer, visible ? "animate-ios-like" : "opacity-0")}
+                    className={cls(els.responseContainer, visible ? "animate-ios-like" : "opacity-0")}
                 >
-                    <div className={styles.responseHeader}>
+                    <div className={els.responseHeader}>
                         <div className="text-neutral-200 text-sm sm:text-base">{response.question}</div>
                     </div>
-                    <div className={styles.responseContent}>
+                    <div className={els.responseContent}>
                         <div className="flex gap-3 sm:gap-4 mb-3 items-center">
                             <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-full overflow-hidden ring-1 ring-neutral-800 flex-shrink-0">
                                 <img src={window.serverData.agentImage} alt={`chat${window.serverData.botName}`} className="w-full h-full object-cover" />
@@ -261,7 +277,7 @@ const ResponseDisplay = React.forwardRef<
                                 ))}
                             </div>
                         </div>
-                        <div className={styles.responseMeta}>
+                        <div className={els.responseMeta}>
                             <div className="text-neutral-500 text-xs sm:text-sm">
                                 {new Date(response.timestamp).toLocaleTimeString([], {
                                     hour: "numeric",
@@ -345,7 +361,7 @@ const ChatPage = ({ params }: any) => {
     }
 
     return (
-        <div className={styles.pageContainer}>
+        <div className={els.pageContainer}>
             <ResponseDisplay
                 response={response}
                 onReset={() => console.log("Reset")}
@@ -353,7 +369,7 @@ const ChatPage = ({ params }: any) => {
             <div className="fixed bottom-0 left-0 right-0 p-4 z-50">
                 <div className="max-w-xl mx-auto flex gap-2 sm:gap-4">
                     <a
-                        className={styles.shareButton}
+                        className={els.shareButton}
                         target="_blank"
                         href={`https://twitter.com/intent/tweet?text="${encodeURIComponent(response.content)}" - ${encodeURIComponent(window.serverData.botName)} ${encodeURIComponent(window.location.href)}`}
                     >
@@ -398,21 +414,7 @@ export default function App() {
             if (!response.ok) {
                 throw new Error("Network response was not ok");
             }
-
-/*
-todo: sometimes, response can be like this
-
-            return new Response(JSON.stringify({ error: 'Not an appropriate question', details: result.thinking }), {
-              headers: { "Content-Type": "application/json" },
-              status: 400
-            });
-
-            in which case we should just show an error toast message with response details to explain why it was rejected and allow user to edit and submit his question again
-*/
-
             const data = await response.json();
-
-            // todo: even if there is data.twitterPostLink we should still show a normal /chat but now it should also show a link data.twitterPostLink along and if its present should show repost button rather than share
             if (data.twitterPostLink) {
                 window.location = data.twitterPostLink;
             } else if (data.chatId) {
@@ -449,14 +451,14 @@ todo: sometimes, response can be like this
 
 const Header = () => {
     return (
-        <div className={styles.header}>
-            <div className={styles.headerContent}>
-                <div className={styles.avatar}>
+        <div className={els.header}>
+            <div className={els.headerContent}>
+                <div className={els.avatar}>
                     <img src={window.serverData.agentImage} alt={window.serverData.botName} className="w-full h-full object-cover" />
                 </div>
                 <div className="flex flex-col items-center gap-2 md:gap-3">
-                    <h1 className={styles.headerTitle}>
-                        <span className={styles.animation}>
+                    <h1 className={els.headerTitle}>
+                        <span className={els.animation}>
                             {window.serverData.mintAddress ? `CA: ${window.serverData.mintAddress}` : window.serverData.botName}
                         </span>
                     </h1>
@@ -466,22 +468,20 @@ const Header = () => {
     );
 };
 
-// todo: we dont need to show scrolling questions anymore, instead we should show multiple response displays for a few question/answer pairs examples which are being scrolled or slided one at a time like a gallery in main screen
-
 const ScrollingQuestions = React.memo((
     { handleQuestionClick }: { handleQuestionClick: (question: string) => void },
 ) => (
-    <div className={styles.scrollContainer}>
-        <div id="line-scrolled-left" className={styles.scrollInner}>
-            <div className={cls(styles.scrollInnerContent)} style={{ animationDuration: "120s", width: "3984px" }}>
+    <div className={els.scrollContainer}>
+        <div id="line-scrolled-left" className={els.scrollInner}>
+            <div className={cls(els.scrollInnerContent)} style={{ animationDuration: "120s", width: "3984px" }}>
                 {window.serverData.scrollItemsLeft.map((item: string, index: number) => (
                     <QuestionButton key={index} item={item} handleQuestionClick={handleQuestionClick} />
                 ))}
             </div>
         </div>
-        <div id="line-scrolled-right" className={styles.scrollInner}>
+        <div id="line-scrolled-right" className={els.scrollInner}>
             <div
-                className={cls(styles.scrollInnerContent)}
+                className={cls(els.scrollInnerContent)}
                 style={{ animationDuration: "120s", width: "3984px", animationDirection: "reverse" }}
             >
                 {window.serverData.scrollItemsRight.map((item: string, index: number) => (
@@ -500,13 +500,13 @@ const QuestionButton = (
     return (
         <button
             onClick={() => handleQuestionClick(item)}
-            className={styles.questionButton}
+            className={els.questionButton}
             disabled={isLoading}
         >
-            <span className={styles.questionButtonInner}>
+            <span className={els.questionButtonInner}>
                 
             </span>
-            <span className={styles.questionButtonText}>
+            <span className={els.questionButtonText}>
                 {item}
             </span>
         </button>
@@ -522,7 +522,7 @@ const SocialLinks = () => {
                     href={socialLinks.gitbook}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={styles.socialLink}
+                    className={els.socialLink}
                 >
                     <GitbookIcon />
                 </a>
@@ -532,7 +532,7 @@ const SocialLinks = () => {
                     href={socialLinks.telegram}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={styles.socialLink}
+                    className={els.socialLink}
                 >
                     <TelegramIcon />
                 </a>
@@ -542,7 +542,7 @@ const SocialLinks = () => {
                     href={socialLinks.dex}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={styles.socialLink}
+                    className={els.socialLink}
                 >
                     <DexIcon />
                 </a>
@@ -552,7 +552,7 @@ const SocialLinks = () => {
                     href={socialLinks.X}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={styles.socialLink}
+                    className={els.socialLink}
                 >
                     <XIcon />
                 </a>
