@@ -63,6 +63,10 @@ const assets = await buildAssets({
     href: "/assets/Geist.ttf",
     path: join(process.cwd(), "static/fonts", "Geist.ttf"),
   },
+  fontGeohumanistSans: {
+    href: "/assets/Sen.ttf",
+    path: join(process.cwd(), "static/fonts", "Sen.ttf"),
+  },
   fontMono: {
     href: "/assets/JetBrainsMono.ttf",
     path: join(process.cwd(), "static/fonts", "JetBrainsMono.ttf"),
@@ -86,6 +90,11 @@ function htmlTemplate(scriptLink: string, serverData: string = '{}'): string {
         @font-face {
             font-family: "Geist";
             src: url(${assets.getLink('fontSans')}) format("truetype");
+            font-display: swap;
+        }
+        @font-face {
+            font-family: "Sen";
+            src: url(${assets.getLink('fontGeohumanistSans')}) format("truetype");
             font-display: swap;
         }
       </style>

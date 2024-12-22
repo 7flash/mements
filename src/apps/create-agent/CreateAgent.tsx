@@ -2,6 +2,8 @@ import React, { useState, createContext, useContext } from 'react';
 import { Bot, MessageSquare, Terminal, Rss, Zap, Check, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Link, Route, Switch, useLocation } from "wouter";
 
+import assets from "#generated/assets.json";
+
 interface AgentContextType {
   agentConfig: Partial<AgentConfig>;
   updateAgentConfig: (updates: Partial<AgentConfig>) => void;
@@ -48,6 +50,7 @@ export function classNames(...classes: any) {
   return classes.filter(Boolean).join(" ");
 }
 
+// todo: clean up styles towards more uniformity and extract commonly used combinations of classes here into styles then combine them together for specific elements using cls inline, so here keys of the styles should not point to specific elements but rather describe what this combination of classes is doing
 const styles = {
   nav: "sticky top-0 z-50 backdrop-blur-sm",
   formButton: "w-full mt-8 px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors",
@@ -72,9 +75,6 @@ const styles = {
 
 export function Navigation() {
   const links = [
-    { name: 'Home', href: '/' },
-    { name: 'My Agents', href: '#' },
-    { name: 'Create Agent', href: '/create' },
   ];
 
   return (
@@ -97,12 +97,14 @@ export function Header() {
         <div className={styles.headerContent}>
           <div className="flex">
             <div className={styles.headerTitle}>
-              <Bot className="w-6 h-6 text-purple-600" />
+              <img src={assets.logomark} />
+              {/* logo should be 24x24px with 8px between title and its title should be in bold geohumanist-sans font with color 006DD8 and overall app colors to be adjusted accordingly */}
               <span className="text-xl font-bold text-gray-900">Mements</span>
             </div>
             <Navigation />
           </div>
           <div className="flex items-center">
+            {/* todo: it should looke like a secondary button and should have click handler */}
             <button className={styles.headerButton}>
               Connect Wallet
             </button>
