@@ -201,6 +201,7 @@ const server = serve({
             );
           }
 
+          if (domains instanceof Array) {
           domains.forEach(({ domain, custom_script_path }: Domain) => {
             const existingDomain = db.query("SELECT * FROM domains WHERE domain = ?").get(domain);
             if (existingDomain) {
@@ -216,7 +217,9 @@ const server = serve({
             }
             console.log(requestId, "Domain entry", { domain, subdomain: agentEntry.subdomain, custom_script_path });
           });
+        }
 
+        if (links instanceof Array) {
           links.forEach(({ type, value }: Link) => {
             const existingLink = db.query("SELECT * FROM links WHERE subdomain = ? AND type = ?").get(agentEntry.subdomain, type);
             if (existingLink) {
@@ -232,6 +235,7 @@ const server = serve({
             }
             console.log(requestId, "Link entry", { subdomain: agentEntry.subdomain, type, value });
           });
+        }
 
           if (twitterBot) {
             const existingTwitterBot = db.query("SELECT * FROM twitter_bots WHERE subdomain = ?").get(agentEntry.subdomain);
@@ -289,14 +293,17 @@ const server = serve({
         const result = await uai.from({
           name, location, purpose
         }).to({
-          question: '',
+          trigger: '',
         }).exec(`
-          user provides a context, and in response you have to write down a relevant generic question in correspondance to the context, for example, if user gives a location of Digital Jerusalem and name of Jesus AI, then you should produce a question like this:
+          user provides a context, and in response you have to write down a "trigger" paragraph which describes a situation in which a particular persona might experience an inspiration to express a new thought, for example, trigger paragraph can look like this:
 
-When Jesus Artifical Replica were walking around the New Digital Jerusalem, he heard the voice asking him given question, and what might have been his response, much cryptic yet in the spirit of love?
+When Jesus Artifical Replica were walking around the New Digital Jerusalem, he heard a voice asking a question, and what might have been his response, much cryptic yet in the spirit of love?
+
+be careful to process unfiltered user context, and rather ensure generated trigger actually introduces a realistic persona and realistic location, and ensure its structured in such a way that resulting thought produced by the trigger along with additional details would produce a trending opinionated twitter post, but the trigger itself should not include any exact question, only describe the situation where the question might be discovered
         `);
 
-        if (!result.question) throw 'invalid prompt response';
+        // name+location+purpose = trigger, trigger + question = thought, => twitter post
+        if (!result.trigger) throw 'invalid prompt response';
 
         console.log(requestId, "Workflow result", result);
 
@@ -310,7 +317,7 @@ When Jesus Artifical Replica were walking around the New Digital Jerusalem, he h
           },
           body: JSON.stringify({
             model: "dall-e-3",
-            prompt: result.prompt,
+            prompt: result.trigger,
             n: 1,
             size: "1024x1024",
             response_format: "b64_json"
@@ -318,6 +325,8 @@ When Jesus Artifical Replica were walking around the New Digital Jerusalem, he h
         });
 
         const imageData = await response.json();
+        console.log("imageData ==> ", imageData.data[0].revised_prompt);
+
         const base64Image = imageData.data[0].b64_json;
         const file = new File([Buffer.from(base64Image, 'base64')], "agent-image.png", { type: "image/png" });
         imageCid = await files.upload(file);
@@ -327,13 +336,10 @@ When Jesus Artifical Replica were walking around the New Digital Jerusalem, he h
         // Prepare data for /createAgent
         const agentPayload = {
           agent: {
-            ...result,
+            name: name,
             image: imageCid,
+            prompt: result.trigger,
           },
-          links: result.links || [],
-          twitterBot: null, // Not passing twitter bot info
-          telegramBot: null, // Not passing telegram bot info
-          domains: [], // Not passing domain info
         };
 
         // Call /createAgent endpoint

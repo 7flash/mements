@@ -13,10 +13,11 @@ const AppContext = React.createContext({
     setIsLoading: (loading: boolean) => { },
 });
 
-export function classNames(...classes: any) {
+export function cls(...classes: any) {
     return classes.filter(Boolean).join(" ");
 }
 
+// todo: clean up styles towards more uniformity and extract commonly used combinations of classes here into styles then combine them together for specific elements using cls inline, so here keys of the styles should not point to specific elements but rather describe what this combination of classes is doing
 const styles = {
     nav: "sticky top-0 z-50 backdrop-blur-sm",
     navContainer: "max-w-7xl mx-auto px-4",
@@ -69,7 +70,6 @@ const styles = {
     transitionText: "transition-transform duration-500 ease-in-out",
     textMoveAnimation: "transition-transform duration-700 ease-in-out transform scale-105",
 };
-console.debug(1733221256);
 
 const Navbar = ({ connectWallet, publicKey }: { connectWallet: () => void; publicKey: string }) => {
     const shortenPublicKey = (key: string) => {
@@ -183,7 +183,9 @@ const Footer = () => {
                                 className={styles.submitButton}
                             >
                                 {isLoading ? <div className="flex items-center justify-center gap-2.5">
-                                    {/* <LoaderIcon /> */}
+                                    {/*
+                                    todo: fix adding icon here causes page to throw an error after isLoading switched back to false
+                                    <LoaderIcon /> */}
                                     <p className="text-black text-sm font-medium leading-snug">
                                         Loading<span className="animate-pulse" >...</span></p>
 
@@ -237,6 +239,29 @@ const ResponseDisplay = React.forwardRef<
             } catch (err) {
                 console.error("Sharing failed:", err);
                 alert("Failed to share. Please try copying the URL manually.");
+                /*
+insetad of alerts we should use toast
+
+import { Toaster, toast } from 'sonner'
+
+// ...
+
+function App() {
+  return (
+    <div>
+      <Toaster richColors  />
+      <button onClick={() => toast.error('Event has not been created')}>
+        Give me a toast
+      </button>
+    </div>
+  )
+}
+
+// ...
+
+
+
+                */
             }
         };
 
@@ -445,6 +470,7 @@ export default function App() {
     );
 };
 
+// todo: we dont need to show bot titles, instead just show "CA:" + serverData.mintAddress if its present
 const Header = () => {
     const [titleIndex, setTitleIndex] = useState(0);
 
@@ -458,7 +484,7 @@ const Header = () => {
 
     return (
         <div className={styles.header}>
-            <div className={styles.headerContent}>
+            <div className={stylxes.headerContent}>
                 <div className={styles.avatar}>
                     <img src={window.serverData.agentImage} alt={window.serverData.botName} className="w-full h-full object-cover" />
                 </div>
@@ -474,6 +500,7 @@ const Header = () => {
     );
 };
 
+// todo: instead of scrolling these questions we should have kind of a switching slideshow of actual question/answer pairs rotating the same kind of cards as we have in response display, and scroll items instead should be used for typing animation of input question placeholder
 const ScrollingQuestions = React.memo((
     { handleQuestionClick }: { handleQuestionClick: (question: string) => void },
 ) => (
@@ -510,7 +537,7 @@ const QuestionButton = (
             disabled={isLoading}
         >
             <span className={styles.questionButtonInner}>
-                >
+                
             </span>
             <span className={styles.questionButtonText}>
                 {item}
@@ -519,6 +546,7 @@ const QuestionButton = (
     );
 };
 
+// todo: these social links must be moved top left corner along with title
 const SocialLinks = () => {
     const socialLinks = window.serverData?.socialLinks || {};
     return (
