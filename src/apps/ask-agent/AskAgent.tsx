@@ -411,7 +411,8 @@ todo: sometimes, response can be like this
 */
 
             const data = await response.json();
-            // todo: even if there is data.twitterPostLink we should still show a normal /chat but now it should also show a link data.twitterPostLink
+
+            // todo: even if there is data.twitterPostLink we should still show a normal /chat but now it should also show a link data.twitterPostLink along and if its present should show repost button rather than share
             if (data.twitterPostLink) {
                 window.location = data.twitterPostLink;
             } else if (data.chatId) {
@@ -464,6 +465,8 @@ const Header = () => {
         </div>
     );
 };
+
+// todo: we dont need to show scrolling questions anymore, instead we should show multiple response displays for a few question/answer pairs examples which are being scrolled or slided one at a time like a gallery in main screen
 
 const ScrollingQuestions = React.memo((
     { handleQuestionClick }: { handleQuestionClick: (question: string) => void },
