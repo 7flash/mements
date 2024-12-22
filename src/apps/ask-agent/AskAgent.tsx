@@ -373,8 +373,8 @@ const ChatPage = ({ params }: any) => {
                         target="_blank"
                         href={`https://twitter.com/intent/tweet?text="${encodeURIComponent(response.content)}" - ${encodeURIComponent(window.serverData.botName)} ${encodeURIComponent(window.location.href)}`}
                     >
-                        Share on Twitter
-                    </a>
+                        {response.twitterPostLink ? "Repost on Twitter" : "Share on Twitter"}
+                        </a>
                 </div>
             </div>
         </div>
@@ -414,7 +414,7 @@ export default function App() {
             
             const data = await response.json();
 
-            if (!response.ok) {
+            if (response.status === 400 && data.error) {
                 toast.error(`Error: ${data.error}. ${data.details}`);
                 return;
             }            
@@ -426,7 +426,7 @@ export default function App() {
                 };
                 setLocation(`/chat/${data.chatId}`);
             } else {
-                throw 'missing response value';
+                throw new Error('Missing response value');
             }
         } catch (error) {
             console.error("Error submitting question:", error);
