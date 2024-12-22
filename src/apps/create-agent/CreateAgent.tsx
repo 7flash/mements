@@ -51,9 +51,9 @@ export function classNames(...classes: any) {
 }
 
 const styles = {
+  primaryButton: "px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors",
+  secondaryButton: "px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50",
   nav: "sticky top-0 z-50 backdrop-blur-sm",
-  buttonPrimary: "w-full mt-8 px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors",
-  buttonSecondary: "ml-4 px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50",
   textButton: "flex items-center px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors",
   header: "bg-white border-b border-gray-200",
   headerContainer: "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
@@ -73,6 +73,7 @@ const styles = {
 
 export function Navigation() {
   const links = [
+    // Define any links here if needed
   ];
 
   return (
@@ -90,7 +91,8 @@ export function Navigation() {
 
 export function Header() {
   const handleConnectWallet = () => {
-    console.log("Connect Wallet clicked");
+    // Define the connect wallet logic here
+    console.log("Connect Wallet Clicked");
   };
 
   return (
@@ -99,13 +101,13 @@ export function Header() {
         <div className={styles.headerContent}>
           <div className="flex">
             <div className={styles.headerTitle}>
-              <img src={assets.logomark} alt="Logo" style={{ width: '24px', height: '24px', marginRight: '8px' }} />
+              <img src={assets.logomark} alt="Logo" width={24} height={24} />
               <span className="text-xl font-bold text-[#006DD8]">Mements</span>
             </div>
             <Navigation />
           </div>
           <div className="flex items-center">
-            <button className={styles.buttonSecondary} onClick={handleConnectWallet}>
+            <button className={styles.secondaryButton} onClick={handleConnectWallet}>
               Connect Wallet
             </button>
           </div>
@@ -370,7 +372,7 @@ function CreateMementForm() {
               onPurposeChange={(value) => updateField('purpose', value)}
             />
             {canProceed && (
-              <button onClick={handleDeploy} className={styles.buttonPrimary}>
+              <button onClick={handleDeploy} className={styles.primaryButton}>
                 Deploy Mement
               </button>
             )}
@@ -438,7 +440,7 @@ function DeploymentSuccess() {
           {agentUrl}
         </a>
       </div>
-      <button onClick={handleEdit} className={styles.buttonSecondary}>
+      <button onClick={handleEdit} className={styles.secondaryButton}>
         Deploy new one
       </button>
     </div>
