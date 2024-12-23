@@ -134,7 +134,7 @@ export function StepHeader({ currentStep, data }: StepHeaderProps) {
       </div>
       
       <div className="flex items-center gap-3">
-        <p className="text-lg font-medium text-gray-900">@{data.handle}</p>
+        <p className="text-lg font-medium text-gray-900">"{data.handle}"</p>
         {currentStep === 'description' && data.type === 'chat' && (
           <div className="flex items-center gap-1 px-2 py-1 bg-purple-100 rounded-full">
             <MessageSquare className="w-4 h-4 text-purple-600" />
@@ -364,7 +364,7 @@ function CreateMementForm() {
       toast.error(`Unacceptable Location/Purpose`, {
         description: `${error}`,
         'closeButton': true,
-        'duration': 8000,
+        'duration': Infinity,
       });
     } finally {
       setIsDeploying(false);
