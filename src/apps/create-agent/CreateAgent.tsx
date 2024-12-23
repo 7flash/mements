@@ -52,27 +52,16 @@ export function cls(...classes: any) {
   return classes.filter(Boolean).join(" ");
 }
 
-// todo: should styles variable and instead apply all the styles directly in class names, only extract here into styles most common theme and color related combinations of classes and then join them with cls in actual element class names
+// Styles for common theme and color combinations
 const styles = {
-  primaryTextColor: "text-[#006DD8]",
-  titleFont: "text-xl font-bold font-geohumanist-sans",
-  primaryButton: "px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors cursor-pointer",
-  secondaryButton: "px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer",
-  textButton: "flex items-center px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors cursor-pointer",
+  primaryButton: "bg-purple-600 text-white hover:bg-purple-700",
+  secondaryButton: "border border-gray-300 text-gray-700 hover:bg-gray-50",
+  textButton: "text-gray-600 hover:text-gray-900",
   header: "bg-white border-b border-gray-200",
-  headerContainer: "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
-  headerContent: "flex justify-between h-16",
-  headerTitle: "flex-shrink-0 flex items-center gap-2",
-  stepContainer: "max-w-2xl mx-auto py-12 px-4",
-  stepContent: "bg-white rounded-xl shadow-lg p-8",
-  successIcon: "mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4",
-  successText: "text-lg font-medium text-gray-900 mb-2",
-  successSubText: "text-sm text-gray-500 mb-6",
-  successLink: "text-blue-600 hover:text-blue-800 break-all",
-  landingHero: "text-center max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16",
-  landingTitle: "text-4xl sm:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-600 mb-6",
-  landingDescription: "text-lg text-gray-600 mb-12",
-  landingButton: "w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-purple-500 to-blue-600 text-white rounded-lg font-medium hover:opacity-90 transition-opacity mb-16",
+  successIcon: "bg-green-100",
+  successLink: "text-blue-600 hover:text-blue-800",
+  landingTitle: "bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-600",
+  landingButton: "bg-gradient-to-r from-purple-500 to-blue-600 text-white hover:opacity-90",
 };
 
 export function Navigation() {
@@ -113,17 +102,17 @@ export function Header() {
 
   return (
     <header className={styles.header}>
-      <div className={styles.headerContainer}>
-        <div className={styles.headerContent}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
           <div className="flex">
-            <div className={styles.headerTitle}>
+            <div className="flex-shrink-0 flex items-center gap-2">
               <img src={assets.logo} alt="Logo" width={24} height={24} />
-              <span className={els.titleText}>Mements</span>
+              <span className="text-xl font-bold font-geohumanist-sans">Mements</span>
             </div>
             <Navigation />
           </div>
           <div className="flex items-center">
-            <button className={styles.secondaryButton} onClick={handleConnectWallet}>
+            <button className={`px-4 py-2 rounded-md text-sm font-medium ${styles.secondaryButton}`} onClick={handleConnectWallet}>
               Connect Wallet
             </button>
           </div>
@@ -300,14 +289,14 @@ function StepNavigation({ currentStep, onBack, onNext, canProceed }: StepNavigat
   return (
     <div className="flex justify-between mt-8">
       {currentStep !== 'handle' && (
-        <button onClick={onBack} className={styles.textButton}>
+        <button onClick={onBack} className={`flex items-center px-4 py-2 ${styles.textButton}`}>
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back
         </button>
       )}
       {currentStep !== 'description' && (
         <button onClick={onNext} disabled={!canProceed} className={`ml-auto flex items-center px-6 py-2 rounded-md ${
-          canProceed ? 'bg-purple-600 text-white hover:bg-purple-700' : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+          canProceed ? styles.primaryButton : 'bg-gray-200 text-gray-500 cursor-not-allowed'
         } transition-colors`}>
           Next
           <ArrowRight className="w-4 h-4 ml-2" />
@@ -378,9 +367,9 @@ function CreateMementForm() {
   }
 
   return (
-    <div className={styles.stepContainer}>
+    <div className="max-w-2xl mx-auto py-12 px-4">
       <StepHeader currentStep={currentStep} data={data} />
-      <div className={styles.stepContent}>
+      <div className="bg-white rounded-xl shadow-lg p-8">
         {currentStep === 'handle' && (
           <HandleInput value={data.handle} onChange={(value) => updateField('handle', value)} />
         )}
@@ -396,7 +385,7 @@ function CreateMementForm() {
               onPurposeChange={(value) => updateField('purpose', value)}
             />
             {canProceed && (
-              <button onClick={handleDeploy} className={styles.primaryButton}>
+              <button onClick={handleDeploy} className={`px-4 py-3 rounded-md ${styles.primaryButton}`}>
                 Deploy Mement
               </button>
             )}
@@ -453,16 +442,16 @@ function DeployProgress() {
 
 function LandingHero({ onProceed }: LandingHeroProps) {
   return (
-    <div className={styles.landingHero}>
-      <h1 className={styles.landingTitle}>
+    <div className="text-center max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      <h1 className={`text-4xl sm:text-6xl font-bold mb-6 ${styles.landingTitle}`}>
         Deploy AI Agents with Ease
       </h1>
-      <p className={styles.landingDescription}>
+      <p className="text-lg text-gray-600 mb-12">
         Create, manage, and scale your AI personalities effortlessly. Bring your Mements to life with our cutting-edge deployment platform.
       </p>
       <button
         onClick={onProceed}
-        className={styles.landingButton}
+        className={`w-full sm:w-auto px-8 py-3 rounded-lg font-medium mb-16 ${styles.landingButton}`}
       >
         Create New Mement
       </button>
@@ -501,18 +490,18 @@ function DeploymentSuccess() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <Confetti />
       <div className="text-center">
-        <div className={styles.successIcon}>
+        <div className={`mx-auto flex items-center justify-center h-12 w-12 rounded-full mb-4 ${styles.successIcon}`}>
           <Check className="h-6 w-6 text-green-600" />
         </div>
-        <h3 className={styles.successText}>Agent Successfully Deployed!</h3>
-        <p className={styles.successSubText}>Your agent is now live and ready to interact</p>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">Agent Successfully Deployed!</h3>
+        <p className="text-sm text-gray-500 mb-6">Your agent is now live and ready to interact</p>
         <div className="bg-gray-50 rounded-lg p-4 mb-6">
           <p className="text-sm font-medium text-gray-700 mb-2">Agent URL:</p>
           <a href={agentUrl} target="_blank" rel="noopener noreferrer" className={styles.successLink}>
             {agentUrl}
           </a>
         </div>
-        <a href={agentUrl} target="_blank" rel="noopener noreferrer" className={styles.primaryButton}>
+        <a href={agentUrl} target="_blank" rel="noopener noreferrer" className={`px-4 py-3 rounded-md ${styles.primaryButton}`}>
           Go to Agent
         </a>
       </div>
