@@ -465,12 +465,16 @@ const server = serve({
 
           const { default: workflowFn } = await import(`../workflows/${agentData.workflow || "basic-structured-workflow"}.tsx`);
 
-          const result = await workflowFn().withTask(
-            agentData.prompt || "What is appropriate answer to the following question in a twitter post format?"
-          ).withQuestion(data.content).respond({
-            success: 'Can be TRUE or FALSE. Signifies whether provided question is appropriate to the task and confident answer can be derived.',
-            answer: 'Text of the final complete answer to the question in task context.',
-          });
+          const result = await workflowFn()
+          .from({
+            question: data.content,
+            situation: agentData.prompt,
+          })
+          .to({
+            success: 'TRUE or FALSE indicating if question is appropriate and answerable',
+            answer: 'Final answer in Twitter post format'
+          })
+          .exec("Imagine described situation in which its character triggered by appearing question would write a twitter post in its consequence");          
 
           console.log(requestId, "Workflow result", result);
 
