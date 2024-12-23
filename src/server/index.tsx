@@ -444,8 +444,13 @@ const server = serve({
         const linksQuery = db.query<Link, { $subdomain: string }>("SELECT * FROM links WHERE subdomain = $subdomain");
         const links = linksQuery.all({ $subdomain: agentData.subdomain });
 
-        // todo: we must query wallets similarly by subdomain and then if found one append to links
-        
+        const walletQuery = db.query<Wallet, { $subdomain: string }>("SELECT public_key FROM wallets WHERE subdomain = $subdomain");
+        const walletData = walletQuery.get({ $subdomain: agentData.subdomain });
+
+        if (walletData) {
+          links.push({ type: 'wallet', value: walletData.public_key });
+        }
+
         const serverData = {
           mintAddress: links.find(it => it.type == 'pumpfun')?.value,
           botName: agentData.name,
