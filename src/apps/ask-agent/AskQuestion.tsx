@@ -80,19 +80,19 @@ const Avatar = () => (
 const Header = () => {
   const capitalizeFirstLetter = (string) => string.charAt(0).toUpperCase() + string.slice(1);
 
-  // todo: we should wrap this into glassmorphic container similarly as input text field otherwise links are not even visible
   return (
     <div className="text-center">
-      <div className="flex flex-col items-center">
+      <div className="flex flex-col items-center bg-white/10 backdrop-blur-md rounded-xl border border-white/20 shadow-lg p-4">
         <div className="view-transition-name-container">
-      <span className="text-4xl font-bold text-white mb-2 font-geohumanist-sans view-transition-name">{capitalizeFirstLetter(window.serverData.botName)}</span>
-      <div className="text-white/70">
-      </div>
-        {Object.entries(window.serverData.links || {}).map(([platform, value]) => (
-          <p key={platform}>
-            {platform == "wallet" ? "SOL Wallet" : platform}: {value}
-          </p>
-        ))}
+          <span className="text-4xl font-bold text-white mb-2 font-geohumanist-sans view-transition-name">{capitalizeFirstLetter(window.serverData.botName)}</span>
+          <div className="text-white/70">
+            {Object.entries(window.serverData.links || {}).map(([platform, value]) => (
+              <p key={platform}>
+                <span data-tootik={platform} data-tootik-conf="invert no-fading shadow multiline">{value}
+                </span>
+              </p>
+            ))}
+          </div>
         </div>
       </div>
     </div>
