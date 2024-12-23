@@ -323,10 +323,8 @@ const server = serve({
         const { name, location, purpose, type } = await req.json();
         console.log(requestId, "Received create-agent data", { name, location, purpose });
 
-        // Format the name to only contain lowercase letters and dashes
-        const formattedName = name.toLowerCase().replace(/[^a-z]+/g, '-');
+        const formattedName = (name as string).toLowerCase().replace(/[^a-z\s]+/g, '-').replace(/\s+/g, ' ').trim().substring(0, 20);
 
-        // Clean conversion and ensure trigger field is not empty
         const result = await uai.from({
           name: formattedName,
           location,
@@ -343,7 +341,7 @@ const server = serve({
         console.log(requestId, "Workflow result", result);
 
         if (!result?.inputIsGood.toLowerCase().includes('true')) {
-          throw `INVALID LOCATION/PURPOSE. ${result?.thinking}`;
+          throw `${result?.thinking}`;
         }
 
         const trigger = result.triggerSituation.replaceAll('\n', '');
@@ -448,7 +446,7 @@ const server = serve({
         const walletData = walletQuery.get({ $subdomain: agentData.subdomain });
 
         if (walletData) {
-          links.push({ type: `SOL Wallet managed by ${agentData.name} to pay bills`, value: walletData.public_key });
+          links.push({ type: `SOL Wallet managed of ${agentData.name}`, value: walletData.public_key });
         }
 
         const serverData = {

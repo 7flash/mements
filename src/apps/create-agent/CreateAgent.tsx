@@ -149,8 +149,7 @@ export function StepHeader({ currentStep, data }: StepHeaderProps) {
 function HandleInput({ value, onChange }: HandleInputProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value.toLowerCase()
-      .replace(/[^a-z\s]/g, '')
-      .replace(/^\s+/, '');
+      .replace(/[^a-z\s]/g, '-')
     onChange(newValue);
   };
 
@@ -333,7 +332,7 @@ function CreateMementForm() {
   };
 
   const canProceed = 
-    (currentStep === 'handle' && data.handle.length >= 3) ||
+    (currentStep === 'handle' && data.handle.length >= 3 && data.handle.length <= 20) ||
     (currentStep === 'type' && data.type === 'chat') ||
     (currentStep === 'description' && data.location && data.purpose);
 
@@ -362,7 +361,11 @@ function CreateMementForm() {
       updateAgentConfig({ subdomain: result.subdomain });
       setLocation('/success');
     } catch (error) {
-      toast.error(`${error}`);
+      toast.error(`Unacceptable Location/Purpose`, {
+        description: `${error}`,
+        'closeButton': true,
+        'duration': 8000,
+      });
     } finally {
       setIsDeploying(false);
     }
@@ -429,7 +432,7 @@ function DeployProgress() {
           100% { width: 100% }
         }
         .animate-progress {
-          animation: progress 10s ease-out forwards;
+          animation: progress 25s ease-out forwards;
         }
       `}</style>
     </div>
