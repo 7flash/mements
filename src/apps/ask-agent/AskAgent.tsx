@@ -37,7 +37,10 @@ const GlassmorphicChat = () => {
       <div className="relative min-h-screen w-full overflow-hidden bg-zinc-900">
         <BackgroundImage />
         <main className="relative z-10 flex flex-col items-center justify-between min-h-screen p-4">
-          <Header />
+          <div className="flex flex-col items-center mt-8 space-y-6">
+            <Avatar />
+            <Header />
+          </div>
           <ChatInput />
           <SocialLinks />
         </main>
@@ -56,11 +59,22 @@ const BackgroundImage = () => (
   />
 );
 
+const Avatar = () => (
+  <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-white/20 shadow-2xl">
+    <img 
+      src={window.serverData.agentImage} 
+      alt="Avatar"
+      className="w-full h-full object-cover"
+    />
+  </div>
+);
+
 const Header = () => (
-  <div className="text-center mt-8">
-    <h1 className="text-4xl font-bold text-white mb-4">
+  <div className="text-center">
+    <h1 className="text-4xl font-bold text-white mb-2">
       Chat<span className="text-red-500">{window.serverData.botName}</span>
     </h1>
+    <p className="text-white/70">{window.serverData.botTag}</p>
   </div>
 );
 
