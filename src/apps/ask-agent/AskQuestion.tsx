@@ -1,5 +1,6 @@
 import React, { useState, useContext } from 'react';
 import { Toaster, toast } from 'sonner';
+import { useLocation } from 'wouter';
 
 const AppContext = React.createContext({
   inputValue: '',
@@ -11,6 +12,7 @@ const AppContext = React.createContext({
 export default function() {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [, setLocation] = useLocation();
 
   const handleSubmit = async (content) => {
     try {
@@ -21,15 +23,25 @@ export default function() {
         body: JSON.stringify({ content })
       });
       const data = await response.json();
-      if (response.status === 400 && data.error) {
-        toast.error(`Error: ${data.error}. ${data.details}`);
+      if (response.status === 200 && data.chatId) {
+        window.serverData = {
+          ...window.serverData,
+          ...data,
+        };
+        setLocation(`/chat/${data.chatId}`);
+      }
+      if (response.status === 422 && data.error) {
+        toast.error(`Question cannot be answered`, {
+          'description': data.error,
+        });
         return;
       }
-      if (data.chatId) {
-        window.location.href = `/chat/${data.chatId}`;
-      }
+      throw `${data.error}`;
     } catch (error) {
       console.error('Error:', error);
+      toast.error('Unexpected error', {
+        'description': `${error}`,
+      })      
     } finally {
       setIsLoading(false);
     }

@@ -480,9 +480,9 @@ const server = serve({
           console.log(requestId, "Workflow result", result);
 
           if (!result?.success?.toLowerCase().includes('true')) {
-            return new Response(JSON.stringify({ error: 'Not an appropriate question', details: result.thinking }), {
+            return new Response(JSON.stringify({ error: result.thinking }), {
               headers: { "Content-Type": "application/json" },
-              status: 400
+              status: 422
             });
           }
 
@@ -584,10 +584,12 @@ const server = serve({
           return new Response(JSON.stringify(responseData), {
             headers: { "Content-Type": "application/json" },
           });
-
         } catch (err) {
           console.log(requestId, "Error generating response", err);
-          return new Response("Error generating response", { status: 500 });
+          return new Response(JSON.stringify({ error: `${err}` }), {
+            headers: { "Content-Type": "application/json" },
+            status: 500
+          });
         }
       }
     }

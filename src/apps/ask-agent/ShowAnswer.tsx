@@ -119,7 +119,7 @@ const ActionButtons = () => {
 
   const handleShare = () => {
     const tweetUrl = window.serverData.twitterPostLink || 
-      `https://twitter.com/intent/tweet?text=${encodeURIComponent(window.serverData.content)}&url=${encodeURIComponent(window.location.href)}`;
+      `https://twitter.com/intent/tweet?text=${window.serverData.content}`;
     window.open(tweetUrl, '_blank');
   };
 
