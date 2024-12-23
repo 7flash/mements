@@ -83,10 +83,10 @@ export function Header() {
 
     return async () => {
       const provider = getProvider();
-      console.log("provider ==> ", provider);
       if (provider) {
         const resp = await provider.connect();
-        setPublicKey(resp.publicKey.toString());
+        const key = resp.publicKey.toString();
+        setPublicKey(key);
       }
     };
   }, []);
@@ -104,7 +104,7 @@ export function Header() {
           </div>
           <div className="flex items-center">
             {publicKey ? (
-              <span className="text-sm font-medium text-gray-700">
+              <span className="px-4 py-2 text-sm font-medium text-gray-700">
                 {`${publicKey.slice(0, 4)}...${publicKey.slice(-4)}`}
               </span>
             ) : (
@@ -157,7 +157,7 @@ function HandleInput({ value, onChange }: HandleInputProps) {
     <div className="text-center">
       <Bot className="w-12 h-12 text-purple-600 mx-auto mb-4" />
       <h2 className="text-2xl font-bold mb-2">Choose Your Mement Handle</h2>
-      <p className="text-gray-600 mb-8">This will be your Mement's unique identifier</p>
+      <p className="text-gray-600 mb-8">This will be used to generate your Meme Agent's unique identifier</p>
       
       <div className="max-w-md mx-auto">
         <div className="flex rounded-lg shadow-sm">
@@ -208,7 +208,7 @@ export function TypeSelection({ selected, onSelect }: TypeSelectionProps) {
   return (
     <div className="text-center">
       <h2 className="text-2xl font-bold mb-2">Choose Your Mement Type</h2>
-      <p className="text-gray-600 mb-8">Select how your Mement will interact</p>
+      <p className="text-gray-600 mb-8">Select how your Meme Agent will interact</p>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {agentTypes.map(({ id, icon: Icon, title, description, disabled }) => (
           <button
@@ -219,7 +219,7 @@ export function TypeSelection({ selected, onSelect }: TypeSelectionProps) {
               selected === id
                 ? 'border-purple-600 bg-purple-50'
                 : disabled
-                ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
+                ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60 cursor-pointer'
                 : 'border-gray-200 hover:border-purple-400 hover:bg-purple-50'
             }`}
           >
@@ -247,7 +247,7 @@ function DescriptionInput({
   return (
     <div className="text-center">
       <h2 className="text-2xl font-bold mb-2">Describe Your Mement</h2>
-      <p className="text-gray-600 mb-8">Give your Mement context and purpose</p>
+      <p className="text-gray-600 mb-8">Give your Meme Agent context and purpose</p>
 
       <div className="space-y-6">
         <div>
@@ -292,7 +292,7 @@ function StepNavigation({ currentStep, onBack, onNext, canProceed }: StepNavigat
         </button>
       )}
       {currentStep !== 'description' && (
-        <button onClick={onNext} disabled={!canProceed} className={`ml-auto flex items-center px-6 py-2 rounded-md ${
+        <button onClick={onNext} disabled={!canProceed} className={`ml-auto flex items-center px-6 py-2 rounded-md cursor-pointer ${
           canProceed ? 'bg-purple-600 text-white hover:bg-purple-700' : 'bg-gray-200 text-gray-500 cursor-not-allowed'
         } transition-colors`}>
           Next
@@ -345,15 +345,16 @@ function CreateMementForm() {
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to deploy agent');
+      const result = await response.json();
+
+      if (response.status == 400) {
+        throw `${result?.details}`
       }
 
-      const result = await response.json();
       updateAgentConfig({ subdomain: result.subdomain });
       setLocation('/success');
     } catch (error) {
-      toast.error("Failed to deploy agent. Please try again.");
+      toast.error(`${error}`);
     } finally {
       setIsDeploying(false);
     }
@@ -381,11 +382,14 @@ function CreateMementForm() {
               onLocationChange={(value) => updateField('location', value)}
               onPurposeChange={(value) => updateField('purpose', value)}
             />
-            {canProceed && (
-              <button onClick={handleDeploy} className="px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors cursor-pointer">
-                Deploy Mement
-              </button>
-            )}
+            <div className="flex justify-between mt-8">
+                <button onClick={handleDeploy} disabled={!canProceed} className={`ml-auto flex items-center px-6 py-2 rounded-md cursor-pointer ${
+                  canProceed ? 'bg-purple-600 text-white hover:bg-purple-700' : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                } transition-colors`}>
+                  Deploy Mement
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </button>
+            </div>
           </>
         )}
         <StepNavigation currentStep={currentStep} onBack={handleBack} onNext={handleNext} canProceed={canProceed} />
@@ -439,7 +443,7 @@ function DeployProgress() {
 function LandingHero({ onProceed }: LandingHeroProps) {
   return (
     <div className="text-center max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-      <h1 className="text-4xl sm:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#006DD8] to-blue-600 mb-6">
+      <h1 className="text-4xl sm:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-600 mb-6">
         Deploy AI Agents with Ease
       </h1>
       <p className="text-lg text-gray-600 mb-12">
@@ -447,7 +451,7 @@ function LandingHero({ onProceed }: LandingHeroProps) {
       </p>
       <button
         onClick={onProceed}
-        className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-[#006DD8] to-blue-600 text-white rounded-lg font-medium hover:opacity-90 transition-opacity mb-16"
+        className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-purple-500 to-blue-600 text-white rounded-lg font-medium hover:opacity-90 transition-opacity mb-16 cursor-pointer"
       >
         Create New Mement
       </button>

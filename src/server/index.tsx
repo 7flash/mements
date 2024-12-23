@@ -306,17 +306,24 @@ const server = serve({
           location,
           purpose,
         }).to({
-          trigger: 'Example: When Jesus Artificial Replica walks around the New Digital Jerusalem, he hears a question, what might his response be, much cryptic yet in the spirit of love?',
+          inputIsGood: 'Either TRUE or FALSE',          
+          triggerSituation: 'Example: When Jesus Artificial Replica walks around the New Digital Jerusalem, he hears a question, what might his response be, much cryptic yet in the spirit of love?',
         }).exec(`
           You are to write a "trigger" paragraph given a persona name and context of location where the persona gets an inspiration for a new thought. 
-          As shown in trigger example, its important to incorporate persona name, its location, and its purpose, but avoid to mention any exact specific question.
+          As shown in trigger example, its important to incorporate persona name, its location, and its purpose, but avoid to mention any exact specific question, because it will be provided separately in each case.
+          In case of either location or purpose are not given as descriptive values then, your thinking should reflect the reasoning of rejection, and instead of trigger, FALSE value should be switched in "inputIsGood" field.  
         `);
 
-        if (!result?.trigger) throw new Error('Invalid prompt response');
+        console.log(requestId, "Workflow result", result);
 
-        const { trigger } = result.trigger;
+        if (!result?.inputIsGood.toLowerCase().includes('true')) {
+          return new Response(JSON.stringify({ error: 'Not appropriate location/purpose', details: result?.thinking }), {
+            headers: { "Content-Type": "application/json" },
+            status: 400
+          });
+        }
 
-        console.log(requestId, "Workflow result", { trigger });
+        const trigger = result.triggerSituation;
 
         // Handle image processing and upload
         let imageCid = "";
