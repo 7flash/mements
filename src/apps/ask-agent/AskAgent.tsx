@@ -16,6 +16,9 @@ export function cls(...classes: any) {
     return classes.filter(Boolean).join(" ");
 }
 
+// https://css.glass/
+// https://ui.glass/generator/
+
 const styles = {
     fixedAtTheBottom: "fixed bottom-0 left-0 right-0",
     blurredZincBackground: "bg-zinc-900/80 backdrop-blur-sm",
@@ -103,10 +106,10 @@ const Navbar = ({ connectWallet, publicKey }: { connectWallet: () => void; publi
                         </button>
                     )}
                     <div className="flex items-center space-x-4">
-                        <a href={window.serverData.socialLinks.dex} target="_blank" rel="noopener noreferrer" className={els.socialLink}><DexIcon /></a>
-                        <a href={window.serverData.socialLinks.telegram} target="_blank" rel="noopener noreferrer" className={els.socialLink}><TelegramIcon /></a>
-                        <a href={window.serverData.socialLinks.X} target="_blank" rel="noopener noreferrer" className={els.socialLink}><XIcon /></a>
-                        <a href={window.serverData.socialLinks.gitbook} target="_blank" rel="noopener noreferrer" className={els.socialLink}><GitbookIcon /></a>
+                        <a href={window.serverData?.socialLinks?.dex} target="_blank" rel="noopener noreferrer" className={els.socialLink}><DexIcon /></a>
+                        <a href={window.serverData?.socialLinks?.telegram} target="_blank" rel="noopener noreferrer" className={els.socialLink}><TelegramIcon /></a>
+                        <a href={window.serverData?.socialLinks?.X} target="_blank" rel="noopener noreferrer" className={els.socialLink}><XIcon /></a>
+                        <a href={window.serverData?.socialLinks?.gitbook} target="_blank" rel="noopener noreferrer" className={els.socialLink}><GitbookIcon /></a>
                     </div>
                 </div>
             </div>
@@ -450,7 +453,7 @@ export default function App() {
 
 const Header = () => {
     return (
-        <div className={els.header} style={{ backgroundImage: `url(${window.serverData.agentImage})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(8px)', opacity: 0.8 }}>
+        <div className={els.header}>
             <div className={els.headerContent}>
                 <div className={els.avatar}>
                     <img src={window.serverData.agentImage} alt={window.serverData.botName} className="w-full h-full object-cover" />
@@ -460,11 +463,12 @@ const Header = () => {
                         <span className={els.animation}>
                             Hi! I am {window.serverData.botName}
                             <br />
-                            My pumpfun: {window.serverData.mintAddress}
+                            My pumpfun: <a href={"google.com"} target="_blank" rel="noopener noreferrer">Telegram</a>
                             <br />
-                            My twitter: <a href={window.serverData.socialLinks.X} target="_blank" rel="noopener noreferrer">{window.serverData.socialLinks.X}</a>
-                            <br />
-                            {/* Add any other links similarly */}
+                            {window.serverData?.socialLinks?.telegram && <a href={window.serverData?.socialLinks?.telegram} target="_blank" rel="noopener noreferrer">Telegram</a>}
+                            {window.serverData?.socialLinks?.gitbook && <a href={window.serverData?.socialLinks?.gitbook} target="_blank" rel="noopener noreferrer">Gitbook</a>}
+                            {window.serverData?.socialLinks?.dex && <a href={window.serverData?.socialLinks?.dex} target="_blank" rel="noopener noreferrer">Dex</a>}
+                            {window.serverData?.socialLinks?.X && <a href={window.serverData?.socialLinks?.X} target="_blank" rel="noopener noreferrer">X</a>}
                         </span>
                     </h1>
                 </div>
