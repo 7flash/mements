@@ -71,6 +71,8 @@ export function Navigation() {
 }
 
 export function Header() {
+  const [publicKey, setPublicKey] = useState<string | null>(null);
+
   const handleConnectWallet = useMemo(() => {
     const getProvider = () => {
       if ("phantom" in window) {
@@ -84,7 +86,6 @@ export function Header() {
       console.log("provider ==> ", provider);
       if (provider) {
         const resp = await provider.connect();
-        // todo: fix missing setPublicKey it should actually show its shortened version ${key.slice(0, 4)}...${key.slice(-4)}` in place of button once its connected
         setPublicKey(resp.publicKey.toString());
       }
     };
@@ -97,15 +98,20 @@ export function Header() {
           <div className="flex">
             <a href="/" className="flex-shrink-0 flex items-center gap-2">
               <img src={assets.logo} alt="Logo" width={24} height={24} />
-              {/* todo: should have color like "text-[#006DD8]" and all other buttons and gradients on the page should be adjusted accordignly */}
-              <span className="text-xl font-bold font-geohumanist-sans ">Mements</span>
+              <span className="text-xl font-bold font-geohumanist-sans text-[#006DD8]">Mements</span>
             </a>
             <Navigation />
           </div>
           <div className="flex items-center">
-            <button className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer" onClick={handleConnectWallet}>
-              Connect Wallet
-            </button>
+            {publicKey ? (
+              <span className="text-sm font-medium text-gray-700">
+                {`${publicKey.slice(0, 4)}...${publicKey.slice(-4)}`}
+              </span>
+            ) : (
+              <button className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer" onClick={handleConnectWallet}>
+                Connect Wallet
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -433,7 +439,7 @@ function DeployProgress() {
 function LandingHero({ onProceed }: LandingHeroProps) {
   return (
     <div className="text-center max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-      <h1 className="text-4xl sm:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-600 mb-6">
+      <h1 className="text-4xl sm:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#006DD8] to-blue-600 mb-6">
         Deploy AI Agents with Ease
       </h1>
       <p className="text-lg text-gray-600 mb-12">
@@ -441,7 +447,7 @@ function LandingHero({ onProceed }: LandingHeroProps) {
       </p>
       <button
         onClick={onProceed}
-        className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-purple-500 to-blue-600 text-white rounded-lg font-medium hover:opacity-90 transition-opacity mb-16"
+        className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-[#006DD8] to-blue-600 text-white rounded-lg font-medium hover:opacity-90 transition-opacity mb-16"
       >
         Create New Mement
       </button>
