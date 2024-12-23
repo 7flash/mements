@@ -149,8 +149,8 @@ export function StepHeader({ currentStep, data }: StepHeaderProps) {
 function HandleInput({ value, onChange }: HandleInputProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value.toLowerCase()
-      .replace(/[^a-z0-9-]/g, '')
-      .replace(/^[^a-z]+/, '');
+      .replace(/[^a-z\s]/g, '')
+      .replace(/^\s+/, '');
     onChange(newValue);
   };
 
