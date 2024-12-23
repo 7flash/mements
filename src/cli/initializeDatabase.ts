@@ -18,6 +18,16 @@ if (!values.path) {
 
 const db = new BunDatabase(values.path, { create: true });
 
+/*
+todo: implement a new table and define a new type accordingly how we use it
+
+            db.run(
+              "INSERT INTO wallets (subdomain, public_key, private_key) VALUES (?, ?, ?)",
+              agentEntry.subdomain.toLowerCase(), mintPublicKey, mintPrivateKey
+            );
+
+*/
+
 try {
   db.run(`
     CREATE TABLE chats (

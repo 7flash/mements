@@ -491,6 +491,7 @@ function DeploymentSuccess() {
   const { agentConfig } = useAgent();
   const agentUrl = `https://${agentConfig.subdomain}.${constants.BASE_URL}`;
 
+    {/* todo: fix something happen in this page layout it does not fit horizontally anymore*/}  
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       {/* it should not be continous overwhelming confetti just short burst */}

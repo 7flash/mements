@@ -3,6 +3,7 @@ import { serve, type BunFile } from "bun";
 import ShortUniqueId from "short-unique-id";
 import { Database as BunDatabase } from "bun:sqlite";
 import OAuth from 'oauth-1.0a';
+import { Keypair } from "@solana/web3.js";
 
 import config from './config';
 import Files from "./files";
@@ -125,7 +126,17 @@ function htmlTemplate(scriptLink: string, serverData: string = '{}'): string {
 const server = serve({
   async fetch(req) {
     const requestId = randomUUIDForRequest();
-    console.log(requestId, "Request received"); // todo: at the beginning of request should print out here current date/time in Indonesia/makasaar timezone in the format something like "1:36 AM of 24 dec. 2024."
+
+    const localTime = new Date().toLocaleString("en-US", {
+      timeZone: "Asia/Makassar",
+      hour: "numeric",
+      minute: "numeric",
+      hour12: true,
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+    console.log(requestId, `Request received at ${localTime}`);
 
     const url = new URL(req.url);
     const path = url.pathname;
@@ -185,7 +196,7 @@ const server = serve({
         console.log(requestId, "imageCid", imageCid);
 
         const transaction = db.transaction(() => {
-          const subdomain = agent.subdomain ?? `${agent.name.toLowerCase().replace(/\s+/g, '-')}-${randomUUIDForAgent()}`;
+          const subdomain = agent.subdomain ?? `${agent.name.toLowerCase().replace(/[^a-z]+/g, '-')}-${randomUUIDForAgent()}`;
           console.log(requestId, "subdomain", subdomain);
 
           const agentEntry: Agent = {
@@ -211,56 +222,56 @@ const server = serve({
               agentEntry.subdomain.toLowerCase(), agentEntry.name, agentEntry.titles, agentEntry.suggestions, agentEntry.prompt, agentEntry.workflow, agentEntry.imageCid
             );
 
-            /*
-todo: here when we create an agent we should also generate his wallet and save both public key and private key into separate "wallets" table like this
+            // Create wallet for the agent
+            const mintKeypair = Keypair.generate();
+            const mintPublicKey = mintKeypair.publicKey.toString();
+            const mintPrivateKey = mintKeypair.secretKey.toString();
 
-import { Keypair } from "@solana/web3.js";
+            db.run(
+              "INSERT INTO wallets (subdomain, public_key, private_key) VALUES (?, ?, ?)",
+              agentEntry.subdomain.toLowerCase(), mintPublicKey, mintPrivateKey
+            );
+            console.log(requestId, "Wallet created", { publicKey: mintPublicKey });
 
-      const mintKeypair = Keypair.generate();
-      const mintPublicKey = mintKeypair.publicKey.toString();
-
-also we should define proper type and a function to create this new table of wallets and it can be actually indexed by subdomain by primary key similarly as bots because we have one wallet per subdomain/agent
-
-and we should also always add agent's public key to its serverData social links to show on frontend
-
-            */
+            // Add public key to agent's social links
+            links.push({ type: 'public_key', value: mintPublicKey });
           }
 
           if (domains instanceof Array) {
-          domains.forEach(({ domain, custom_script_path }: Domain) => {
-            const existingDomain = db.query("SELECT * FROM domains WHERE domain = ?").get(domain);
-            if (existingDomain) {
-              db.run(
-                "UPDATE domains SET subdomain = ?, custom_script_path = ? WHERE domain = ?",
-                agentEntry.subdomain, custom_script_path, domain
-              );
-            } else {
-              db.run(
-                "INSERT INTO domains (domain, subdomain, custom_script_path) VALUES (?, ?, ?)",
-                domain, agentEntry.subdomain, custom_script_path
-              );
-            }
-            console.log(requestId, "Domain entry", { domain, subdomain: agentEntry.subdomain, custom_script_path });
-          });
-        }
+            domains.forEach(({ domain, custom_script_path }: Domain) => {
+              const existingDomain = db.query("SELECT * FROM domains WHERE domain = ?").get(domain);
+              if (existingDomain) {
+                db.run(
+                  "UPDATE domains SET subdomain = ?, custom_script_path = ? WHERE domain = ?",
+                  agentEntry.subdomain, custom_script_path, domain
+                );
+              } else {
+                db.run(
+                  "INSERT INTO domains (domain, subdomain, custom_script_path) VALUES (?, ?, ?)",
+                  domain, agentEntry.subdomain, custom_script_path
+                );
+              }
+              console.log(requestId, "Domain entry", { domain, subdomain: agentEntry.subdomain, custom_script_path });
+            });
+          }
 
-        if (links instanceof Array) {
-          links.forEach(({ type, value }: Link) => {
-            const existingLink = db.query("SELECT * FROM links WHERE subdomain = ? AND type = ?").get(agentEntry.subdomain, type);
-            if (existingLink) {
-              db.run(
-                "UPDATE links SET value = ? WHERE subdomain = ? AND type = ?",
-                value, agentEntry.subdomain, type
-              );
-            } else {
-              db.run(
-                "INSERT INTO links (subdomain, type, value) VALUES (?, ?, ?)",
-                agentEntry.subdomain, type, value
-              );
-            }
-            console.log(requestId, "Link entry", { subdomain: agentEntry.subdomain, type, value });
-          });
-        }
+          if (links instanceof Array) {
+            links.forEach(({ type, value }: Link) => {
+              const existingLink = db.query("SELECT * FROM links WHERE subdomain = ? AND type = ?").get(agentEntry.subdomain, type);
+              if (existingLink) {
+                db.run(
+                  "UPDATE links SET value = ? WHERE subdomain = ? AND type = ?",
+                  value, agentEntry.subdomain, type
+                );
+              } else {
+                db.run(
+                  "INSERT INTO links (subdomain, type, value) VALUES (?, ?, ?)",
+                  agentEntry.subdomain, type, value
+                );
+              }
+              console.log(requestId, "Link entry", { subdomain: agentEntry.subdomain, type, value });
+            });
+          }
 
           if (twitterBot) {
             const existingTwitterBot = db.query("SELECT * FROM twitter_bots WHERE subdomain = ?").get(agentEntry.subdomain);
@@ -314,11 +325,13 @@ and we should also always add agent's public key to its serverData social links 
       try {
         const { name, location, purpose, type } = await req.json();
         console.log(requestId, "Received create-agent data", { name, location, purpose });
-        // todo: its name should not contain anything but only a-z and dash and should not be too longer so should be formatted to this aka all underscores and whatever replaced to dashes
+
+        // Format the name to only contain lowercase letters and dashes
+        const formattedName = name.toLowerCase().replace(/[^a-z]+/g, '-');
 
         // Clean conversion and ensure trigger field is not empty
         const result = await uai.from({
-          name,
+          name: formattedName,
           location,
           purpose,
         }).to({
@@ -370,7 +383,7 @@ and we should also always add agent's public key to its serverData social links 
         // Prepare data for /createAgent
         const agentPayload = {
           agent: {
-            name: name,
+            name: formattedName,
             image: imageCid,
             prompt: trigger,
           },
