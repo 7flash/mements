@@ -26,7 +26,7 @@ try {
       question TEXT NOT NULL,
       response TEXT NOT NULL,
       timestamp TEXT NOT NULL,
-      twitter_post_link TEXT,
+      twitter_post_link TEXT
     )
   `);
   console.log('Table "chats" initialized');
