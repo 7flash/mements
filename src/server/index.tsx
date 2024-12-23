@@ -443,6 +443,7 @@ const server = serve({
                 question: encodeURIComponent(chatResponse.question.replaceAll('%', 'percent')),
                 content: encodeURIComponent(chatResponse.response.replaceAll('%', 'percent')),
                 timestamp: chatResponse.timestamp,
+                twitterPostLink: chatResponse.twitter_post_link,
               };
 
               console.log(requestId, "Serving chat page");
