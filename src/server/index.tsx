@@ -448,7 +448,7 @@ const server = serve({
         const walletData = walletQuery.get({ $subdomain: agentData.subdomain });
 
         if (walletData) {
-          links.push({ type: 'wallet', value: walletData.public_key });
+          links.push({ type: `SOL Wallet managed by ${agentData.name} to pay bills`, value: walletData.public_key });
         }
 
         const serverData = {
