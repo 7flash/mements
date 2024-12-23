@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { Toaster, toast } from 'sonner';
+import { toast } from 'sonner';
 import { useLocation } from 'wouter';
 
 const AppContext = React.createContext({
@@ -15,11 +15,12 @@ export default function() {
   const [, setLocation] = useLocation();
 
   const fetchAndRedirect = async (content) => {
+    await new Promise(resolve => setTimeout(resolve, 1000));    
     window.serverData = {
       "botName": "oracle",
       "botTag": "@oracle",
       "socialMediaLinks": {},
-      "agentImage": "https://brown-quintessential-planarian-681.mypinata.cloud/files/bafybeidsgbn744pag3rlyuwh3f3amkuspxfrwbwa7bz4hjry2525nsgocm?X-Algorithm=PINATA1&X-Date=1734973511&X-Expires=3600&X-Method=GET&X-Signature=d663dd12c1dddec85f7b6cfa6e6d55280ee97e746bbddb94e9bbaf017edc71e3",
+      "agentImage": "https://brown-quintessential-planarian-681.mypinata.cloud/files/bafybeidsgbn744pag3rlyuwh3f3amkuspxfrwbwa7bz4hjry2525nsgocm?X-Algorithm=PINATA1&X-Date=1734980122&X-Expires=3600&X-Method=GET&X-Signature=4949bf0295404785a3a3c1d228cc710ca61a9c5768ae664a937481da02884423",
       "chatId": "xc046i3x3c",
       "question": "meaning%20of%20life%3F",
       "content": "%0AThe%20meaning%20of%20life%20is%20not%20to%20be%20found%20in%20a%20single%20answer%2C%20but%20in%20the%20journey%20of%20seeking%2C%20understanding%2C%20and%20experiencing%20the%20tapestry%20of%20existence%2C%20where%20each%20thread%20weaves%20its%20unique%20pattern%20of%20purpose%20and%20truth.%0A",
@@ -56,7 +57,7 @@ export default function() {
   const handleSubmit = async (content) => {
     try {
       setIsLoading(true);
-      if (document.startViewTransition) {
+      if (document.startViewTransition && false) {
         await document.startViewTransition(async () => {
           await fetchAndRedirect(content);
         });
@@ -75,30 +76,15 @@ export default function() {
 
   return (
     <AppContext.Provider value={{ inputValue, setInputValue, handleSubmit, isLoading }}>
-      <div className="relative min-h-screen w-full overflow-hidden bg-zinc-900">
-        <BackgroundImage />
-        <main className="relative z-10 flex flex-col items-center justify-between min-h-screen p-4">
-          <div className="flex flex-col items-center mt-8 space-y-6">
+      <><div className="flex flex-col items-center mt-8 space-y-6">
             <Avatar />
             <Header />
           </div>
           <ChatInput />
-        </main>
-      </div>
-      <Toaster richColors />
+      </>
     </AppContext.Provider>
   );
 };
-
-const BackgroundImage = () => (
-  <div 
-    className="absolute inset-0 bg-cover bg-center"
-    style={{ 
-      backgroundImage: `url(${window.serverData.agentImage})`,
-      filter: 'blur(8px) brightness(0.3)'
-    }}
-  />
-);
 
 const Avatar = () => (
   <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-white/20 shadow-2xl">

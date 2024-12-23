@@ -16,28 +16,13 @@ const ShowAskAgent = () => {
   };
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-zinc-900">
-      <BackgroundImage />
-      <main className="relative z-10 flex flex-col items-center min-h-screen p-4">
-        <div className="w-full max-w-3xl mt-8">
+    <><div className="w-full max-w-3xl mt-8">
           <ResponseCard visible={visible} />
         </div>
         <ActionButtons />
-      </main>
-      <Toaster richColors />
-    </div>
+        </>
   );
 };
-
-const BackgroundImage = () => (
-  <div 
-    className="absolute inset-0 bg-cover bg-center"
-    style={{ 
-      backgroundImage: `url(${window.serverData.agentImage})`,
-      filter: 'blur(8px) brightness(0.3)'
-    }}
-  />
-);
 
 const ResponseCard = ({ visible }) => {
   const response = {
