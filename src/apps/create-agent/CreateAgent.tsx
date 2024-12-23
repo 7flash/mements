@@ -84,6 +84,7 @@ export function Header() {
       console.log("provider ==> ", provider);
       if (provider) {
         const resp = await provider.connect();
+        // todo: fix missing setPublicKey it should actually show its shortened version ${key.slice(0, 4)}...${key.slice(-4)}` in place of button once its connected
         setPublicKey(resp.publicKey.toString());
       }
     };
@@ -94,10 +95,11 @@ export function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex">
-            <div className="flex-shrink-0 flex items-center gap-2">
+            <a href="/" className="flex-shrink-0 flex items-center gap-2">
               <img src={assets.logo} alt="Logo" width={24} height={24} />
-              <span className="text-xl font-bold font-geohumanist-sans">Mements</span>
-            </div>
+              {/* todo: should have color like "text-[#006DD8]" and all other buttons and gradients on the page should be adjusted accordignly */}
+              <span className="text-xl font-bold font-geohumanist-sans ">Mements</span>
+            </a>
             <Navigation />
           </div>
           <div className="flex items-center">
@@ -382,7 +384,6 @@ function CreateMementForm() {
         )}
         <StepNavigation currentStep={currentStep} onBack={handleBack} onNext={handleNext} canProceed={canProceed} />
       </div>
-      <Toaster richColors />
     </div>
   );
 }
@@ -516,6 +517,7 @@ function App() {
             <DeploymentSuccess />
           </Route>
         </Switch>
+        <Toaster richColors />
       </div>
     </AgentProvider>
   );

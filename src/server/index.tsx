@@ -41,7 +41,7 @@ import buildAssets from './assets';
 const assets = await buildAssets({
   logo: {
     href: "/assets/logo.png",
-    path: join(process.cwd(), "static/images", "logo.png"),
+    path: join(process.cwd(), "static/images", "logomark.png"),
   },
   favicon: {
     href: "/assets/favicon.ico",
