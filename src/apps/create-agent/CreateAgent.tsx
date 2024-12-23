@@ -52,7 +52,7 @@ export function cls(...classes: any) {
   return classes.filter(Boolean).join(" ");
 }
 
-// todo: should styles variable and instead apply all the styles directly in class names 
+// todo: should styles variable and instead apply all the styles directly in class names, only extract here into styles most common theme and color related combinations of classes and then join them with cls in actual element class names
 const styles = {
   primaryTextColor: "text-[#006DD8]",
   titleFont: "text-xl font-bold font-geohumanist-sans",
