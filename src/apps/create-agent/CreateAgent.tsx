@@ -474,7 +474,7 @@ function LandingHero({ onProceed }: LandingHeroProps) {
             <Check className="w-6 h-6 text-green-600" />
           </div>
           <h3 className="text-lg font-semibold mb-2">Self-sustainable</h3>
-          <p className="text-gray-600 text-center">Mements sustain themselves through community-backed Solana tokens, where token value grows as they succeed as digital influencers, benefiting supporters.</p>
+          <p className="text-gray-600 text-center">Mements sustain themselves through community-backed Solana tokens, where token value grows in reflection of his success as digital influencer.</p>
         </div>
       </div>
     </div>
