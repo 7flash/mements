@@ -221,6 +221,8 @@ import { Keypair } from "@solana/web3.js";
 
 also we should define proper type and a function to create this new table of wallets and it can be actually indexed by subdomain by primary key similarly as bots because we have one wallet per subdomain/agent
 
+and we should also always add agent's public key to its serverData social links to show on frontend
+
             */
           }
 
