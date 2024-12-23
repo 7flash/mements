@@ -1,6 +1,8 @@
 import React, { useState, createContext, useContext, useMemo } from 'react';
 import { Bot, MessageSquare, Terminal, Rss, Zap, Check, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Link, Route, Switch, useLocation } from "wouter";
+import Confetti from 'react-confetti';
+
 import assets from "#generated/assets.json";
 
 interface AgentContextType {
@@ -49,12 +51,12 @@ export function cls(...classes: any) {
   return classes.filter(Boolean).join(" ");
 }
 
+// Extracted common styles
 const styles = {
   primaryTextColor: "text-[#006DD8]",
   titleFont: "text-xl font-bold font-geohumanist-sans",
   primaryButton: "px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors cursor-pointer",
   secondaryButton: "px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer",
-  nav: "sticky top-0 z-50 backdrop-blur-sm",
   textButton: "flex items-center px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors cursor-pointer",
   header: "bg-white border-b border-gray-200",
   headerContainer: "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
@@ -77,7 +79,8 @@ const els = {
 };
 
 export function Navigation() {
-  const links = [];
+  const links = [
+  ];
 
   return (
     <nav className="hidden sm:ml-6 sm:flex sm:space-x-8">
@@ -322,6 +325,7 @@ function CreateMementForm() {
   const [data, setData] = useState<MementData>({ handle: '', type: null, location: '', purpose: '' });
   const { updateAgentConfig } = useAgent();
   const [location, setLocation] = useLocation();
+  const [isDeploying, setIsDeploying] = useState(false);
 
   const updateField = <K extends keyof MementData>(field: K, value: MementData[K]) => {
     setData(prev => ({ ...prev, [field]: value }));
@@ -343,6 +347,7 @@ function CreateMementForm() {
     (currentStep === 'description' && data.location && data.purpose);
 
   const handleDeploy = async () => {
+    setIsDeploying(true);
     try {
       const response = await fetch('/api/create-agent', {
         method: 'POST',
@@ -366,8 +371,14 @@ function CreateMementForm() {
       setLocation('/success');
     } catch (error) {
       console.error('Error deploying agent:', error);
+    } finally {
+      setIsDeploying(false);
     }
   };
+
+  if (isDeploying) {
+    return <DeployProgress />;
+  }
 
   return (
     <div className={styles.stepContainer}>
@@ -439,7 +450,7 @@ function DeployProgress() {
         }
       `}</style>
     </div>
-  )
+  );
 }
 
 function LandingHero({ onProceed }: LandingHeroProps) {
@@ -457,27 +468,27 @@ function LandingHero({ onProceed }: LandingHeroProps) {
       >
         Create New Mement
       </button>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
         <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100">
           <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
             <Bot className="w-6 h-6 text-purple-600" />
           </div>
           <h3 className="text-lg font-semibold mb-2">Self-conscious</h3>
-          <p className="text-gray-600">Come up with spontaneous thoughts rather than acting as assistants</p>
+          <p className="text-gray-600">Mements can come up with spontaneous thoughts rather than acting as assistants.</p>
         </div>
         <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100">
           <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
             <Zap className="w-6 h-6 text-blue-600" />
           </div>
           <h3 className="text-lg font-semibold mb-2">Self-initiative</h3>
-          <p className="text-gray-600">Capable of posting automatically to their own Twitter accounts and leading Telegram channels</p>
+          <p className="text-gray-600">Capable of posting automatically to their own Twitter accounts and leading Telegram channels.</p>
         </div>
         <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100">
           <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
             <Check className="w-6 h-6 text-green-600" />
           </div>
           <h3 className="text-lg font-semibold mb-2">Self-sustainable</h3>
-          <p className="text-gray-600">Launching their fair tokens supported by the community to pay electricity bills and share dividends of their success back to supporters</p>
+          <p className="text-gray-600">Launch fair tokens supported by the community to pay electricity bills and share dividends of their success back to supporters.</p>
         </div>
       </div>
     </div>
@@ -489,8 +500,9 @@ function DeploymentSuccess() {
   const agentUrl = `https://${agentConfig.subdomain}.example.com`;
 
   return (
-    <div className={styles.stepContainer}>
-      <div className={styles.stepContent}>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <Confetti />
+      <div className="text-center">
         <div className={styles.successIcon}>
           <Check className="h-6 w-6 text-green-600" />
         </div>
@@ -502,9 +514,9 @@ function DeploymentSuccess() {
             {agentUrl}
           </a>
         </div>
-        <button onClick={() => window.open(agentUrl, "_blank")} className={styles.primaryButton}>
+        <a href={agentUrl} target="_blank" rel="noopener noreferrer" className={styles.primaryButton}>
           Go to Agent
-        </button>
+        </a>
       </div>
     </div>
   );
