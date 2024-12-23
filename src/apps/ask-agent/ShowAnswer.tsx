@@ -1,7 +1,15 @@
-import React from 'react';
-import { Toaster, toast } from 'sonner';
+import React from "react";
+import { Toaster, toast } from "sonner";
 
-const ShowAskAgent = ({ response }) => {
+// Mock data for demonstration purposes:
+const responseData = {
+  question: "What is the capital of France?",
+  content: "The capital of France is Paris.",
+  timestamp: Date.now(),
+  tweetUrl: "", // Example: "https://twitter.com/intent/tweet?text=The%20capital%20of%20France%20is%20Paris."
+};
+
+const ShowAskAgent = () => {
   const copyLink = async () => {
     try {
       const url = window.location.href;
@@ -30,72 +38,67 @@ const ShowAskAgent = ({ response }) => {
     }
   };
 
-  const tweetUrl = response.tweetUrl || `https://twitter.com/intent/tweet?text=${encodeURIComponent(response.content)}`;
-
   return (
-    <div className="flex flex-col items-center w-full">
-      <div className="response-container animate-ios-like">
-        <div className="response-header">
-          <div className="text-neutral-200 text-sm sm:text-base">{response.question}</div>
-        </div>
-        <div className="response-content">
-          <div className="flex gap-3 sm:gap-4 mb-3 items-center">
-            <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-full overflow-hidden ring-1 ring-neutral-800 flex-shrink-0">
-              <img src={window.serverData.agentImage} alt={`chat${window.serverData.botName}`} className="w-full h-full object-cover" />
-            </div>
-            <div className="flex-1 flex items-center">
-              <div className="flex flex-col justify-center">
-                <div className="text-neutral-50 font-bold leading-5 text-base sm:text-lg">
-                  {window.serverData.botName}
-                </div>
-                <div className="text-neutral-500 text-sm">{window.serverData.botTag}</div>
-              </div>
-            </div>
-          </div>
-          <div className="mt-4 sm:mt-5">
-            <div className="font-sans text-[16px] sm:text-[20px] leading-normal text-neutral-100 whitespace-pre-line">
-              {response.content.split("\n").map((line, index) => (
-                <p key={index} className="mb-2">
-                  {line}
-                </p>
-              ))}
-            </div>
-          </div>
-          <div className="response-meta">
-            <div className="text-neutral-500 text-xs sm:text-sm">
-              {new Date(response.timestamp).toLocaleTimeString([], {
-                hour: "numeric",
-                minute: "2-digit",
-                hour12: true,
-              })}
-            </div>
-            <div className="text-neutral-600">┬╖</div>
-            <div className="text-neutral-500 text-xs sm:text-sm">
-              {new Date(response.timestamp).toLocaleDateString([], {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              })}
-            </div>
-          </div>
-        </div>
-        <div className="absolute bottom-0 right-0 select-none pointer-events-none">
-          <div className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-gradient-to-r from-neutral-900/95 to-neutral-950/95 backdrop-blur-[2px] border-t border-l border-neutral-800/30 rounded-tl-xl">
-            <div className="flex items-center gap-1 sm:gap-1.5">
-              <div className="text-neutral-400 text-[10px] sm:text-xs">Powered by</div>
-              <div className="flex items-center">
-                <div className="font-bold text-neutral-200 text-[10px] sm:text-xs">Chat</div>
-                <div className="font-bold text-red-500 text-[10px] sm:text-xs">{window.serverData.botName}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="flex mt-4 space-x-4">
-        <button onClick={() => window.location.href = '/'} className="px-4 py-2 bg-blue-500 text-white rounded-lg">Ask Another Question</button>
-        <a href={tweetUrl} target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-blue-400 text-white rounded-lg">Share on Twitter</a>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-900 text-white">
+      <ResponseCard response={responseData} />
+      <div className="mt-6 flex gap-4">
+        <button
+          onClick={() => (window.location.href = "/")}
+          className="px-4 py-2 bg-blue-600 rounded text-white hover:bg-blue-700">
+          Ask another question
+        </button>
+        <button
+          onClick={() =>
+            window.open(
+              responseData.tweetUrl ||
+                `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+                  responseData.content
+                )}`,
+              "_blank"
+            )
+          }
+          className="px-4 py-2 bg-blue-600 rounded text-white hover:bg-blue-700">
+          Share on Twitter
+        </button>
+        <button
+          onClick={copyLink}
+          className="px-4 py-2 bg-gray-600 rounded text-white hover:bg-gray-700">
+          Copy Link
+        </button>
       </div>
       <Toaster richColors />
+    </div>
+  );
+};
+
+const ResponseCard = ({ response }) => {
+  const formattedTime = new Date(response.timestamp).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+  const formattedDate = new Date(response.timestamp).toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  return (
+    <div className="bg-zinc-800 p-6 rounded-lg shadow-lg w-full max-w-2xl">
+      <div className="text-neutral-200 text-lg mb-2">
+        {response.question}
+      </div>
+      <div className="mt-4 text-white">
+        {response.content.split("\n").map((line, index) => (
+          <p key={index} className="mb-2">
+            {line}
+          </p>
+        ))}
+      </div>
+      <div className="mt-4 text-neutral-500 text-sm">
+        <div>{formattedTime}</div>
+        <div>{formattedDate}</div>
+      </div>
     </div>
   );
 };
