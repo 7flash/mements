@@ -21,7 +21,7 @@ interface IConfig {
   get(key: ConfigKeys): string;
 }
 
-type ConfigKeys = 'DB_NAME' | 'BUN_PORT' | 'OPENAI_API_KEY' | 'PINATA_JWT' | 'PINATA_GATEWAY_URL' | 'TWITTER_API_KEY' | 'TWITTER_API_SECRET' | 'BASE_URL' | 'CREATE_AGENT_SECRET';
+type ConfigKeys = 'DB_NAME' | 'BUN_PORT' | 'OPENAI_API_KEY' | 'PINATA_JWT' | 'PINATA_GATEWAY_URL' | 'TWITTER_API_KEY' | 'TWITTER_API_SECRET' | 'BASE_URL' | 'CREATE_AGENT_SECRET' | 'DALLE_API_KEY';
 
 type Chat = {
   id: string;
@@ -29,6 +29,7 @@ type Chat = {
   response: string;
   subdomain: string;
   timestamp: string;
+  twitter_post_link?: string;
 };
 
 type Agent = {

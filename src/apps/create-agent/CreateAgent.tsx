@@ -217,10 +217,10 @@ export function TypeSelection({ selected, onSelect }: TypeSelectionProps) {
             disabled={disabled}
             className={`p-6 rounded-lg border-2 transition-all ${
               selected === id
-                ? 'border-purple-600 bg-purple-50'
+                ? 'border-purple-600 bg-purple-50 cursor-pointer'
                 : disabled
-                ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60 cursor-pointer'
-                : 'border-gray-200 hover:border-purple-400 hover:bg-purple-50'
+                ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
+                : 'border-gray-200 hover:border-purple-400 hover:bg-purple-50 cursor-pointer'
             }`}
           >
             <div className="flex flex-col items-center text-center">
@@ -347,8 +347,8 @@ function CreateMementForm() {
 
       const result = await response.json();
 
-      if (response.status == 400) {
-        throw `${result?.details}`
+      if (response.status == 500) {
+        throw `${result?.error}`
       }
 
       updateAgentConfig({ subdomain: result.subdomain });
@@ -382,6 +382,7 @@ function CreateMementForm() {
               onLocationChange={(value) => updateField('location', value)}
               onPurposeChange={(value) => updateField('purpose', value)}
             />
+            {/* in this case we still should use StepNavigation and render Deploy memetn button inside of otherwise it renders here in a separate row */}
             <div className="flex justify-between mt-8">
                 <button onClick={handleDeploy} disabled={!canProceed} className={`ml-auto flex items-center px-6 py-2 rounded-md cursor-pointer ${
                   canProceed ? 'bg-purple-600 text-white hover:bg-purple-700' : 'bg-gray-200 text-gray-500 cursor-not-allowed'

@@ -317,13 +317,10 @@ const server = serve({
         console.log(requestId, "Workflow result", result);
 
         if (!result?.inputIsGood.toLowerCase().includes('true')) {
-          return new Response(JSON.stringify({ error: 'Not appropriate location/purpose', details: result?.thinking }), {
-            headers: { "Content-Type": "application/json" },
-            status: 400
-          });
+          throw `INVALID LOCATION/PURPOSE. ${result?.thinking}`;
         }
 
-        const trigger = result.triggerSituation;
+        const trigger = result.triggerSituation.replaceAll('\n', '');
 
         // Handle image processing and upload
         let imageCid = "";
@@ -331,7 +328,7 @@ const server = serve({
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+            "Authorization": `Bearer ${config.get('DALLE_API_KEY')}`,
           },
           body: JSON.stringify({
             model: "dall-e-3",
@@ -343,6 +340,11 @@ const server = serve({
         });
 
         const imageData = await response.json();
+        if (imageData?.error) {
+          console.log("imageData ==> ", imageData);
+          throw `image generation error`;
+        }
+
         const base64Image = imageData.data[0].b64_json;
         const file = new File([Buffer.from(base64Image, 'base64')], "agent-image.png", { type: "image/png" });
         imageCid = await files.upload(file);
@@ -377,7 +379,10 @@ const server = serve({
 
       } catch (err) {
         console.log(requestId, "Error creating agent via API", err);
-        return new Response("Error creating agent via API", { status: 500 });
+        return new Response(JSON.stringify({ error: `${err}` }), {
+          headers: { "Content-Type": "application/json" },
+          status: 500
+        });
       }
     }
 
@@ -410,11 +415,11 @@ const server = serve({
         const serverData = {
           mintAddress: links.find(it => it.type == 'pumpfun')?.value,
           botName: agentData.name,
-          alternativeBotTitles: agentData.titles.split(',').map(it => it.trim()),
+          alternativeBotTitles: agentData.titles?.split(',').map(it => it.trim()),
           botTag: `@${agentData.name.replace(/\s+/g, '')}`,
-          scrollItemsLeft: agentData.suggestions.split(',').map(it => it.trim()),
-          scrollItemsRight: agentData.suggestions.split(',').reverse().map(it => it.trim()),
-          socialMediaLinks: links.reduce((prev, it) => { return { ...prev, [it.type]: it.value } }, {}),
+          scrollItemsLeft: agentData.suggestions?.split(',').map(it => it.trim()),
+          scrollItemsRight: agentData.suggestions?.split(',').reverse().map(it => it.trim()),
+          socialMediaLinks: links?.reduce((prev, it) => { return { ...prev, [it.type]: it.value } }, {}),
           agentImage: await files.getUrl(agentData.imageCid, 3600),
         };
 
@@ -458,7 +463,7 @@ const server = serve({
           const data = await req.json();
           console.log(requestId, "Received question", data.content);
 
-          const { default: workflowFn } = await import(`../workflows/${agentData.workflow || "answer-as-mement"}.tsx`);
+          const { default: workflowFn } = await import(`../workflows/${agentData.workflow || "basic-workflow"}.tsx`);
 
           const result = await workflowFn().withTask(
             agentData.prompt || "What is appropriate answer to the following question in a twitter post format?"
@@ -562,7 +567,7 @@ const server = serve({
             content: result.answer,
             timestamp: new Date().toISOString(),
             subdomain: subdomain,
-            twitterPostLink // Include the Twitter post link if available
+            twitterPostLink
           };
 
           const chatInsertQuery = db.query(
