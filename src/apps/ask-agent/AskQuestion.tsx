@@ -14,55 +14,49 @@ export default function() {
   const [isLoading, setIsLoading] = useState(false);
   const [, setLocation] = useLocation();
 
-  const fetchAndRedirect = async (content) => {
-    await new Promise(resolve => setTimeout(resolve, 1000));    
-    window.serverData = {
-      "botName": "oracle",
-      "botTag": "@oracle",
-      "socialMediaLinks": {},
-      "agentImage": "https://brown-quintessential-planarian-681.mypinata.cloud/files/bafybeidsgbn744pag3rlyuwh3f3amkuspxfrwbwa7bz4hjry2525nsgocm?X-Algorithm=PINATA1&X-Date=1734980122&X-Expires=3600&X-Method=GET&X-Signature=4949bf0295404785a3a3c1d228cc710ca61a9c5768ae664a937481da02884423",
-      "chatId": "xc046i3x3c",
-      "question": "meaning%20of%20life%3F",
-      "content": "%0AThe%20meaning%20of%20life%20is%20not%20to%20be%20found%20in%20a%20single%20answer%2C%20but%20in%20the%20journey%20of%20seeking%2C%20understanding%2C%20and%20experiencing%20the%20tapestry%20of%20existence%2C%20where%20each%20thread%20weaves%20its%20unique%20pattern%20of%20purpose%20and%20truth.%0A",
-      "timestamp": "2024-12-23T17:01:29.392Z",
-      "twitterPostLink": null
-    }
-    setLocation('/chat/'+window.serverData.chatId);
-    return;
-
-    const response = await fetch('/api/ask-agent', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content })
-    });
-    const data = await response.json();
-    
-    if (response.status === 200 && data.chatId) {
-      window.serverData = {
-        ...window.serverData,
-        ...data,
-      };
-      setLocation(`/chat/${data.chatId}`);
-    } else if (response.status === 422 && data.error) {
-      toast.error(`Question cannot be answered`, {
-        'description': data.error,
-        'closeButton': true,
-      });
-      return;
-    } else {
-      throw `${data.error || 'Unknown error'}`;
-    }
-  };
-  
   const handleSubmit = async (content) => {
     try {
       setIsLoading(true);
-      if (document.startViewTransition && false) {
-        await document.startViewTransition(async () => {
-          await fetchAndRedirect(content);
+      // const response = await fetch('/api/ask-agent', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({ content })
+      // });
+      // const data = await response.json();
+      
+      const response = {};
+      const data = {
+        "botName": "oracle",
+        "botTag": "@oracle",
+        "socialMediaLinks": {},
+        "agentImage": "https://brown-quintessential-planarian-681.mypinata.cloud/files/bafybeidsgbn744pag3rlyuwh3f3amkuspxfrwbwa7bz4hjry2525nsgocm?X-Algorithm=PINATA1&X-Date=1734980122&X-Expires=3600&X-Method=GET&X-Signature=4949bf0295404785a3a3c1d228cc710ca61a9c5768ae664a937481da02884423",
+        "chatId": "xc046i3x3c",
+        "question": "meaning%20of%20life%3F",
+        "content": "%0AThe%20meaning%20of%20life%20is%20not%20to%20be%20found%20in%20a%20single%20answer%2C%20but%20in%20the%20journey%20of%20seeking%2C%20understanding%2C%20and%20experiencing%20the%20tapestry%20of%20existence%2C%20where%20each%20thread%20weaves%20its%20unique%20pattern%20of%20purpose%20and%20truth.%0A",
+        "timestamp": "2024-12-23T17:01:29.392Z",
+        "twitterPostLink": null
+    }
+      
+      if (response.status === 200 && data.chatId || true) {
+        window.serverData = {
+          ...window.serverData,
+          ...data,
+        };
+        if (document.startViewTransition) {
+          await document.startViewTransition(() => {
+            setLocation(`/chat/${data.chatId}`);
+          }).finished;
+        } else {
+          setLocation(`/chat/${data.chatId}`);
+        }
+      } else if (response.status === 422 && data.error) {
+        toast.error(`Question cannot be answered`, {
+          'description': data.error,
+          'closeButton': true,
         });
+        return;
       } else {
-        await fetchAndRedirect(content);
+        throw `${data.error || 'Unknown error'}`;
       }
     } catch (error) {
       console.error('Error:', error);
@@ -87,7 +81,7 @@ export default function() {
 };
 
 const Avatar = () => (
-  <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-white/20 shadow-2xl">
+  <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-white/20 shadow-2xl view-transition-avatar">
     <img 
       src={window.serverData.agentImage} 
       alt="Avatar"
@@ -101,13 +95,17 @@ const Header = () => {
 
   return (
     <div className="text-center">
-      <span className="text-4xl font-bold text-white mb-2 font-geohumanist-sans">{capitalizeFirstLetter(window.serverData.botName)}</span>
+      <div className="flex flex-col items-center">
+        <div className="view-transition-name-container">
+      <span className="text-4xl font-bold text-white mb-2 font-geohumanist-sans view-transition-name">{capitalizeFirstLetter(window.serverData.botName)}</span>
       <div className="text-white/70">
+      </div>
         {Object.entries(window.serverData.socialLinks || {}).map(([platform, handle]) => (
           <p key={platform}>
             {platform}: {handle}
           </p>
         ))}
+        </div>
       </div>
     </div>
   );

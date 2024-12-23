@@ -17,7 +17,7 @@ const BackgroundImage = () => (
 export default function() {
     return <div className="relative min-h-screen w-full overflow-hidden bg-zinc-900">
         <BackgroundImage />
-        <main className="relative z-10 flex flex-col items-center min-h-screen p-4">
+        <main className="relative z-10 flex flex-col items-center justify-between min-h-screen p-4">
             <Switch>
                 <Route path="/" component={AskQuestion} />
                 <Route path="/chat/:id" component={ShowAnswer} /> 

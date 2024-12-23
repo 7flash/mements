@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Toaster, toast } from 'sonner';
+import { useLocation } from 'wouter';
 
 const ShowAskAgent = () => {
   const [visible, setVisible] = useState(false);
@@ -32,14 +33,14 @@ const ResponseCard = ({ visible }) => {
   };
 
   return (
-    <div className={`bg-neutral-900/90 backdrop-blur-sm border border-neutral-800 rounded-2xl shadow-xl transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0'}`}>
+    <div className={`bg-neutral-900/90 backdrop-blur-sm border border-neutral-800 rounded-2xl shadow-xl ${visible ? 'opacity-100' : 'opacity-0'}`}>
       <div className="p-6 border-b border-neutral-800 view-transition-question">
         <div className="text-neutral-200 text-sm sm:text-base">{response.question}</div>
       </div>
       
       <div className="p-6">
         <div className="flex gap-3 sm:gap-4 mb-3 items-center">
-          <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-full overflow-hidden ring-1 ring-neutral-800 flex-shrink-0">
+          <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-full overflow-hidden ring-1 ring-neutral-800 flex-shrink-0 view-transition-avatar">
             <img 
               src={window.serverData.agentImage} 
               alt={`chat${window.serverData.botName}`} 
@@ -47,8 +48,10 @@ const ResponseCard = ({ visible }) => {
             />
           </div>
           <div className="flex-1">
-            <div className="text-neutral-50 font-bold leading-5 text-base sm:text-lg">
+          <div className="view-transition-name-container">
+            <div className="text-neutral-50 font-bold leading-5 text-base sm:text-lg view-transition-name">
               {window.serverData.botName}
+            </div>
             </div>
             <div className="text-neutral-500 text-sm">{window.serverData.botTag}</div>
           </div>
@@ -91,12 +94,18 @@ const ResponseCard = ({ visible }) => {
 };
 
 const ActionButtons = () => {
+  const [,setLocation] = useLocation();
+
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      toast.success("Link copied to clipboard!");
+      toast.success("Link copied to clipboard!", {
+        'closeButton': true,
+      });
     } catch (err) {
-      toast.error("Failed to copy link. Please copy it manually.");
+      toast.error("Failed to copy link. Please copy it manually.", {
+        'closeButton': true,
+      });
     }
   };
 
@@ -109,20 +118,28 @@ const ActionButtons = () => {
   return (
     <div className="flex gap-4 mt-6">
       <button
-        onClick={() => window.location.href = '/'}
-        className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors"
+        onClick={async () => {
+          if (document.startViewTransition) {
+            await document.startViewTransition(() => {
+              setLocation(`/`);
+            }).finished;
+          } else {
+            setLocation(`/`);
+          }
+        }}
+        className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors cursor-pointer"
       >
         Ask Another Question
       </button>
       <button
         onClick={handleShare}
-        className="px-6 py-3 bg-blue-500/80 hover:bg-blue-500 text-white rounded-xl transition-colors"
+        className="px-6 py-3 bg-blue-500/80 hover:bg-blue-500 text-white rounded-xl transition-colors cursor-pointer"
       >
         Share on Twitter
       </button>
       <button
         onClick={handleCopyLink}
-        className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors"
+        className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors cursor-pointer"
       >
         Copy Link
       </button>
