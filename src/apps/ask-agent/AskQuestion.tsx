@@ -80,6 +80,7 @@ const Avatar = () => (
 const Header = () => {
   const capitalizeFirstLetter = (string) => string.charAt(0).toUpperCase() + string.slice(1);
 
+  // todo: we should wrap this into glassmorphic container similarly as input text field otherwise links are not even visible
   return (
     <div className="text-center">
       <div className="flex flex-col items-center">

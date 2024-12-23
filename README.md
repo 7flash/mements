@@ -1,12 +1,43 @@
 ## Quick Start
 
+this document shows description for self-hosting your own instance of mements platform
+
+if you just want to create ai agent, you can follow visual guidance on mements.xyz
+
+follow these instructions if you want to deploy mements platform on your own server
+
 1. git clone
 
 2. bun run ./src/cli/initializeDatabase.ts --path=./static/database/dec24.sqlite (optionally, otherwise server will do it itself on first run)
 
 3. bgrun launch --name=mements-dec24 --directory=$HOME/mements --command="bun run ./src/server/index.tsx" --env="[all envs as per type ConfigKeys]" (we use bgrun but you can use pm2 or other process manager)
 
-4. 
+3. create mement through http://localhost:3000
+
+4. re-configure your mements with command
+
+BUN_PORT=3000 bun run ./src/cli/createAgentFromFile.ts --filePath=./static/agents/oracle.toml
+
+example config (image can be either cid, or prompt, or file path)
+
+change workflow to derive your own logic
+
+```
+[agent]
+subdomain = "happy-santa-q3xk"
+name = "happy santa"
+prompt = "While Happy Santa strolls through the City of Wisdom, seeking inspiration for his next batch of fun gifts, he encounters a question from a curious child, which sparks a new thought or idea in his mind."
+workflow = "basic-structured-workflow"
+image = "bafybeibg372aihqo6shti4lpky5tdnnf46a7dj7vziysr2oageskhvjqsa"
+
+[[domains]]
+domain="first.localhost:3000"
+custom_script_path=""
+```
+
+(for local testing add to /hosts, also works with external domains pointing to your server and resolved with acmedns through caddyfile)
+
+more advanced config
 
 ```your-agent.toml
 [agent]
