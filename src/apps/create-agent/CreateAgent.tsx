@@ -5,6 +5,7 @@ import Confetti from 'react-confetti';
 import { Toaster, toast } from 'sonner';
 
 import assets from "#generated/assets.json";
+import constants from "#generated/constants.json";
 
 interface AgentContextType {
   agentConfig: Partial<AgentConfig>;
@@ -169,7 +170,7 @@ function HandleInput({ value, onChange }: HandleInputProps) {
             value={value}
             onChange={handleChange}
             className="flex-1 block w-full px-4 py-3 rounded-r-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-lg"
-            placeholder="jesus"
+            placeholder="oracle" // todo: we should replace oracle to kind of more generic santa claus and as well his location and purpose
           />
         </div>
         {value && value.length < 3 && (
@@ -260,7 +261,7 @@ function DescriptionInput({
             value={location}
             onChange={(e) => onLocationChange(e.target.value)}
             className="block w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-            placeholder="Ancient Jerusalem, 30 AD"
+            placeholder="City of Wisdom, 2030 AD"
           />
         </div>
 
@@ -274,7 +275,7 @@ function DescriptionInput({
             onChange={(e) => onPurposeChange(e.target.value)}
             rows={4}
             className="block w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-            placeholder="Provides wisdom and guidance through parables and teachings, focusing on love, forgiveness, and spiritual growth"
+            placeholder="Provides wisdom and guidance through parables and teaching, focusing on daily practical advice"
           />
         </div>
       </div>
@@ -382,7 +383,7 @@ function CreateMementForm() {
               onLocationChange={(value) => updateField('location', value)}
               onPurposeChange={(value) => updateField('purpose', value)}
             />
-            {/* in this case we still should use StepNavigation and render Deploy memetn button inside of otherwise it renders here in a separate row */}
+            {/* todo: in this case we still should use StepNavigation and render Deploy memetn button inside of otherwise it renders here in a separate row */}
             <div className="flex justify-between mt-8">
                 <button onClick={handleDeploy} disabled={!canProceed} className={`ml-auto flex items-center px-6 py-2 rounded-md cursor-pointer ${
                   canProceed ? 'bg-purple-600 text-white hover:bg-purple-700' : 'bg-gray-200 text-gray-500 cursor-not-allowed'
@@ -413,6 +414,7 @@ function DeployProgress() {
               </p>
             </div>
             
+            {/* todo: must ensure this animation is not repeating over and over again but rather just moving slowly towards the end in period of 10 seconds or so slowing down closer towards the end */}
             <div className="space-y-3">
               <div className="bg-gray-100 rounded-full overflow-hidden">
                 <div 
@@ -458,11 +460,12 @@ function LandingHero({ onProceed }: LandingHeroProps) {
       </button>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
         <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100">
+          {/* todo: fix its still aligned to left size but must be in middle */}
           <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
             <Bot className="w-6 h-6 text-purple-600" />
           </div>
-          <h3 className="text-lg font-semibold mb-2">Self-conscious</h3>
-          <p className="text-gray-600">Mements can come up with spontaneous thoughts rather than acting as assistants.</p>
+          <h3 className="text-lg font-semibold mb-2">Self-evolving</h3>
+          <p className="text-gray-600">Mements believe to have spontaneous thoughts, not just acting as assistants.</p>
         </div>
         <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100">
           <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
@@ -485,10 +488,11 @@ function LandingHero({ onProceed }: LandingHeroProps) {
 
 function DeploymentSuccess() {
   const { agentConfig } = useAgent();
-  const agentUrl = `https://${agentConfig.subdomain}.example.com`;
+  const agentUrl = `https://${agentConfig.subdomain}.${constants.BASE_URL}`;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      {/* it should not be continous overwhelming confetti just short burst */}
       <Confetti />
       <div className="text-center">
         <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">

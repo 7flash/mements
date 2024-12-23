@@ -463,7 +463,7 @@ const server = serve({
           const data = await req.json();
           console.log(requestId, "Received question", data.content);
 
-          const { default: workflowFn } = await import(`../workflows/${agentData.workflow || "basic-workflow"}.tsx`);
+          const { default: workflowFn } = await import(`../workflows/${agentData.workflow || "basic-structured-workflow"}.tsx`);
 
           const result = await workflowFn().withTask(
             agentData.prompt || "What is appropriate answer to the following question in a twitter post format?"

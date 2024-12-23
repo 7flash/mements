@@ -45,6 +45,7 @@ const GlassmorphicChat = () => {
             <Header />
           </div>
           <ChatInput />
+          <Toaster richColors />
         </main>
       </div>
     </AppContext.Provider>
@@ -76,11 +77,7 @@ const Header = () => {
 
   return (
     <div className="text-center">
-      <h1 className="text-4xl font-bold text-white mb-2">
-        <span>Hi! I am @</span>
-        <span className="text-red-500">{capitalizeFirstLetter(window.serverData.botName)}</span>
-        <span>Mement</span>
-      </h1>
+      <span className="text-2xl font-bold text-white mb-2 font-geohumanist-sans">{capitalizeFirstLetter(window.serverData.botName)}</span>
       <div className="text-white/70">
         {Object.entries(window.serverData.socialLinks || {}).map(([platform, handle]) => (
           <p key={platform}>
