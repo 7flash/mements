@@ -594,7 +594,7 @@ const server = serve({
       }
     }
 
-    if (path === "/") {
+    if (path === "/" || path === "/create" || path === "/success") {
       return new Response(htmlTemplate(assets.getLink('createAgentApp'), JSON.stringify({})), {
         headers: { "content-type": "text/html" }
       });

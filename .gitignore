@@ -2,6 +2,7 @@ StepMate
 
 static/*
 !static/fonts
+!static/images
 
 *.sqlite
 generated/*

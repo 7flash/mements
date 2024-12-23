@@ -1,3 +1,13 @@
+## Quick Start
+
+1. git clone
+
+2. bun run ./src/cli/initializeDatabase.ts --path=./static/database/dec24.sqlite (optionally, otherwise server will do it itself on first run)
+
+3. bgrun launch --name=mements-dec24 --directory=$HOME/mements --command="bun run ./src/server/index.tsx" --env="[all envs as per type ConfigKeys]" (we use bgrun but you can use pm2 or other process manager)
+
+4. 
+
 ```your-agent.toml
 [agent]
 subdomain = "jesus-ai-Lm0B"

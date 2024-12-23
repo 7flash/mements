@@ -370,7 +370,7 @@ function CreateMementForm() {
       <StepHeader currentStep={currentStep} data={data} />
       <div className="bg-white rounded-xl shadow-lg p-8">
         {currentStep === 'handle' && (
-          <HandleInput value={data.handle} onChange={(value) => updateField('handle', value)} />
+          <HandleInput value={data.handle} onChange={(value) => updateField('handle', value)} /> {/* pressing enter should work at this step as alternative to pressing Next button with a cursor */}
         )}
         {currentStep === 'type' && (
           <TypeSelection selected={data.type} onSelect={(type) => updateField('type', type)} />
