@@ -8,7 +8,7 @@ const AppContext = React.createContext({
   isLoading: false
 });
 
-export default function {
+export default function() {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
