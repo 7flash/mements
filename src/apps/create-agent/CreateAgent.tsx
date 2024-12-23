@@ -53,16 +53,14 @@ export function cls(...classes: any) {
 
 // todo: extract all common combinations of classes here into styles variable
 const styles ={
-  primaryTextColor: "text-[#006DD8]",
-  titleFont: "text-xl font-bold font-geohumanist-sans"
 }
 
 // todo: then define styles for every single element on the page and ensure its markup className={els} referencing to this variable, and so every element value can be defined as cls(styles.first, "etc")
 const els = {
-  titleText: cls(styles.primaryTextColor, styles.titleFont),
 }
 
-const styles = {
+// todo: exract common combinations in style which can be called like "blackTextOnWhiteBackground" and then combine them into actual els which can look like having a key "title" with value cls(styles.blackTextOnWhiteBackground, "text-bold") its just an example
+const legacyStyles = {
   primaryTextColor: "text-[#006DD8]",
   titleFont: "text-xl font-bold font-geohumanist-sans",
   primaryButton: "px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors cursor-pointer",
@@ -82,10 +80,6 @@ const styles = {
   landingTitle: "text-4xl sm:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-600 mb-6",
   landingDescription: "text-lg text-gray-600 mb-12",
   landingButton: "w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-purple-500 to-blue-600 text-white rounded-lg font-medium hover:opacity-90 transition-opacity mb-16",
-};
-
-const els = {
-  titleText: cls(styles.primaryTextColor, styles.titleFont),
 };
 
 export function Navigation() {
@@ -381,7 +375,7 @@ function CreateMementForm() {
       setLocation('/success');
     } catch (error) {
       console.error('Error deploying agent:', error);
-      /* should properly handlee errors with toast and progress success as well
+      /* todo: should properly handlee errors with toast and progress success as well
       
       import { Toaster, toast } from 'sonner';
                     toast.error("Failed to copy link. Please copy it manually.");
