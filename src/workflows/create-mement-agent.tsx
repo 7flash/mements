@@ -46,7 +46,7 @@ export default {
         });
 
         const result = await executePrompt(<>
-            <settings temperature={0.0} model="gpt-4o" enablesPrediction={false} />
+            <settings temperature={0.0} enablesPrediction={false} />
             <system>
                 <instruction>{this.instruction}</instruction>
                 <responseFormat>

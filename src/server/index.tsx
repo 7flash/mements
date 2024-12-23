@@ -301,7 +301,7 @@ const server = serve({
         console.log(requestId, "Received create-agent data", { name, location, purpose });
 
         // Clean conversion and ensure trigger field is not empty
-        const { trigger } = await uai.from({
+        const result = await uai.from({
           name,
           location,
           purpose,
@@ -312,7 +312,9 @@ const server = serve({
           As shown in trigger example, its important to incorporate persona name, its location, and its purpose, but avoid to mention any exact specific question.
         `);
 
-        if (!trigger) throw new Error('Invalid prompt response');
+        if (!result?.trigger) throw new Error('Invalid prompt response');
+
+        const { trigger } = result.trigger;
 
         console.log(requestId, "Workflow result", { trigger });
 
