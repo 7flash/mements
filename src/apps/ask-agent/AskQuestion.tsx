@@ -14,34 +14,45 @@ export default function() {
   const [isLoading, setIsLoading] = useState(false);
   const [, setLocation] = useLocation();
 
+  const fetchAndRedirect = async (content) => {
+    const response = await fetch('/api/ask-agent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content })
+    });
+    const data = await response.json();
+    
+    if (response.status === 200 && data.chatId) {
+      window.serverData = {
+        ...window.serverData,
+        ...data,
+      };
+      setLocation(`/chat/${data.chatId}`);
+    } else if (response.status === 422 && data.error) {
+      toast.error(`Question cannot be answered`, {
+        'description': data.error,
+      });
+      return;
+    } else {
+      throw `${data.error || 'Unknown error'}`;
+    }
+  };
+  
   const handleSubmit = async (content) => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/ask-agent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content })
-      });
-      const data = await response.json();
-      if (response.status === 200 && data.chatId) {
-        window.serverData = {
-          ...window.serverData,
-          ...data,
-        };
-        setLocation(`/chat/${data.chatId}`);
-      }
-      if (response.status === 422 && data.error) {
-        toast.error(`Question cannot be answered`, {
-          'description': data.error,
+      if (document.startViewTransition) {
+        await document.startViewTransition(async () => {
+          await fetchAndRedirect(content);
         });
-        return;
+      } else {
+        await fetchAndRedirect(content);
       }
-      throw `${data.error}`;
     } catch (error) {
       console.error('Error:', error);
       toast.error('Unexpected error', {
         'description': `${error}`,
-      })      
+      });
     } finally {
       setIsLoading(false);
     }
@@ -112,19 +123,19 @@ const ChatInput = () => {
 
   return (
     <form onSubmit={onSubmit} className="w-full max-w-2xl">
-      <div className="relative">
+      <div className="relative view-transition-question-container">
         <input
           type="text"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          className="w-full px-6 py-4 text-lg text-white bg-white/10 backdrop-blur-md rounded-xl border border-white/20 shadow-lg focus:outline-none focus:border-white/30 transition-all"
+          className="w-full px-6 py-4 text-lg text-white bg-white/10 backdrop-blur-md rounded-xl border border-white/20 shadow-lg focus:outline-none focus:border-white/30 transition-all view-transition-question"
           placeholder="Ask me anything..."
           disabled={isLoading}
         />
         <button
           type="submit"
           disabled={isLoading}
-          className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition-colors animate-pulse"
+          className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition-colors"
         >
           {isLoading ? '...' : '→'}
         </button>

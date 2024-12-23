@@ -90,3 +90,39 @@
     animation: fadeInUp 0.4s both;
   }
   
+
+
+@keyframes slide-up {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+::view-transition-old(question) {
+  animation: 300ms cubic-bezier(0.4, 0, 0.2, 1) both fade-out;
+}
+
+::view-transition-new(question) {
+  animation: 
+    300ms cubic-bezier(0.4, 0, 0.2, 1) both fade-in,
+    500ms cubic-bezier(0.4, 0, 0.2, 1) both slide-up;
+}
+
+.view-transition-question {
+  view-transition-name: question;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}  

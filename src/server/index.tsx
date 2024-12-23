@@ -210,6 +210,18 @@ const server = serve({
               "INSERT INTO agents (subdomain, name, titles, suggestions, prompt, workflow, imageCid) VALUES (?, ?, ?, ?, ?, ?, ?)",
               agentEntry.subdomain.toLowerCase(), agentEntry.name, agentEntry.titles, agentEntry.suggestions, agentEntry.prompt, agentEntry.workflow, agentEntry.imageCid
             );
+
+            /*
+todo: here when we create an agent we should also generate his wallet and save both public key and private key into separate "wallets" table like this
+
+import { Keypair } from "@solana/web3.js";
+
+      const mintKeypair = Keypair.generate();
+      const mintPublicKey = mintKeypair.publicKey.toString();
+
+also we should define proper type and a function to create this new table of wallets and it can be actually indexed by subdomain by primary key similarly as bots because we have one wallet per subdomain/agent
+
+            */
           }
 
           if (domains instanceof Array) {
@@ -300,6 +312,7 @@ const server = serve({
       try {
         const { name, location, purpose, type } = await req.json();
         console.log(requestId, "Received create-agent data", { name, location, purpose });
+        // todo: its name should not contain anything but only a-z and dash and should not be too longer so should be formatted to this aka all underscores and whatever replaced to dashes
 
         // Clean conversion and ensure trigger field is not empty
         const result = await uai.from({
