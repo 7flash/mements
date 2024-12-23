@@ -6,6 +6,7 @@ import OAuth from 'oauth-1.0a';
 
 import config from './config';
 import Files from "./files";
+import constants from './constants.ts';
 
 const files: IFiles = Files.init();
 
@@ -416,7 +417,7 @@ const server = serve({
           mintAddress: links.find(it => it.type == 'pumpfun')?.value,
           botName: agentData.name,
           alternativeBotTitles: agentData.titles?.split(',').map(it => it.trim()),
-          botTag: `@${agentData.name.replace(/\s+/g, '')}`,
+          botTag: `${agentData.subdomain}.${constants.BASE_URL}`,
           scrollItemsLeft: agentData.suggestions?.split(',').map(it => it.trim()),
           scrollItemsRight: agentData.suggestions?.split(',').reverse().map(it => it.trim()),
           socialMediaLinks: links?.reduce((prev, it) => { return { ...prev, [it.type]: it.value } }, {}),
