@@ -232,8 +232,6 @@ const server = serve({
               agentEntry.subdomain.toLowerCase(), mintPublicKey, mintPrivateKey
             );
             console.log(requestId, "Wallet created", { publicKey: mintPublicKey });
-
-            links.push({ type: 'wallet', value: mintPublicKey });
           }
 
           if (domains instanceof Array) {
@@ -398,6 +396,12 @@ const server = serve({
           body: JSON.stringify(agentPayload),
         });
 
+        if (!createAgentResponse.ok) {
+          const err = await createAgentResponse.text();
+          console.log(requestId, "unexpected internal error", err);
+          throw `Internal Error`;
+        }
+
         const createAgentData = await createAgentResponse.json();
         console.log(requestId, "Agent created successfully", createAgentData);
 
@@ -440,6 +444,8 @@ const server = serve({
         const linksQuery = db.query<Link, { $subdomain: string }>("SELECT * FROM links WHERE subdomain = $subdomain");
         const links = linksQuery.all({ $subdomain: agentData.subdomain });
 
+        // todo: we must query wallets similarly by subdomain and then if found one append to links
+        
         const serverData = {
           mintAddress: links.find(it => it.type == 'pumpfun')?.value,
           botName: agentData.name,

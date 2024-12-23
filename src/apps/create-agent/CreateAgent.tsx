@@ -412,9 +412,8 @@ function DeployProgress() {
             <div className="space-y-3">
               <div className="bg-gray-100 rounded-full overflow-hidden">
                 <div 
-                  className="bg-blue-600 h-2 rounded-full"
+                  className="bg-blue-600 h-2 rounded-full animate-progress"
                   style={{
-                    animation: 'progress 20s ease-out forwards',
                     width: '0%'
                   }}
                 ></div>
@@ -423,6 +422,16 @@ function DeployProgress() {
           </div>
         </div>
       </div>
+      
+      <style>{`
+        @keyframes progress {
+          0% { width: 0% }
+          100% { width: 100% }
+        }
+        .animate-progress {
+          animation: progress 10s ease-out forwards;
+        }
+      `}</style>
     </div>
   );
 }
