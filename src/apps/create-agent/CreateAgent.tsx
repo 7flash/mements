@@ -2,6 +2,7 @@ import React, { useState, createContext, useContext, useMemo } from 'react';
 import { Bot, MessageSquare, Terminal, Rss, Zap, Check, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Link, Route, Switch, useLocation } from "wouter";
 import Confetti from 'react-confetti';
+import { Toaster, toast } from 'sonner';
 
 import assets from "#generated/assets.json";
 
@@ -51,16 +52,8 @@ export function cls(...classes: any) {
   return classes.filter(Boolean).join(" ");
 }
 
-// todo: extract all common combinations of classes here into styles variable
-const styles ={
-}
-
-// todo: then define styles for every single element on the page and ensure its markup className={els} referencing to this variable, and so every element value can be defined as cls(styles.first, "etc")
-const els = {
-}
-
-// todo: exract common combinations in style which can be called like "blackTextOnWhiteBackground" and then combine them into actual els which can look like having a key "title" with value cls(styles.blackTextOnWhiteBackground, "text-bold") its just an example
-const legacyStyles = {
+// todo: should styles variable and instead apply all the styles directly in class names 
+const styles = {
   primaryTextColor: "text-[#006DD8]",
   titleFont: "text-xl font-bold font-geohumanist-sans",
   primaryButton: "px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors cursor-pointer",
@@ -374,15 +367,7 @@ function CreateMementForm() {
       updateAgentConfig({ subdomain: result.subdomain });
       setLocation('/success');
     } catch (error) {
-      console.error('Error deploying agent:', error);
-      /* todo: should properly handlee errors with toast and progress success as well
-      
-      import { Toaster, toast } from 'sonner';
-                    toast.error("Failed to copy link. Please copy it manually.");
-                <Toaster richColors />
-
-      
-      */
+      toast.error("Failed to deploy agent. Please try again.");
     } finally {
       setIsDeploying(false);
     }
@@ -419,6 +404,7 @@ function CreateMementForm() {
         )}
         <StepNavigation currentStep={currentStep} onBack={handleBack} onNext={handleNext} canProceed={canProceed} />
       </div>
+      <Toaster richColors />
     </div>
   );
 }
