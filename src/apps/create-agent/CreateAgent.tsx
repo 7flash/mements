@@ -149,7 +149,7 @@ export function StepHeader({ currentStep, data }: StepHeaderProps) {
 function HandleInput({ value, onChange }: HandleInputProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value.toLowerCase()
-      .replace(/[^a-z0-9_]/g, '')
+      .replace(/[^a-z0-9-]/g, '')
       .replace(/^[^a-z]+/, '');
     onChange(newValue);
   };
@@ -170,11 +170,11 @@ function HandleInput({ value, onChange }: HandleInputProps) {
             value={value}
             onChange={handleChange}
             className="flex-1 block w-full px-4 py-3 rounded-r-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-lg"
-            placeholder="oracle" // todo: we should replace oracle to kind of more generic santa claus and as well his location and purpose
+            placeholder="santa-claus"
           />
         </div>
-        {value && value.length < 3 && (
-          <p className="mt-2 text-sm text-gray-500">Handle must be at least 3 characters long</p>
+        {value && (value.length < 3 || value.length > 20) && (
+          <p className="mt-2 text-sm text-gray-500">Handle must be at least 3 characters long and no longer than 20 characters</p>
         )}
       </div>
     </div>
@@ -261,7 +261,7 @@ function DescriptionInput({
             value={location}
             onChange={(e) => onLocationChange(e.target.value)}
             className="block w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-            placeholder="City of Wisdom, 2030 AD"
+            placeholder="North Pole, 2023 AD"
           />
         </div>
 
@@ -275,7 +275,7 @@ function DescriptionInput({
             onChange={(e) => onPurposeChange(e.target.value)}
             rows={4}
             className="block w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-            placeholder="Provides wisdom and guidance through parables and teaching, focusing on daily practical advice"
+            placeholder="Delivers joy and gifts to children around the world during the holiday season"
           />
         </div>
       </div>
@@ -283,7 +283,7 @@ function DescriptionInput({
   );
 }
 
-function StepNavigation({ currentStep, onBack, onNext, canProceed }: StepNavigationProps) {
+function StepNavigation({ currentStep, onBack, onNext, canProceed, onDeploy }: StepNavigationProps & { onDeploy?: () => void }) {
   return (
     <div className="flex justify-between mt-8">
       {currentStep !== 'handle' && (
@@ -292,11 +292,18 @@ function StepNavigation({ currentStep, onBack, onNext, canProceed }: StepNavigat
           Back
         </button>
       )}
-      {currentStep !== 'description' && (
+      {currentStep !== 'description' ? (
         <button onClick={onNext} disabled={!canProceed} className={`ml-auto flex items-center px-6 py-2 rounded-md cursor-pointer ${
           canProceed ? 'bg-purple-600 text-white hover:bg-purple-700' : 'bg-gray-200 text-gray-500 cursor-not-allowed'
         } transition-colors`}>
           Next
+          <ArrowRight className="w-4 h-4 ml-2" />
+        </button>
+      ) : (
+        <button onClick={onDeploy} disabled={!canProceed} className={`ml-auto flex items-center px-6 py-2 rounded-md cursor-pointer ${
+          canProceed ? 'bg-purple-600 text-white hover:bg-purple-700' : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+        } transition-colors`}>
+          Deploy Mement
           <ArrowRight className="w-4 h-4 ml-2" />
         </button>
       )}
@@ -369,7 +376,6 @@ function CreateMementForm() {
     <div className="max-w-2xl mx-auto py-12 px-4">
       <StepHeader currentStep={currentStep} data={data} />
       <div className="bg-white rounded-xl shadow-lg p-8">
-        {/* pressing enter should work at this step as alternative to pressing Next button with a cursor */}
         {currentStep === 'handle' && (
           <HandleInput value={data.handle} onChange={(value) => updateField('handle', value)} />
         )}
@@ -377,25 +383,14 @@ function CreateMementForm() {
           <TypeSelection selected={data.type} onSelect={(type) => updateField('type', type)} />
         )}
         {currentStep === 'description' && (
-          <>
-            <DescriptionInput
-              location={data.location}
-              purpose={data.purpose}
-              onLocationChange={(value) => updateField('location', value)}
-              onPurposeChange={(value) => updateField('purpose', value)}
-            />
-            {/* todo: in this case we still should use StepNavigation and render Deploy memetn button inside of otherwise it renders here in a separate row */}
-            <div className="flex justify-between mt-8">
-                <button onClick={handleDeploy} disabled={!canProceed} className={`ml-auto flex items-center px-6 py-2 rounded-md cursor-pointer ${
-                  canProceed ? 'bg-purple-600 text-white hover:bg-purple-700' : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                } transition-colors`}>
-                  Deploy Mement
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </button>
-            </div>
-          </>
+          <DescriptionInput
+            location={data.location}
+            purpose={data.purpose}
+            onLocationChange={(value) => updateField('location', value)}
+            onPurposeChange={(value) => updateField('purpose', value)}
+          />
         )}
-        <StepNavigation currentStep={currentStep} onBack={handleBack} onNext={handleNext} canProceed={canProceed} />
+        <StepNavigation currentStep={currentStep} onBack={handleBack} onNext={handleNext} canProceed={canProceed} onDeploy={handleDeploy} />
       </div>
     </div>
   );
@@ -414,14 +409,12 @@ function DeployProgress() {
                 Please wait while we create and configure your agent...
               </p>
             </div>
-            
-            {/* todo: must ensure this animation is not repeating over and over again but rather just moving slowly towards the end in period of 10 seconds or so slowing down closer towards the end */}
             <div className="space-y-3">
               <div className="bg-gray-100 rounded-full overflow-hidden">
                 <div 
-                  className="bg-blue-600 h-2 rounded-full animate-progress"
+                  className="bg-blue-600 h-2 rounded-full"
                   style={{
-                    animation: 'progress 2s ease-in-out infinite',
+                    animation: 'progress 20s ease-out forwards',
                     width: '0%'
                   }}
                 ></div>
@@ -430,16 +423,6 @@ function DeployProgress() {
           </div>
         </div>
       </div>
-      
-      <style>{`
-        @keyframes progress {
-          0% { width: 0% }
-          100% { width: 100% }
-        }
-        .animate-progress {
-          animation: progress 2s ease-in-out infinite;
-        }
-      `}</style>
     </div>
   );
 }
@@ -460,27 +443,26 @@ function LandingHero({ onProceed }: LandingHeroProps) {
         Create New Mement
       </button>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
-        <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100">
-          {/* todo: fix its still aligned to left size but must be in middle */}
+        <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col items-center">
           <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
             <Bot className="w-6 h-6 text-purple-600" />
           </div>
           <h3 className="text-lg font-semibold mb-2">Self-evolving</h3>
-          <p className="text-gray-600">Mements believe to have spontaneous thoughts, not just acting as assistants.</p>
+          <p className="text-gray-600 text-center">Mements believe to have spontaneous thoughts, not just acting as assistants.</p>
         </div>
-        <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100">
+        <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col items-center">
           <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
             <Zap className="w-6 h-6 text-blue-600" />
           </div>
           <h3 className="text-lg font-semibold mb-2">Self-initiative</h3>
-          <p className="text-gray-600">Capable of posting automatically to their own Twitter accounts and leading Telegram channels.</p>
+          <p className="text-gray-600 text-center">Capable of posting automatically to their own Twitter accounts and leading Telegram channels.</p>
         </div>
-        <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100">
+        <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col items-center">
           <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
             <Check className="w-6 h-6 text-green-600" />
           </div>
           <h3 className="text-lg font-semibold mb-2">Self-sustainable</h3>
-          <p className="text-gray-600">Launch fair tokens supported by the community to pay electricity bills and share dividends of their success back to supporters.</p>
+          <p className="text-gray-600 text-center">Launch fair tokens supported by the community to pay electricity bills and share dividends of their success back to supporters.</p>
         </div>
       </div>
     </div>
@@ -491,11 +473,9 @@ function DeploymentSuccess() {
   const { agentConfig } = useAgent();
   const agentUrl = `https://${agentConfig.subdomain}.${constants.BASE_URL}`;
 
-    {/* todo: fix something happen in this page layout it does not fit horizontally anymore*/}  
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      {/* it should not be continous overwhelming confetti just short burst */}
-      <Confetti />
+      <Confetti recycle={false} numberOfPieces={500} />
       <div className="text-center">
         <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
           <Check className="h-6 w-6 text-green-600" />

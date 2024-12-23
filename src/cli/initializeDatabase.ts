@@ -34,20 +34,6 @@ try {
 
 try {
   db.run(`
-    CREATE TABLE wallets (
-      subdomain TEXT PRIMARY KEY,
-      public_key TEXT NOT NULL,
-      private_key TEXT NOT NULL,
-      FOREIGN KEY(subdomain) REFERENCES agents(subdomain) ON DELETE CASCADE
-    )
-  `);
-  console.log('Table "wallets" initialized');
-} catch (error) {
-  console.error('Error initializing table "wallets":', error);
-}
-
-try {
-  db.run(`
     CREATE TABLE chats (
       id TEXT PRIMARY KEY,
       subdomain TEXT NOT NULL,
