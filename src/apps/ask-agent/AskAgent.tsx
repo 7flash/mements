@@ -8,7 +8,125 @@ const AppContext = React.createContext({
   isLoading: false
 });
 
-const GlassmorphicChat = () => {
+/*
+todo: rewrite this page to become ShowAskAgent where the question and answers are already present on /chat/$id page so we just render them and show button to ask another question pointing to root / and button to share answer on twitter pointing to tweet if its present along with showing its tweet url or if its not present just pointing to twitter posting like this
+
+
+
+and the overall layout of question/response card should include all these fields as in this example
+
+-const ResponseDisplay = React.forwardRef<
+-    HTMLDivElement,
+-    { response: any; onReset: () => void; actionBar?: React.ReactNode; hideDefaultActions?: boolean }
+->(
+-    ({ response, onReset, actionBar, hideDefaultActions = false }, ref) => {
+-        const [visible, setVisible] = useState(false);
+-
+-        useEffect(() => {
+-            const timer = setTimeout(() => {
+-                setVisible(true);
+-            }, 300);
+-            return () => clearTimeout(timer);
+-        }, []);
+-
+-        const copyLink = async () => {
+-            try {
+-                const url = window.location.href;
+-                if (navigator.clipboard && navigator.clipboard.writeText) {
+-                    await navigator.clipboard.writeText(url);
+-                    toast.success("Link copied to clipboard!");
+-                    return;
+-                }
+-                const textarea = document.createElement("textarea");
+-                textarea.value = url;
+-                textarea.style.position = "fixed";
+-                document.body.appendChild(textarea);
+-                textarea.focus();
+-                textarea.select();
+-                try {
+-                    document.execCommand("copy");
+-                    textarea.remove();
+-                    toast.success("Link copied to clipboard!");
+-                } catch (err) {
+-                    textarea.remove();
+-                    toast.error("Failed to copy link. Please copy it manually.");
+-                }
+-            } catch (err) {
+-                console.error("Sharing failed:", err);
+-                toast.error("Failed to share. Please try copying the URL manually.");
+-            }
+-        };
+-
+-        return (
+-            <div className={cls(styles.flexColumn, styles.flexCenter, "w-full")}>
+-                <div
+-                    ref={ref}
+-                    className={cls(els.responseContainer, visible ? "animate-ios-like" : "opacity-0")}
+-                >
+-                    <div className={els.responseHeader}>
+-                        <div className="text-neutral-200 text-sm sm:text-base">{response.question}</div>
+-                    </div>
+-                    <div className={els.responseContent}>
+-                        <div className="flex gap-3 sm:gap-4 mb-3 items-center">
+-                            <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-full overflow-hidden ring-1 ring-neutral-800 flex-shrink-0">
+-                                <img src={window.serverData.agentImage} alt={`chat${window.serverData.botName}`} className="w-full h-full object-cover" />
+-                            </div>
+-                            <div className="flex-1 flex items-center">
+-                                <div className="flex flex-col justify-center">
+-                                    <div className="text-neutral-50 font-bold leading-5 text-base sm:text-lg">
+-                                        {window.serverData.botName}
+-                                    </div>
+-                                    <div className="text-neutral-500 text-sm">{window.serverData.botTag}</div>
+-                                </div>
+-                            </div>
+-                        </div>
+-                        <div className="mt-4 sm:mt-5">
+-                            <div className="font-sans text-[16px] sm:text-[20px] leading-normal text-neutral-100 whitespace-pre-line">
+-                                {response.content.split("\n").map((line, index) => (
+-                                    <p key={index} className="mb-2">
+-                                        {line}
+-                                    </p>
+-                                ))}
+-                            </div>
+-                        </div>
+-                        <div className={els.responseMeta}>
+-                            <div className="text-neutral-500 text-xs sm:text-sm">
+-                                {new Date(response.timestamp).toLocaleTimeString([], {
+-                                    hour: "numeric",
+-                                    minute: "2-digit",
+-                                    hour12: true,
+-                                })}
+-                            </div>
+-                            <div className="text-neutral-600">┬╖</div>
+-                            <div className="text-neutral-500 text-xs sm:text-sm">
+-                                {new Date(response.timestamp).toLocaleDateString([], {
+-                                    month: "short",
+-                                    day: "numeric",
+-                                    year: "numeric",
+-                                })}
+-                            </div>
+-                        </div>
+-                    </div>
+-                    <div className="absolute bottom-0 right-0 select-none pointer-events-none">
+-                        <div className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-gradient-to-r from-neutral-900/95 to-neutral-950/95 backdrop-blur-[2px] border-t border-l border-neutral-800/30 rounded-tl-xl">
+-                            <div className="flex items-center gap-1 sm:gap-1.5">
+-                                <div className="text-neutral-400 text-[10px] sm:text-xs">Powered by</div>
+-                                <div className="flex items-center">
+-                                    <div className="font-bold text-neutral-200 text-[10px] sm:text-xs">Chat</div>
+-                                    <div className="font-bold text-red-500 text-[10px] sm:text-xs">{window.serverData.botName}</div>
+-                                </div>
+-                            </div>
+-                        </div>
+-                    </div>
+-                </div>
+-            </div>
+-        );
+-    },
+-);
+
+*/
+
+const AskAgent = () => {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -45,9 +163,9 @@ const GlassmorphicChat = () => {
             <Header />
           </div>
           <ChatInput />
-          <Toaster richColors />
         </main>
       </div>
+      <Toaster richColors />
     </AppContext.Provider>
   );
 };
@@ -77,7 +195,7 @@ const Header = () => {
 
   return (
     <div className="text-center">
-      <span className="text-2xl font-bold text-white mb-2 font-geohumanist-sans">{capitalizeFirstLetter(window.serverData.botName)}</span>
+      <span className="text-4xl font-bold text-white mb-2 font-geohumanist-sans">{capitalizeFirstLetter(window.serverData.botName)}</span>
       <div className="text-white/70">
         {Object.entries(window.serverData.socialLinks || {}).map(([platform, handle]) => (
           <p key={platform}>

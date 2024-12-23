@@ -465,14 +465,14 @@ const server = serve({
 
           const { default: workflowFn } = await import(`../workflows/${agentData.workflow || "basic-structured-workflow"}.tsx`);
 
-          const result = await workflowFn()
+          const result = await workflowFn
           .from({
             question: data.content,
             situation: agentData.prompt,
           })
           .to({
             success: 'TRUE or FALSE indicating if question is appropriate and answerable',
-            answer: 'Final answer in Twitter post format'
+            answer: 'twitter post, should not contain hash tags, nor double quotes or other special symbols'
           })
           .exec("Imagine described situation in which its character triggered by appearing question would write a twitter post in its consequence");          
 
