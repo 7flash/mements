@@ -48,7 +48,7 @@ const ResponseCard = ({ visible }) => {
 
   return (
     <div className={`bg-neutral-900/90 backdrop-blur-sm border border-neutral-800 rounded-2xl shadow-xl transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0'}`}>
-      <div className="p-6 border-b border-neutral-800">
+      <div className="p-6 border-b border-neutral-800 view-transition-question">
         <div className="text-neutral-200 text-sm sm:text-base">{response.question}</div>
       </div>
       

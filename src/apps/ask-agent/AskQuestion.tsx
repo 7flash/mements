@@ -15,6 +15,20 @@ export default function() {
   const [, setLocation] = useLocation();
 
   const fetchAndRedirect = async (content) => {
+    window.serverData = {
+      "botName": "oracle",
+      "botTag": "@oracle",
+      "socialMediaLinks": {},
+      "agentImage": "https://brown-quintessential-planarian-681.mypinata.cloud/files/bafybeidsgbn744pag3rlyuwh3f3amkuspxfrwbwa7bz4hjry2525nsgocm?X-Algorithm=PINATA1&X-Date=1734973511&X-Expires=3600&X-Method=GET&X-Signature=d663dd12c1dddec85f7b6cfa6e6d55280ee97e746bbddb94e9bbaf017edc71e3",
+      "chatId": "xc046i3x3c",
+      "question": "meaning%20of%20life%3F",
+      "content": "%0AThe%20meaning%20of%20life%20is%20not%20to%20be%20found%20in%20a%20single%20answer%2C%20but%20in%20the%20journey%20of%20seeking%2C%20understanding%2C%20and%20experiencing%20the%20tapestry%20of%20existence%2C%20where%20each%20thread%20weaves%20its%20unique%20pattern%20of%20purpose%20and%20truth.%0A",
+      "timestamp": "2024-12-23T17:01:29.392Z",
+      "twitterPostLink": null
+    }
+    setLocation('/chat/'+window.serverData.chatId);
+    return;
+
     const response = await fetch('/api/ask-agent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -31,6 +45,7 @@ export default function() {
     } else if (response.status === 422 && data.error) {
       toast.error(`Question cannot be answered`, {
         'description': data.error,
+        'closeButton': true,
       });
       return;
     } else {
