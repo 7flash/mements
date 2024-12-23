@@ -24,7 +24,7 @@ export default function() {
       });
       const data = await response.json();
       
-      if (response.status === 200 && data.chatId || true) {
+      if (response.status === 200 && data.chatId) {
         window.serverData = {
           ...window.serverData,
           ...data,
@@ -87,9 +87,9 @@ const Header = () => {
       <span className="text-4xl font-bold text-white mb-2 font-geohumanist-sans view-transition-name">{capitalizeFirstLetter(window.serverData.botName)}</span>
       <div className="text-white/70">
       </div>
-        {Object.entries(window.serverData.socialLinks || {}).map(([platform, handle]) => (
+        {Object.entries(window.serverData.links || {}).map(([platform, value]) => (
           <p key={platform}>
-            {platform}: {handle}
+            {platform == "wallet" ? "SOL Wallet" : platform}: {value}
           </p>
         ))}
         </div>

@@ -18,15 +18,33 @@ if (!values.path) {
 
 const db = new BunDatabase(values.path, { create: true });
 
-/*
-todo: implement a new table and define a new type accordingly how we use it
+try {
+  db.run(`
+    CREATE TABLE wallets (
+      subdomain TEXT PRIMARY KEY,
+      public_key TEXT NOT NULL,
+      private_key TEXT NOT NULL,
+      FOREIGN KEY(subdomain) REFERENCES agents(subdomain) ON DELETE CASCADE
+    )
+  `);
+  console.log('Table "wallets" initialized');
+} catch (error) {
+  console.error('Error initializing table "wallets":', error);
+}
 
-            db.run(
-              "INSERT INTO wallets (subdomain, public_key, private_key) VALUES (?, ?, ?)",
-              agentEntry.subdomain.toLowerCase(), mintPublicKey, mintPrivateKey
-            );
-
-*/
+try {
+  db.run(`
+    CREATE TABLE wallets (
+      subdomain TEXT PRIMARY KEY,
+      public_key TEXT NOT NULL,
+      private_key TEXT NOT NULL,
+      FOREIGN KEY(subdomain) REFERENCES agents(subdomain) ON DELETE CASCADE
+    )
+  `);
+  console.log('Table "wallets" initialized');
+} catch (error) {
+  console.error('Error initializing table "wallets":', error);
+}
 
 try {
   db.run(`

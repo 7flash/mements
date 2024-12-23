@@ -233,8 +233,7 @@ const server = serve({
             );
             console.log(requestId, "Wallet created", { publicKey: mintPublicKey });
 
-            // Add public key to agent's social links
-            links.push({ type: 'public_key', value: mintPublicKey });
+            links.push({ type: 'wallet', value: mintPublicKey });
           }
 
           if (domains instanceof Array) {
@@ -444,11 +443,8 @@ const server = serve({
         const serverData = {
           mintAddress: links.find(it => it.type == 'pumpfun')?.value,
           botName: agentData.name,
-          alternativeBotTitles: agentData.titles?.split(',').map(it => it.trim()),
           botTag: `${agentData.subdomain}.${constants.BASE_URL}`,
-          scrollItemsLeft: agentData.suggestions?.split(',').map(it => it.trim()),
-          scrollItemsRight: agentData.suggestions?.split(',').reverse().map(it => it.trim()),
-          socialMediaLinks: links?.reduce((prev, it) => { return { ...prev, [it.type]: it.value } }, {}),
+          links: links?.reduce((prev, it) => { return { ...prev, [it.type]: it.value } }, {}),
           agentImage: await files.getUrl(agentData.imageCid, 3600),
         };
 
