@@ -51,7 +51,17 @@ export function cls(...classes: any) {
   return classes.filter(Boolean).join(" ");
 }
 
-// Extracted common styles
+// todo: extract all common combinations of classes here into styles variable
+const styles ={
+  primaryTextColor: "text-[#006DD8]",
+  titleFont: "text-xl font-bold font-geohumanist-sans"
+}
+
+// todo: then define styles for every single element on the page and ensure its markup className={els} referencing to this variable, and so every element value can be defined as cls(styles.first, "etc")
+const els = {
+  titleText: cls(styles.primaryTextColor, styles.titleFont),
+}
+
 const styles = {
   primaryTextColor: "text-[#006DD8]",
   titleFont: "text-xl font-bold font-geohumanist-sans",
@@ -371,6 +381,14 @@ function CreateMementForm() {
       setLocation('/success');
     } catch (error) {
       console.error('Error deploying agent:', error);
+      /* should properly handlee errors with toast and progress success as well
+      
+      import { Toaster, toast } from 'sonner';
+                    toast.error("Failed to copy link. Please copy it manually.");
+                <Toaster richColors />
+
+      
+      */
     } finally {
       setIsDeploying(false);
     }

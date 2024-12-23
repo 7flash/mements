@@ -16,6 +16,7 @@
     "oauth-1.0a": "^2.2.6",
     "pinata": "^1.10.1",
     "react": "^19.0.0",
+    "react-confetti": "^6.1.0",
     "react-dom": "^19.0.0",
     "short-unique-id": "^5.2.0",
     "sonner": "^1.7.1",
