@@ -125,7 +125,7 @@ function htmlTemplate(scriptLink: string, serverData: string = '{}'): string {
 const server = serve({
   async fetch(req) {
     const requestId = randomUUIDForRequest();
-    console.log(requestId, "Request received");
+    console.log(requestId, "Request received"); // todo: at the beginning of request should print out here current date/time in Indonesia/makasaar timezone in the format something like "1:36 AM of 24 dec. 2024."
 
     const url = new URL(req.url);
     const path = url.pathname;
@@ -487,6 +487,8 @@ const server = serve({
             });
           }
 
+          result.answer = result.answer.replaceAll('\n', '').trim();
+
           if (result?.answer?.length > 280) {
               const shorterResult = await uai.from({
                 longerPost: result.answer
@@ -496,8 +498,8 @@ const server = serve({
                 make shorter version of long post
               `);
 
-            if (shorterResult.success && shorterResult.answer) {
-              result.answer = `${shorterResult.answer}`;
+            if (shorterResult?.shorterPost?.length > 0) {
+              result.answer = `${shorterResult?.shorterPost}`.replaceAll('\n', '').trim();
             }
           }
 
