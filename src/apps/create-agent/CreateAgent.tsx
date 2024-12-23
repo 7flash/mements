@@ -1,7 +1,6 @@
-import React, { useState, createContext, useContext } from 'react';
+import React, { useState, createContext, useContext, useMemo } from 'react';
 import { Bot, MessageSquare, Terminal, Rss, Zap, Check, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Link, Route, Switch, useLocation } from "wouter";
-
 import assets from "#generated/assets.json";
 
 interface AgentContextType {
@@ -46,15 +45,17 @@ function AgentProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function classNames(...classes: any) {
+export function cls(...classes: any) {
   return classes.filter(Boolean).join(" ");
 }
 
 const styles = {
-  primaryButton: "px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors",
-  secondaryButton: "px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50",
+  primaryTextColor: "text-[#006DD8]",
+  titleFont: "text-xl font-bold font-geohumanist-sans",
+  primaryButton: "px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors cursor-pointer",
+  secondaryButton: "px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer",
   nav: "sticky top-0 z-50 backdrop-blur-sm",
-  textButton: "flex items-center px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors",
+  textButton: "flex items-center px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors cursor-pointer",
   header: "bg-white border-b border-gray-200",
   headerContainer: "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
   headerContent: "flex justify-between h-16",
@@ -71,10 +72,12 @@ const styles = {
   landingButton: "w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-purple-500 to-blue-600 text-white rounded-lg font-medium hover:opacity-90 transition-opacity mb-16",
 };
 
+const els = {
+  titleText: cls(styles.primaryTextColor, styles.titleFont),
+};
+
 export function Navigation() {
-  const links = [
-    // Define any links here if needed
-  ];
+  const links = [];
 
   return (
     <nav className="hidden sm:ml-6 sm:flex sm:space-x-8">
@@ -90,10 +93,23 @@ export function Navigation() {
 }
 
 export function Header() {
-  const handleConnectWallet = () => {
-    // Define the connect wallet logic here
-    console.log("Connect Wallet Clicked");
-  };
+  const handleConnectWallet = useMemo(() => {
+    const getProvider = () => {
+      if ("phantom" in window) {
+        const provider = window.phantom?.solana;
+        return provider?.isPhantom ? provider : window.open("https://phantom.app/", "_blank");
+      }
+    };
+
+    return async () => {
+      const provider = getProvider();
+      console.log("provider ==> ", provider);
+      if (provider) {
+        const resp = await provider.connect();
+        setPublicKey(resp.publicKey.toString());
+      }
+    };
+  }, []);
 
   return (
     <header className={styles.header}>
@@ -101,8 +117,8 @@ export function Header() {
         <div className={styles.headerContent}>
           <div className="flex">
             <div className={styles.headerTitle}>
-              <img src={assets.logomark} alt="Logo" width={24} height={24} />
-              <span className="text-xl font-bold text-[#006DD8]">Mements</span>
+              <img src={assets.logo} alt="Logo" width={24} height={24} />
+              <span className={els.titleText}>Mements</span>
             </div>
             <Navigation />
           </div>
@@ -384,6 +400,48 @@ function CreateMementForm() {
   );
 }
 
+function DeployProgress() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="max-w-md w-full mx-4">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+          <div className="space-y-6">
+            <div className="flex flex-col items-center">
+              <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+              <h2 className="mt-4 text-xl font-semibold text-gray-900">Deploying Your Agent</h2>
+              <p className="mt-2 text-sm text-gray-500 text-center">
+                Please wait while we create and configure your agent...
+              </p>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="bg-gray-100 rounded-full overflow-hidden">
+                <div 
+                  className="bg-blue-600 h-2 rounded-full animate-progress"
+                  style={{
+                    animation: 'progress 2s ease-in-out infinite',
+                    width: '0%'
+                  }}
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <style>{`
+        @keyframes progress {
+          0% { width: 0% }
+          100% { width: 100% }
+        }
+        .animate-progress {
+          animation: progress 2s ease-in-out infinite;
+        }
+      `}</style>
+    </div>
+  )
+}
+
 function LandingHero({ onProceed }: LandingHeroProps) {
   return (
     <div className={styles.landingHero}>
@@ -399,20 +457,27 @@ function LandingHero({ onProceed }: LandingHeroProps) {
       >
         Create New Mement
       </button>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100">
           <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
             <Bot className="w-6 h-6 text-purple-600" />
           </div>
-          <h3 className="text-lg font-semibold mb-2">Intelligent Mements</h3>
-          <p className="text-gray-600">Deploy state-of-the-art AI personalities with ease</p>
+          <h3 className="text-lg font-semibold mb-2">Self-conscious</h3>
+          <p className="text-gray-600">Come up with spontaneous thoughts rather than acting as assistants</p>
         </div>
         <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100">
           <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
             <Zap className="w-6 h-6 text-blue-600" />
           </div>
-          <h3 className="text-lg font-semibold mb-2">Lightning Fast</h3>
-          <p className="text-gray-600">Optimized infrastructure for rapid deployment and scaling</p>
+          <h3 className="text-lg font-semibold mb-2">Self-initiative</h3>
+          <p className="text-gray-600">Capable of posting automatically to their own Twitter accounts and leading Telegram channels</p>
+        </div>
+        <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100">
+          <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+            <Check className="w-6 h-6 text-green-600" />
+          </div>
+          <h3 className="text-lg font-semibold mb-2">Self-sustainable</h3>
+          <p className="text-gray-600">Launching their fair tokens supported by the community to pay electricity bills and share dividends of their success back to supporters</p>
         </div>
       </div>
     </div>
@@ -420,29 +485,27 @@ function LandingHero({ onProceed }: LandingHeroProps) {
 }
 
 function DeploymentSuccess() {
-  const { agentConfig, resetConfig } = useAgent();
+  const { agentConfig } = useAgent();
   const agentUrl = `https://${agentConfig.subdomain}.example.com`;
 
-  const handleEdit = () => {
-    resetConfig();
-  };
-
   return (
-    <div className="text-center">
-      <div className={styles.successIcon}>
-        <Check className="h-6 w-6 text-green-600" />
+    <div className={styles.stepContainer}>
+      <div className={styles.stepContent}>
+        <div className={styles.successIcon}>
+          <Check className="h-6 w-6 text-green-600" />
+        </div>
+        <h3 className={styles.successText}>Agent Successfully Deployed!</h3>
+        <p className={styles.successSubText}>Your agent is now live and ready to interact</p>
+        <div className="bg-gray-50 rounded-lg p-4 mb-6">
+          <p className="text-sm font-medium text-gray-700 mb-2">Agent URL:</p>
+          <a href={agentUrl} target="_blank" rel="noopener noreferrer" className={styles.successLink}>
+            {agentUrl}
+          </a>
+        </div>
+        <button onClick={() => window.open(agentUrl, "_blank")} className={styles.primaryButton}>
+          Go to Agent
+        </button>
       </div>
-      <h3 className={styles.successText}>Agent Successfully Deployed!</h3>
-      <p className={styles.successSubText}>Your agent is now live and ready to interact</p>
-      <div className="bg-gray-50 rounded-lg p-4 mb-6">
-        <p className="text-sm font-medium text-gray-700 mb-2">Agent URL:</p>
-        <a href={agentUrl} target="_blank" rel="noopener noreferrer" className={styles.successLink}>
-          {agentUrl}
-        </a>
-      </div>
-      <button onClick={handleEdit} className={styles.secondaryButton}>
-        Deploy new one
-      </button>
     </div>
   );
 }
