@@ -9,7 +9,7 @@ const consumer_secret = process.env.TWITTER_API_SECRET!;
 console.log("consumer_secret ==> ", consumer_secret);
 
 const data = {
-  "text": "Walking in Digital Jerusalem and someone asks me about the Second Coming? Well, I’d say: “Stay alert, because you don’t know the day or the hour. Focus on love and justice today, and let tomorrow take care of itself.” 🌿 #Patience #Faith"
+  "text": "Hello, world!"
 };
 
 const endpointURL = `https://api.twitter.com/2/tweets`;

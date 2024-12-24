@@ -39,6 +39,20 @@ custom_script_path=""
 
 more advanced config
 
+but first lets create our twitter auth:
+
+ensure there is no oAuthAccessToken.json in static/tokens folder
+
+and ensure you have process.env.TWITTER_API_KEY and process.env.TWITTER_API_SECRET
+
+follow the steps to open the link in your browser where you are authorized in corresponding X account prepared for agent, and retrieve PIN, then oauth tokens will be saved to oAuthAccessToken.json and you have to import them in database by defining in the config
+
+also with telegram, create a new bot and him as admin to a channel, send message to a channel
+
+then run 
+
+BUN_PORT=3000 CREATE_AGENT_SECRET=your-api-secret bun run ./src/cli/createAgentFromFile.ts --filePath=./static/agents/happy-santa.toml
+
 ```your-agent.toml
 [agent]
 subdomain = "jesus-ai-Lm0B"
