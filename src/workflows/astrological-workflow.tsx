@@ -3,41 +3,50 @@
 import React from "react";
 import executePrompt from "uai/src/uai.ts";
 
-const ASTRO_API_URL = 'https://astrologer.p.rapidapi.com/api/v4/now';
-const ASTRO_API_OPTIONS = {
-    method: 'GET',
-    headers: {
-        'x-rapidapi-key': '77e249f32amsh380b401cb9d8c04p160950jsnbf4f37e0d756',
-        'x-rapidapi-host': 'astrologer.p.rapidapi.com'
-    }
-};
-
-let astroCache = {
-    data: null,
-    timestamp: 0
-};
-
-async function fetchAstrologicalData() {
-    const currentTime = Date.now();
+const isCacheValid = (lastFetchTime) => {
+    const now = new Date().getTime();
     const twelveHours = 12 * 60 * 60 * 1000;
+    return (now - lastFetchTime) < twelveHours;
+}
 
-    if (astroCache.data && (currentTime - astroCache.timestamp < twelveHours)) {
-        return astroCache.data;
-    }
+const fetchAstrologicalData = async () => {
+    const url = 'https://astrologer.p.rapidapi.com/api/v4/now';
+    const options = {
+        method: 'GET',
+        headers: {
+            'x-rapidapi-key': '77e249f32amsh380b401cb9d8c04p160950jsnbf4f37e0d756',
+            'x-rapidapi-host': 'astrologer.p.rapidapi.com'
+        }
+    };
 
     try {
-        const response = await fetch(ASTRO_API_URL, ASTRO_API_OPTIONS);
+        const response = await fetch(url, options);
         const result = await response.json();
-        astroCache = {
-            data: result,
-            timestamp: currentTime
-        };
         return result;
     } catch (error) {
-        console.error("Error fetching astrological data:", error);
+        console.error(error);
         return null;
     }
-}
+};
+
+// Caching mechanism
+let cachedAstrologicalData = null;
+let lastFetchTime = 0;
+
+const getAstrologicalData = async () => {
+    if (cachedAstrologicalData && isCacheValid(lastFetchTime)) {
+        console.log("Using cached astrological data");
+        return cachedAstrologicalData;
+    } else {
+        console.log("Fetching new astrological data");
+        const data = await fetchAstrologicalData();
+        if (data) {
+            cachedAstrologicalData = data;
+            lastFetchTime = new Date().getTime();
+        }
+        return cachedAstrologicalData;
+    }
+};
 
 export default {
     fromFields: {},
@@ -56,10 +65,6 @@ export default {
 
     async exec(instruction: string) {
         this.instruction = instruction;
-
-        const astroData = await fetchAstrologicalData();
-        const sunData = astroData?.data?.sun || {};
-        const moonData = astroData?.data?.moon || {};
 
         const formatFromFields = Object.keys(this.fromFields).map((key) => {
             return {
@@ -85,6 +90,30 @@ export default {
             return <TagName>{it.fieldDescription}</TagName>;
         });
 
+        const astrologicalData = await getAstrologicalData();
+        const sunData = astrologicalData?.data?.sun;
+        const moonData = astrologicalData?.data?.moon;
+
+        const contextContent = (
+            <>
+                {tagsOfFromFields}
+                {sunData && (
+                    <sun>
+                        <element>{sunData.element}</element>
+                        <sign>{sunData.sign}</sign>
+                        <emoji>{sunData.emoji}</emoji>
+                    </sun>
+                )}
+                {moonData && (
+                    <moon>
+                        <element>{moonData.element}</element>
+                        <sign>{moonData.sign}</sign>
+                        <emoji>{moonData.emoji}</emoji>
+                    </moon>
+                )}
+            </>
+        );
+
         const result = await executePrompt(<>
             <settings temperature={0.0} enablesPrediction={false} />
             <system>
@@ -98,19 +127,7 @@ export default {
             </system>
             <user>
                 <context>
-                    {tagsOfFromFields}
-                    <Sun>
-                        <Sign>{sunData.sign}</Sign>
-                        <Element>{sunData.element}</Element>
-                        <Quality>{sunData.quality}</Quality>
-                        <Emoji>{sunData.emoji}</Emoji>
-                    </Sun>
-                    <Moon>
-                        <Sign>{moonData.sign}</Sign>
-                        <Element>{moonData.element}</Element>
-                        <Quality>{moonData.quality}</Quality>
-                        <Emoji>{moonData.emoji}</Emoji>
-                    </Moon>
+                    {contextContent}
                 </context>
             </user>
         </>);
