@@ -94,26 +94,6 @@ export default {
         const sunData = astrologicalData?.data?.sun;
         const moonData = astrologicalData?.data?.moon;
 
-        const contextContent = (
-            <>
-                {tagsOfFromFields}
-                {sunData && (
-                    <sun>
-                        <element>{sunData.element}</element>
-                        <sign>{sunData.sign}</sign>
-                        <emoji>{sunData.emoji}</emoji>
-                    </sun>
-                )}
-                {moonData && (
-                    <moon>
-                        <element>{moonData.element}</element>
-                        <sign>{moonData.sign}</sign>
-                        <emoji>{moonData.emoji}</emoji>
-                    </moon>
-                )}
-            </>
-        );
-
         const result = await executePrompt(<>
             <settings temperature={0.0} enablesPrediction={false} />
             <system>
@@ -127,7 +107,21 @@ export default {
             </system>
             <user>
                 <context>
-                    {contextContent}
+                    {tagsOfFromFields}
+                    {sunData && (
+                        <sun>
+                            <element>{sunData.element}</element>
+                            <sign>{sunData.sign}</sign>
+                            <emoji>{sunData.emoji}</emoji>
+                        </sun>
+                    )}
+                    {moonData && (
+                        <moon>
+                            <element>{moonData.element}</element>
+                            <sign>{moonData.sign}</sign>
+                            <emoji>{moonData.emoji}</emoji>
+                        </moon>
+                    )}
                 </context>
             </user>
         </>);
