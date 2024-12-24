@@ -1,3 +1,5 @@
+import React from "react";
+
 export const LoaderIcon = () => (
   <svg class="animate-spin border-indigo-300"
 xmlns="http://www.w3.org/2000/svg" width="30" height="30"

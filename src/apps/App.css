@@ -1,11 +1,15 @@
+@import "./tootik.css";
+
 @import "tailwindcss";
 
 @theme {
     --font-serif: ui-serif, Georgia;
     --font-sans: "Geist", system-ui, sans-serif;
     --font-mono: "JetBrainsMono", ui-monospace;
+    --font-geohumanist-sans: "Sen", system-ui;
   }
 
+  
   @keyframes scroll {
     0% {
       transform: translateX(0);
@@ -89,3 +93,114 @@
     animation: fadeInUp 0.4s both;
   }
   
+/* view transitions */
+@keyframes slide-up {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-down {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scale-down {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(0.5);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* View transition names */
+.view-transition-question {
+  view-transition-name: question;
+}
+
+.view-transition-avatar {
+  view-transition-name: avatar;
+}
+
+.view-transition-name {
+  view-transition-name: name;
+}
+
+/* Transitions for question */
+::view-transition-old(question) {
+  animation: 300ms cubic-bezier(0.4, 0, 0.2, 1) both fade-out;
+}
+
+::view-transition-new(question) {
+  animation: 
+    300ms cubic-bezier(0.4, 0, 0.2, 1) both fade-in,
+    500ms cubic-bezier(0.4, 0, 0.2, 1) both slide-up;
+}
+
+/* Transitions for avatar */
+::view-transition-old(avatar) {
+  animation: 
+    300ms cubic-bezier(0.4, 0, 0.2, 1) both fade-out,
+    300ms cubic-bezier(0.4, 0, 0.2, 1) both scale-down;
+}
+
+::view-transition-new(avatar) {
+  animation: 
+    300ms cubic-bezier(0.4, 0, 0.2, 1) both fade-in,
+    300ms cubic-bezier(0.4, 0, 0.2, 1) both slide-up;
+}
+
+/* name transition */
+
+.view-transition-name-container {
+  contain: layout;
+  transform-origin: left center;
+}
+
+.view-transition-name {
+  view-transition-name: name;
+  display: inline-block; /* This helps with text transitions */
+}
+
+::view-transition-old(name) {
+  animation: 
+    300ms cubic-bezier(0.4, 0, 0.2, 1) both name-to-small;
+}
+
+::view-transition-new(name) {
+  animation: 
+    300ms cubic-bezier(0.4, 0, 0.2, 1) both fade-in;
+}
+
+@keyframes name-to-small {
+  from {
+    opacity: 1;
+    transform: translateX(0) translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-30%) translateY(100%) scale(0.4);
+  }
+}
