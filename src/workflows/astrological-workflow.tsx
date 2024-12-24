@@ -3,76 +3,41 @@
 import React from "react";
 import executePrompt from "uai/src/uai.ts";
 
-/*
-todo: implement this workflow to be more astrological
-
-every time we should retrieve astrological data like this
-
-const url = 'https://astrologer.p.rapidapi.com/api/v4/now';
-const options = {
-	method: 'GET',
-	headers: {
-		'x-rapidapi-key': '77e249f32amsh380b401cb9d8c04p160950jsnbf4f37e0d756',
-		'x-rapidapi-host': 'astrologer.p.rapidapi.com'
-	}
+const ASTRO_API_URL = 'https://astrologer.p.rapidapi.com/api/v4/now';
+const ASTRO_API_OPTIONS = {
+    method: 'GET',
+    headers: {
+        'x-rapidapi-key': '77e249f32amsh380b401cb9d8c04p160950jsnbf4f37e0d756',
+        'x-rapidapi-host': 'astrologer.p.rapidapi.com'
+    }
 };
 
-try {
-	const response = await fetch(url, options);
-	const result = await response.text();
-	console.log(result);
-} catch (error) {
-	console.error(error);
+let astroCache = {
+    data: null,
+    timestamp: 0
+};
+
+async function fetchAstrologicalData() {
+    const currentTime = Date.now();
+    const twelveHours = 12 * 60 * 60 * 1000;
+
+    if (astroCache.data && (currentTime - astroCache.timestamp < twelveHours)) {
+        return astroCache.data;
+    }
+
+    try {
+        const response = await fetch(ASTRO_API_URL, ASTRO_API_OPTIONS);
+        const result = await response.json();
+        astroCache = {
+            data: result,
+            timestamp: currentTime
+        };
+        return result;
+    } catch (error) {
+        console.error("Error fetching astrological data:", error);
+        return null;
+    }
 }
-
-and response json body is like this:
-
-status:"OK"
-data:
-name:"Now"
-year:2024
-month:3
-day:31
-hour:17
-minute:14
-city:"GMT"
-nation:"UK"
-lng:-0.001545
-lat:51.477928
-tz_str:"GMT"
-zodiac_type:"Tropic"
-local_time:17.233333333333334
-utc_time:17.233333333333334
-julian_day:2460401.2180555556
-sun:
-name:"Sun"
-quality:"Cardinal"
-element:"Fire"
-sign:"Ari"
-sign_num:0
-position:11.473315438969095
-abs_pos:11.473315438969095
-emoji:"♈️"
-point_type:"Planet"
-house:"Seventh_House"
-retrograde:false
-moon:
-name:"Moon"
-quality:"Mutable"
-element:"Fire"
-sign:"Sag"
-sign_num:8
-position:24.068937038977367
-abs_pos:264.06893703897737
-emoji:"♐️"
-point_type:"Planet"
-house:"Third_House"
-retrograde:false
-
-we should parse this json and insert as jsx tags for sun and moon into context of our prompt
-
-also we should not do this fetch request every time but we can store it in cache in mapping daily so only after 12 hours since last fetch request we do it again otherwise take it from cache mapping
-*/
 
 export default {
     fromFields: {},
@@ -91,6 +56,10 @@ export default {
 
     async exec(instruction: string) {
         this.instruction = instruction;
+
+        const astroData = await fetchAstrologicalData();
+        const sunData = astroData?.data?.sun || {};
+        const moonData = astroData?.data?.moon || {};
 
         const formatFromFields = Object.keys(this.fromFields).map((key) => {
             return {
@@ -130,6 +99,18 @@ export default {
             <user>
                 <context>
                     {tagsOfFromFields}
+                    <Sun>
+                        <Sign>{sunData.sign}</Sign>
+                        <Element>{sunData.element}</Element>
+                        <Quality>{sunData.quality}</Quality>
+                        <Emoji>{sunData.emoji}</Emoji>
+                    </Sun>
+                    <Moon>
+                        <Sign>{moonData.sign}</Sign>
+                        <Element>{moonData.element}</Element>
+                        <Quality>{moonData.quality}</Quality>
+                        <Emoji>{moonData.emoji}</Emoji>
+                    </Moon>
                 </context>
             </user>
         </>);
