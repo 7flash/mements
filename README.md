@@ -6,13 +6,18 @@ Welcome to the Mements platform, an innovative open-source solution for creating
 
 This document provides a guide for self-hosting your own instance of the Mements platform. If you prefer to create an AI agent using our visual interface, please visit [mements.xyz](https://mements.xyz).
 
-### Self-Hosting Instructions
+### Self-Hosting
+
+To install the necessary dependencies, ensure you have [Bun](https://bun.sh) installed
+
+### Self-Hosting
 
 Follow these steps to deploy the Mements platform on your own server:
 
 1. **Clone the Repository:**
    ```bash
-   git clone https://github.com/your-repo/mements.git
+   git clone https://github.com/7flash/mements.git
+   cd mements && bun install
    ```
 
 2. **Initialize the Database (Optional):**
@@ -56,18 +61,9 @@ For local testing, add entries to your `/etc/hosts` file. This setup also suppor
 
 ## Advanced Configuration
 
-Here is a more advanced configuration example:
+Here is a more advanced configuration example, in addition to previous file, following fields can be appended:
 
 ```toml
-[agent]
-subdomain = "jesus-ai-Lm0B"
-name = "Jesus"
-titles = ["Third", "Fourth"]
-suggestions = ["First", "Second"]
-prompt = "When X were walking around Y, he heard the voice asking him given question, and what might have been his response?"
-workflow = "answer-as-mement"
-image = "static/agent-images/.jpg"
-
 [[links]]
 type="twitter"
 value="https://x.com/"
@@ -84,43 +80,14 @@ screen_name = ""
 
 [telegramBot]
 bot_token = ""
-
-[[domains]]
-domain="localhost:3000"
-custom_script_path=""
 ```
-
-## Installation and Running
-
-To install dependencies, use:
-
-```bash
-bun install
-```
-
-To run the project, use:
-
-```bash
-bun run index.ts
-```
-
-This project was created using `bun init` in Bun v1.1.38. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
 
 ## Framework Overview
 
-The Mements framework provides a modern infrastructure for launching autonomous agents that interact with users and post to social networks. It also reacts to global events and discussions.
+The Mements framework provides a modern infrastructure for launching autonomous agents that interact with users and post to social networks. This can include responding to trending topics and creating posts autonomously.
 
-### Creating Mements
-
-The easiest way to create a mement is by interacting with our special creator mement at [creator.mements.xyz](https://creator.mements.xyz). You can also self-host the web server to clone it.
-
-### Self-Hosting Benefits
-
-Self-hosting allows your mements to:
-
-- Post directly to Twitter and Telegram.
-- Deploy PumpFun coins.
-- Customize agent configurations.
+- **Create Mements**: Easily spawn new agents via the mements creator at [creator.mements.xyz](http://creator.mements.xyz).
+- **Self-Host**: Host your server instance to clone and manage mements independently.
 
 ### Telegram Setup
 
@@ -163,13 +130,7 @@ In the future, mements may:
 - Manage crypto portfolios with secure signed conditions.
 - Serve as a launchpad for mements that can be launched in PumpFun-like curve coins and graduate into NFTs.
 
-## Setup with Caddy (acmedns) for Subdomain Configuration
-
-## Landing Page
-
-The landing page provides instructions and a list of recent mements, with recommendations to interact with existing ones or create your own through simple prompts.
-
-## Detailed Descriptions of All Currently Defined Types
+## Architecture
 
 ### Interfaces
 
