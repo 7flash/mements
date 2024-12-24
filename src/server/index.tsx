@@ -555,7 +555,7 @@ const server = serve({
 
           let twitterPostLink = null;
           try {
-            const twitterBotQuery = db.query<TwitterBot, { $subdomain: string }>("SELECT oauth_token, oauth_token_secret, user_id FROM twitter_bots WHERE subdomain = $subdomain");
+            const twitterBotQuery = db.query<TwitterBot, { $subdomain: string }>("SELECT oauth_token, oauth_token_secret, user_id, screen_name FROM twitter_bots WHERE subdomain = $subdomain");
             const twitterBotData = twitterBotQuery.get({ $subdomain: agentData.subdomain });
 
             if (!twitterBotData) {
