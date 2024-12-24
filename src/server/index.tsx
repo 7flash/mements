@@ -125,7 +125,15 @@ function htmlTemplate(scriptLink: string, serverData: string = '{}'): string {
 
 const server = serve({
   async fetch(req) {
+    const url = new URL(req.url);
+    const path = url.pathname;
+
+    if (assets.hasAssetByPath(path)) {
+      return new Response(assets.getAssetByPath(path));
+    }
+
     const requestId = randomUUIDForRequest();
+    console.log(requestId, "path", path);
 
     const localTime = new Date().toLocaleString("en-US", {
       timeZone: "Asia/Makassar",
@@ -137,15 +145,6 @@ const server = serve({
       year: "numeric",
     });
     console.log(requestId, `Request received at ${localTime}`);
-
-    const url = new URL(req.url);
-    const path = url.pathname;
-    console.log(requestId, "path", path);
-
-    if (assets.hasAssetByPath(path)) {
-      console.log(requestId, "Serving asset", path);
-      return new Response(assets.getAssetByPath(path));
-    }
 
     const host = req.headers.get("host");
     console.log(requestId, "host", host);
