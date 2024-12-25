@@ -49,6 +49,7 @@ try {
 }
 
 try {
+  // todo: we should remove titles and suggestions fields completely, and imageCid we must move to a new table that we initialize as well thats images table which can include multiple images per agent but each image with unique key aka composed key of agent plus its image key so it can have background or multiple avatars etc
   db.run(`
     CREATE TABLE agents (
       subdomain TEXT PRIMARY KEY,
