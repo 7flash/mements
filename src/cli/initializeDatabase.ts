@@ -55,6 +55,7 @@ try {
     const agentsData = db.query(`
       SELECT subdomain, name, prompt, workflow, imageCid FROM agents
     `).all();
+    console.log("agentsDsata ==> ", agentsData);
 
     // Step 2: Drop the old 'agents' table
     db.run(`DROP TABLE IF EXISTS agents`);
