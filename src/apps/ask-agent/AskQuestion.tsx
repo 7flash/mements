@@ -55,6 +55,7 @@ export default function() {
     }
   };
 
+  // todo: improve mobile layout currently it shows a desktop version thats not responsive just very big distance around the edges and very small text
   return (
     <AppContext.Provider value={{ inputValue, setInputValue, handleSubmit, isLoading }}>
       <div className="flex flex-col items-center mt-4 sm:mt-8 space-y-4 sm:space-y-6 px-4 sm:px-0">
@@ -62,6 +63,7 @@ export default function() {
         <Header />
         <ChatInput />
       </div>
+      <ChatInput />
     </AppContext.Provider>
   );
 };
@@ -69,7 +71,7 @@ export default function() {
 const Avatar = () => (
   <div className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden border-4 border-white/20 shadow-2xl view-transition-avatar">
     <img 
-      src={window.serverData.agentImage} 
+      src={window.serverData.agentImages['avatar'] ? window.serverData.agentImages['avatar'] : window.serverData.agentImages['default']}
       alt="Avatar"
       className="w-full h-full object-cover"
     />

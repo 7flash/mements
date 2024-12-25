@@ -8,7 +8,7 @@ const BackgroundImage = () => (
     <div 
       className="absolute inset-0 bg-cover bg-center"
       style={{ 
-        backgroundImage: `url(${window.serverData.agentImage})`,
+        backgroundImage: `url(${window.serverData.agentImages['background'] ? window.serverData.agentImages['background'] : window.serverData.agentImages['default']})`,
         filter: 'blur(8px) brightness(0.3)'
       }}
     />
