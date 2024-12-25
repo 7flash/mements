@@ -100,7 +100,7 @@ const Header = () => {
     <div className="text-center">
       <div className="flex flex-col items-center bg-white/10 backdrop-blur-md rounded-xl border border-white/20 shadow-lg p-4">
         <div className="view-transition-name-container">
-          <span className="text-2xl sm:text-4xl font-bold text-white mb-2 font-geohumanist-sans view-transition-name">{capitalizeFirstLetter(window.serverData.botName)}</span>
+          {!window.serverData.customInfo && <span className="text-2xl sm:text-4xl font-bold text-white mb-2 font-geohumanist-sans view-transition-name">{capitalizeFirstLetter(window.serverData.botName)}</span>}
           <div className="text-white/70">
             {renderInfo()}
           </div>
