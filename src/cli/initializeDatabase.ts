@@ -63,6 +63,7 @@ try {
   `);
   console.log('Table "agents" initialized');
 } catch (error) {
+  // todo: we should implement a migration here then since table already exists we must fetch all data from it and then delete the table and create a new table, insert all the data in a new table and images accordingly to a new images table, and of course wrap it into transaction         const transaction = db.transaction(() => {
   console.error('Error initializing table "agents":', error);
 }
 
