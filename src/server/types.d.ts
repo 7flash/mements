@@ -1,4 +1,3 @@
-
 interface IFiles {
     upload(file: File): Promise<string>;
     getUrl(cid: string, expires: number): Promise<string>;
@@ -80,13 +79,7 @@ type Domain = {
   custom_script_path: string;
 };
 
-/*
-todo: define corresponding type
-
-    CREATE TABLE custom_info (
-      subdomain TEXT PRIMARY KEY,
-      info TEXT,
-      FOREIGN KEY(subdomain) REFERENCES agents(subdomain) ON DELETE CASCADE
-    )
-
-*/
+type CustomInfo = {
+  subdomain: string;
+  info: string;
+};
