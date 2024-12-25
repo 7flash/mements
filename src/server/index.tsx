@@ -183,7 +183,6 @@ const server = serve({
           if (!telegramBot.group_id) throw 'missing telegram bot group id and cannot be retrieved from updates';
         }
 
-        // Support multiple agent.images
         const imageCids = await Promise.all(images.map(async (img: { key: string, value: string }) => {
           let imageCid;
           if (/^[a-z0-9]{59,}$/.test(img.value)) {
@@ -198,6 +197,11 @@ const server = serve({
           console.log(requestId, "imageCid", imageCid);
           return { key: img.key, imageCid };
         }));
+
+        let info;
+        if (customInfo?.info.endsWith('txt')) {
+          info = await Bun.file(resolve(process.cwd(), customInfo?.info)).text(); 
+        }
 
         const transaction = db.transaction(() => {
           const subdomain = agent.subdomain ?? `${agent.name.toLowerCase().replace(/[^a-z]+/g, '-')}-${randomUUIDForAgent()}`;
