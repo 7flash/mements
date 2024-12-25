@@ -49,9 +49,17 @@ try {
 }
 
 try {
-  const migrateAgentsTable = () => {
-    const data = db.query('SELECT subdomain, name, prompt, workflow, imageCid FROM agents').all();
-    db.run('DROP TABLE IF EXISTS agents');
+  // Migration step
+  const transaction = db.transaction(() => {
+    // Step 1: Backup existing 'agents' data
+    const agentsData = db.query(`
+      SELECT subdomain, name, prompt, workflow, imageCid FROM agents
+    `).all();
+
+    // Step 2: Drop the old 'agents' table
+    db.run(`DROP TABLE IF EXISTS agents`);
+
+    // Step 3: Create the new 'agents' table
     db.run(`
       CREATE TABLE agents (
         subdomain TEXT PRIMARY KEY,
@@ -60,29 +68,42 @@ try {
         workflow TEXT
       )
     `);
+
+    // Step 4: Reinsert the data back into the new 'agents' table
+    for (const agent of agentsData) {
+      db.run(
+        `INSERT INTO agents (subdomain, name, prompt, workflow) VALUES (?, ?, ?, ?)`,
+        agent.subdomain, agent.name, agent.prompt, agent.workflow
+      );
+    }
+
+    // Step 5: Create the new 'images' table for storing image CIDs separately
     db.run(`
       CREATE TABLE images (
         subdomain TEXT,
-        imageKey TEXT,
-        imageCid TEXT,
-        PRIMARY KEY (subdomain, imageKey),
+        image_key TEXT,
+        imageCid TEXT NOT NULL,
+        PRIMARY KEY (subdomain, image_key),
         FOREIGN KEY(subdomain) REFERENCES agents(subdomain) ON DELETE CASCADE
       )
     `);
-    for (const row of data) {
-      db.run('INSERT INTO agents (subdomain, name, prompt, workflow) VALUES (?, ?, ?, ?)', 
-        [row.subdomain, row.name, row.prompt, row.workflow]);
-      if (row.imageCid) {
-        db.run('INSERT INTO images (subdomain, imageKey, imageCid) VALUES (?, ?, ?)', 
-          [row.subdomain, 'default', row.imageCid]);
+
+    // Step 6: Insert image CID data into the new 'images' table
+    for (const agent of agentsData) {
+      if (agent.imageCid) {
+        db.run(
+          `INSERT INTO images (subdomain, image_key, imageCid) VALUES (?, ?, ?)`,
+          agent.subdomain, 'default', agent.imageCid
+        );
       }
     }
-  };
+  });
 
-  db.transaction(migrateAgentsTable)();
-  console.log('Table "agents" and "images" initialized with migration');
+  transaction();
+
+  console.log('Tables "agents" and "images" initialized and data migrated');
 } catch (error) {
-  console.error('Error initializing or migrating table "agents":', error);
+  console.error('Error during migration and initializing table "agents":', error);
 }
 
 try {
@@ -173,4 +194,3 @@ try {
 }
 
 console.log('Database initialized at path:', values.path);
-```

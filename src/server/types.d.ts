@@ -37,6 +37,26 @@ type Chat = {
   twitter_post_link?: string;
 };
 
+/*
+todo: we should update our types accordingly to new database schema
+
+      CREATE TABLE agents (
+        subdomain TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        prompt TEXT,
+        workflow TEXT
+      )
+
+      CREATE TABLE images (
+        subdomain TEXT,
+        image_key TEXT,
+        imageCid TEXT NOT NULL,
+        PRIMARY KEY (subdomain, image_key),
+        FOREIGN KEY(subdomain) REFERENCES agents(subdomain) ON DELETE CASCADE
+      )
+
+*/
+
 type Agent = {
   subdomain: string;
   name: string;
