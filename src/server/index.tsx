@@ -448,6 +448,7 @@ const server = serve({
           links.push({ type: `SOL Wallet of ${agentData.name}`, value: walletData.public_key });
         }
 
+        // todo: we should also fetch custom_info accordingly ot CustomInfo and as well ensure its parsed and inserted when we do /createAgent from file
         const serverData = {
           mintAddress: links.find(it => it.type == 'pumpfun')?.value,
           botName: agentData.name,
