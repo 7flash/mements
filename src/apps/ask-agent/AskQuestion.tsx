@@ -57,7 +57,7 @@ export default function() {
 
   return (
     <AppContext.Provider value={{ inputValue, setInputValue, handleSubmit, isLoading }}>
-      <div className="flex flex-col items-center mt-8 space-y-6 px-4 sm:px-8 md:px-16 lg:px-24">
+      <div className="flex flex-col items-center mt-4 sm:mt-8 space-y-4 sm:space-y-6 px-4 sm:px-0">
         <Avatar />
         <Header />
         <ChatInput />
@@ -67,7 +67,7 @@ export default function() {
 };
 
 const Avatar = () => (
-  <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-white/20 shadow-2xl view-transition-avatar">
+  <div className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden border-4 border-white/20 shadow-2xl view-transition-avatar">
     <img 
       src={window.serverData.agentImage} 
       alt="Avatar"
@@ -79,24 +79,29 @@ const Avatar = () => (
 const Header = () => {
   const capitalizeFirstLetter = (string) => string.charAt(0).toUpperCase() + string.slice(1);
 
-  const infoTemplate = window.serverData.info || '';
-  const links = window.serverData.links || {};
-  const infoWithLinks = Object.entries(links).reduce((info, [key, value]) => {
-    const placeholder = `__${key.toUpperCase()}__`;
-    return info.replace(new RegExp(placeholder, 'g'), value);
-  }, infoTemplate);
-
-  const infoLines = infoWithLinks.split('\n');
+  const renderInfo = () => {
+    if (window.serverData.info) {
+      let info = window.serverData.info;
+      for (let [key, value] of Object.entries(window.serverData.links || {})) {
+        info = info.replace(`__${key.toUpperCase()}__`, value);
+      }
+      return info.split('\n').map((line, index) => <p key={index}>{line}</p>);
+    }
+    return Object.entries(window.serverData.links || {}).map(([platform, value]) => (
+      <p key={platform}>
+        <span data-tootik={platform} data-tootik-conf="invert no-fading shadow multiline">{value}
+        </span>
+      </p>
+    ));
+  };
 
   return (
     <div className="text-center">
       <div className="flex flex-col items-center bg-white/10 backdrop-blur-md rounded-xl border border-white/20 shadow-lg p-4">
         <div className="view-transition-name-container">
-          <span className="text-4xl font-bold text-white mb-2 font-geohumanist-sans view-transition-name">{capitalizeFirstLetter(window.serverData.botName)}</span>
+          <span className="text-2xl sm:text-4xl font-bold text-white mb-2 font-geohumanist-sans view-transition-name">{capitalizeFirstLetter(window.serverData.botName)}</span>
           <div className="text-white/70">
-            {infoLines.map((line, index) => (
-              <p key={index}>{line}</p>
-            ))}
+            {renderInfo()}
           </div>
         </div>
       </div>
@@ -114,20 +119,20 @@ const ChatInput = () => {
   };
 
   return (
-    <form onSubmit={onSubmit} className="w-full max-w-2xl">
+    <form onSubmit={onSubmit} className="w-full max-w-md sm:max-w-2xl">
       <div className="relative view-transition-question-container">
         <input
           type="text"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          className="w-full px-6 py-4 text-lg text-white bg-white/10 backdrop-blur-md rounded-xl border border-white/20 shadow-lg focus:outline-none focus:border-white/30 transition-all view-transition-question"
+          className="w-full px-4 sm:px-6 py-3 sm:py-4 text-base sm:text-lg text-white bg-white/10 backdrop-blur-md rounded-xl border border-white/20 shadow-lg focus:outline-none focus:border-white/30 transition-all view-transition-question"
           placeholder="Ask me anything..."
           disabled={isLoading}
         />
         <button
           type="submit"
           disabled={isLoading}
-          className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition-colors"
+          className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition-colors"
         >
           {isLoading ? '...' : '→'}
         </button>

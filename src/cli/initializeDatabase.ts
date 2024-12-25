@@ -65,6 +65,7 @@ try {
   console.error('Error initializing table "agents":', error);
 }
 
+// todo: implemnt a new table custom_info similarly to links to allow users associate custom text with their subdomain
 try {
   db.run(`
     CREATE TABLE links (
