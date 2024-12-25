@@ -65,7 +65,19 @@ try {
   console.error('Error initializing table "agents":', error);
 }
 
-// todo: implemnt a new table custom_info similarly to links to allow users associate custom text with their subdomain
+try {
+  db.run(`
+    CREATE TABLE custom_info (
+      subdomain TEXT PRIMARY KEY,
+      info TEXT,
+      FOREIGN KEY(subdomain) REFERENCES agents(subdomain) ON DELETE CASCADE
+    )
+  `);
+  console.log('Table "custom_info" initialized');
+} catch (error) {
+  console.error('Error initializing table "custom_info":', error);
+}
+
 try {
   db.run(`
     CREATE TABLE links (

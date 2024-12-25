@@ -79,3 +79,14 @@ type Domain = {
   subdomain: string;
   custom_script_path: string;
 };
+
+/*
+todo: define corresponding type
+
+    CREATE TABLE custom_info (
+      subdomain TEXT PRIMARY KEY,
+      info TEXT,
+      FOREIGN KEY(subdomain) REFERENCES agents(subdomain) ON DELETE CASCADE
+    )
+
+*/
