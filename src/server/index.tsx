@@ -182,18 +182,22 @@ const server = serve({
           if (!telegramBot.group_id) throw 'missing telegram bot group id and cannot be retrieved from updates';
         }
 
-        // todo: should support multiple agent.images
-        let imageCid;
-        if (/^[a-z0-9]{59,}$/.test(agent.image)) {
-          imageCid = agent.image;
-        } else if (/^.+\.(png|jpg|jpeg|gif)$/.test(agent.image)) {
-          const file = await Bun.file(resolve(process.cwd(), agent.image)).bytes();
-          console.log(requestId, "file size", file.length);
-          imageCid = await files.upload(new File([file], "agent-image.png", { type: "image/png" }));
-        } else {
-          throw 'missing image field (should be file path or cid)';
-        }
-        console.log(requestId, "imageCid", imageCid);
+        // Support multiple agent.images
+        const images = agent.images || [{ key: 'default', value: agent.image }];
+        const imageCids = await Promise.all(images.map(async (img: { key: string, value: string }) => {
+          let imageCid;
+          if (/^[a-z0-9]{59,}$/.test(img.value)) {
+            imageCid = img.value;
+          } else if (/^.+\.(png|jpg|jpeg|gif)$/.test(img.value)) {
+            const file = await Bun.file(resolve(process.cwd(), img.value)).bytes();
+            console.log(requestId, "file size", file.length);
+            imageCid = await files.upload(new File([file], "agent-image.png", { type: "image/png" }));
+          } else {
+            throw 'missing image field (should be file path or cid)';
+          }
+          console.log(requestId, "imageCid", imageCid);
+          return { key: img.key, imageCid };
+        }));
 
         const transaction = db.transaction(() => {
           const subdomain = agent.subdomain ?? `${agent.name.toLowerCase().replace(/[^a-z]+/g, '-')}-${randomUUIDForAgent()}`;
@@ -219,12 +223,14 @@ const server = serve({
               agentEntry.subdomain.toLowerCase(), agentEntry.name, agentEntry.prompt, agentEntry.workflow
             );
 
-            // todo: it should insert along with image_key as per our types and if has conflict then overrides
-            db.run(
-              "INSERT INTO images (subdomain, imageCid) VALUES (?, ?)",
-              agentEntry.subdomain.toLowerCase(), imageCid
-            );
-            console.log(requestId, "Image inserted", { subdomain: agentEntry.subdomain, imageCid });
+            // Insert images with image_key
+            imageCids.forEach(({ key, imageCid }) => {
+              db.run(
+                "INSERT INTO images (subdomain, image_key, imageCid) VALUES (?, ?, ?) ON CONFLICT(subdomain, image_key) DO UPDATE SET imageCid=excluded.imageCid",
+                agentEntry.subdomain.toLowerCase(), key, imageCid
+              );
+              console.log(requestId, "Image inserted", { subdomain: agentEntry.subdomain, imageCid, key });
+            });
 
             // Create wallet for the agent
             const mintKeypair = Keypair.generate();
@@ -387,11 +393,11 @@ const server = serve({
 
         console.log(requestId, "Generated image CID", imageCid);
 
-        // todo: should pass image with key default in its own images object
+        // Pass image with key 'default' in its own images object
         const agentPayload = {
           agent: {
             name: formattedName,
-            image: imageCid,
+            images: [{ key: 'default', value: imageCid }],
             prompt: trigger,
           },
         };
@@ -463,16 +469,17 @@ const server = serve({
         const customInfoQuery = db.query<CustomInfo, { $subdomain: string }>("SELECT info FROM custom_info WHERE subdomain = $subdomain");
         const customInfoData = customInfoQuery.get({ $subdomain: agentData.subdomain });
 
-        // todo: since it can have multiple images we should pass them all as an object { [image_key]: imageUrl } to serverData.agentImages (resolving files.getUrl for each of them)
-        const imageQuery = db.query<Image, { $subdomain: string }>("SELECT imageCid FROM images WHERE subdomain = $subdomain");
-        const imageData = imageQuery.get({ $subdomain: agentData.subdomain });
+        // Retrieve multiple images and pass them as an object
+        const imageQuery = db.query<Image, { $subdomain: string }>("SELECT image_key, imageCid FROM images WHERE subdomain = $subdomain");
+        const imageData = imageQuery.all({ $subdomain: agentData.subdomain });
+        const agentImages = Object.fromEntries(await Promise.all(imageData.map(async (img) => [img.image_key, await files.getUrl(img.imageCid, 3600)])));
 
         const serverData = {
           mintAddress: links.find(it => it.type == 'pumpfun')?.value,
           botName: agentData.name,
           botTag: `${agentData.subdomain}.${constants.BASE_URL}`,
           links: links?.reduce((prev, it) => { return { ...prev, [it.type]: it.value } }, {}),
-          agentImage: await files.getUrl(imageData.imageCid, 3600),
+          agentImages, // Pass all images
           customInfo: customInfoData?.info,
         };
 
@@ -661,19 +668,3 @@ const server = serve({
 });
 
 console.log(`🌐 Server is running on http://localhost:${server.port} 🚀`);
-```
-```ts
-// Update to types.d.ts to reflect the restructuring and add a missing field
-type Agent = {
-  subdomain: string;
-  name: string;
-  prompt: string;
-  workflow: string;
-  imageCid?: string; // To accommodate the previously used field
-};
-
-// Define Image type for the images table
-type Image = {
-  subdomain: string;
-  imageCid: string;
-};
