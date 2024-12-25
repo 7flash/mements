@@ -163,8 +163,8 @@ const server = serve({
           return new Response("Unauthorized", { status: 403 });
         }
 
-        const { agent, links, twitterBot, telegramBot, domains } = await req.json();
-        console.log(requestId, "Received data", { agent, links, twitterBot, telegramBot, domains });
+        const { agent, links, twitterBot, telegramBot, domains, customInfo } = await req.json();
+        console.log(requestId, "Received data", { agent, links, twitterBot, telegramBot, domains, customInfo });
 
         if (telegramBot) {
           console.log(requestId, "telegramBot", telegramBot);
@@ -300,6 +300,22 @@ const server = serve({
               );
             }
             console.log(requestId, "Telegram bot entry", { subdomain: agentEntry.subdomain, telegramBot });
+          }
+
+          if (customInfo) {
+            const existingCustomInfo = db.query("SELECT * FROM custom_info WHERE subdomain = ?").get(agentEntry.subdomain);
+            if (existingCustomInfo) {
+              db.run(
+                "UPDATE custom_info SET info = ? WHERE subdomain = ?",
+                customInfo.info, agentEntry.subdomain
+              );
+            } else {
+              db.run(
+                "INSERT INTO custom_info (subdomain, info) VALUES (?, ?)",
+                agentEntry.subdomain, customInfo.info
+              );
+            }
+            console.log(requestId, "Custom info entry", { subdomain: agentEntry.subdomain, customInfo });
           }
 
           return agentEntry;
@@ -448,13 +464,16 @@ const server = serve({
           links.push({ type: `SOL Wallet of ${agentData.name}`, value: walletData.public_key });
         }
 
-        // todo: we should also fetch custom_info accordingly ot CustomInfo and as well ensure its parsed and inserted when we do /createAgent from file
+        const customInfoQuery = db.query<CustomInfo, { $subdomain: string }>("SELECT info FROM custom_info WHERE subdomain = $subdomain");
+        const customInfoData = customInfoQuery.get({ $subdomain: agentData.subdomain });
+
         const serverData = {
           mintAddress: links.find(it => it.type == 'pumpfun')?.value,
           botName: agentData.name,
           botTag: `${agentData.subdomain}.${constants.BASE_URL}`,
           links: links?.reduce((prev, it) => { return { ...prev, [it.type]: it.value } }, {}),
           agentImage: await files.getUrl(agentData.imageCid, 3600),
+          customInfo: customInfoData?.info,
         };
 
         if (path == "/") {

@@ -1,7 +1,7 @@
 interface IFiles {
-    upload(file: File): Promise<string>;
-    getUrl(cid: string, expires: number): Promise<string>;
-    createTemporaryAdminKey(): Promise<any>;
+  upload(file: File): Promise<string>;
+  getUrl(cid: string, expires: number): Promise<string>;
+  createTemporaryAdminKey(): Promise<any>;
 }
 
 interface IAssets {
@@ -12,7 +12,7 @@ interface IAssets {
   getAssetByName(name: string): BunFile;
 }
 
-type AssetName = keyof typeof assets; 
+type AssetName = keyof typeof assets;
 
 type IConstants = { BASE_URL: string };
 
