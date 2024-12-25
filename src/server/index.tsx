@@ -12,7 +12,7 @@ import constants from './constants.ts';
 const files: IFiles = Files.init();
 
 const dbPath = path.join(process.cwd(), 'static/database', `${config.get('DB_NAME')}.sqlite`).trim();
-console.log("dbPath ==> ", dbPath);
+
 try {
   await Bun.$`ls ${dbPath}`;
 } catch (err) {
@@ -127,6 +127,7 @@ const server = serve({
   async fetch(req) {
     const url = new URL(req.url);
     const path = url.pathname;
+    console.log("path ==> ", path);
 
     if (assets.hasAssetByPath(path)) {
       return new Response(assets.getAssetByPath(path));
@@ -222,15 +223,6 @@ const server = serve({
               agentEntry.subdomain.toLowerCase(), agentEntry.name, agentEntry.prompt, agentEntry.workflow
             );
 
-            // Insert images with image_key
-            imageCids.forEach(({ key, imageCid }) => {
-              db.run(
-                "INSERT INTO images (subdomain, image_key, imageCid) VALUES (?, ?, ?) ON CONFLICT(subdomain, image_key) DO UPDATE SET imageCid=excluded.imageCid",
-                agentEntry.subdomain.toLowerCase(), key, imageCid
-              );
-              console.log(requestId, "Image inserted", { subdomain: agentEntry.subdomain, imageCid, key });
-            });
-
             // Create wallet for the agent
             const mintKeypair = Keypair.generate();
             const mintPublicKey = mintKeypair.publicKey.toString();
@@ -242,6 +234,16 @@ const server = serve({
             );
             console.log(requestId, "Wallet created", { publicKey: mintPublicKey });
           }
+
+          console.log("imageCids ==> ", imageCids);
+ 
+          imageCids.forEach(({ key, imageCid }) => {
+            db.run(
+              "INSERT INTO images (subdomain, image_key, imageCid) VALUES (?, ?, ?) ON CONFLICT(subdomain, image_key) DO UPDATE SET imageCid=excluded.imageCid",
+              agentEntry.subdomain.toLowerCase(), key, imageCid
+            );
+            console.log(requestId, "Image inserted", { subdomain: agentEntry.subdomain, imageCid, key });
+          });
 
           if (domains instanceof Array) {
             domains.forEach(({ domain, custom_script_path }: Domain) => {
@@ -392,7 +394,6 @@ const server = serve({
 
         console.log(requestId, "Generated image CID", imageCid);
 
-        // Pass image with key 'default' in its own images object
         const agentPayload = {
           agent: {
             name: formattedName,
@@ -468,17 +469,20 @@ const server = serve({
         const customInfoQuery = db.query<CustomInfo, { $subdomain: string }>("SELECT info FROM custom_info WHERE subdomain = $subdomain");
         const customInfoData = customInfoQuery.get({ $subdomain: agentData.subdomain });
 
-        // Retrieve multiple images and pass them as an object
         const imageQuery = db.query<Image, { $subdomain: string }>("SELECT image_key, imageCid FROM images WHERE subdomain = $subdomain");
         const imageData = imageQuery.all({ $subdomain: agentData.subdomain });
+        console.log("imageData ==> ", imageData);
         const agentImages = Object.fromEntries(await Promise.all(imageData.map(async (img) => [img.image_key, await files.getUrl(img.imageCid, 3600)])));
+
+        const linksData = links?.reduce((prev, it) => { return { ...prev, [it.type]: it.value } }, {})
+        console.log("linksData ==> ", linksData);
 
         const serverData = {
           mintAddress: links.find(it => it.type == 'pumpfun')?.value,
           botName: agentData.name,
           botTag: `${agentData.subdomain}.${constants.BASE_URL}`,
-          links: links?.reduce((prev, it) => { return { ...prev, [it.type]: it.value } }, {}),
-          agentImages, // Pass all images
+          links: linksData,
+          agentImages,
           customInfo: customInfoData?.info,
         };
 

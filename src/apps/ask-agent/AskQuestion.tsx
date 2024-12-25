@@ -63,7 +63,6 @@ export default function() {
         <Header />
         <ChatInput />
       </div>
-      <ChatInput />
     </AppContext.Provider>
   );
 };
@@ -82,8 +81,8 @@ const Header = () => {
   const capitalizeFirstLetter = (string) => string.charAt(0).toUpperCase() + string.slice(1);
 
   const renderInfo = () => {
-    if (window.serverData.info) {
-      let info = window.serverData.info;
+    if (window.serverData.customInfo) {
+      let info = window.serverData.customInfo;
       for (let [key, value] of Object.entries(window.serverData.links || {})) {
         info = info.replace(`__${key.toUpperCase()}__`, value);
       }
