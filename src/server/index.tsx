@@ -163,7 +163,7 @@ const server = serve({
           return new Response("Unauthorized", { status: 403 });
         }
 
-        const { agent, links, twitterBot, telegramBot, domains, customInfo } = await req.json();
+        const { agent, images, links, twitterBot, telegramBot, domains, customInfo } = await req.json();
         console.log(requestId, "Received data", { agent, links, twitterBot, telegramBot, domains, customInfo });
 
         if (telegramBot) {
@@ -183,7 +183,6 @@ const server = serve({
         }
 
         // Support multiple agent.images
-        const images = agent.images || [{ key: 'default', value: agent.image }];
         const imageCids = await Promise.all(images.map(async (img: { key: string, value: string }) => {
           let imageCid;
           if (/^[a-z0-9]{59,}$/.test(img.value)) {
@@ -397,9 +396,9 @@ const server = serve({
         const agentPayload = {
           agent: {
             name: formattedName,
-            images: [{ key: 'default', value: imageCid }],
             prompt: trigger,
           },
+          images: [{ key: 'default', value: imageCid }],
         };
 
         const createAgentResponse = await fetch(`http://localhost:${config.get('BUN_PORT')}/createAgent`, {
