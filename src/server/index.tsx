@@ -73,7 +73,7 @@ const assets = await buildAssets({
     href: "/assets/JetBrainsMono.ttf",
     path: join(process.cwd(), "static/fonts", "JetBrainsMono.ttf"),
   },
-})
+});
 
 const { randomUUID: randomUUIDForAgent } = new ShortUniqueId({ length: 4, dictionary: 'alphanum_lower' });
 const { randomUUID: randomUUIDForChat } = new ShortUniqueId({ length: 10, dictionary: 'alphanum_lower' });
@@ -182,6 +182,7 @@ const server = serve({
           if (!telegramBot.group_id) throw 'missing telegram bot group id and cannot be retrieved from updates';
         }
 
+        // todo: should support multiple agent.images
         let imageCid;
         if (/^[a-z0-9]{59,}$/.test(agent.image)) {
           imageCid = agent.image;
@@ -202,7 +203,7 @@ const server = serve({
             subdomain: subdomain,
             name: agent.name,
             prompt: agent.prompt,
-            workflow: agent.workflow,
+            workflow: agent.workflow
           };
           console.log(requestId, "agentEntry", agentEntry);
 
@@ -218,6 +219,13 @@ const server = serve({
               agentEntry.subdomain.toLowerCase(), agentEntry.name, agentEntry.prompt, agentEntry.workflow
             );
 
+            // todo: it should insert along with image_key as per our types and if has conflict then overrides
+            db.run(
+              "INSERT INTO images (subdomain, imageCid) VALUES (?, ?)",
+              agentEntry.subdomain.toLowerCase(), imageCid
+            );
+            console.log(requestId, "Image inserted", { subdomain: agentEntry.subdomain, imageCid });
+
             // Create wallet for the agent
             const mintKeypair = Keypair.generate();
             const mintPublicKey = mintKeypair.publicKey.toString();
@@ -228,20 +236,6 @@ const server = serve({
               agentEntry.subdomain.toLowerCase(), mintPublicKey, mintPrivateKey
             );
             console.log(requestId, "Wallet created", { publicKey: mintPublicKey });
-          }
-
-          // Insert or update the agent's image
-          const existingImage = db.query("SELECT * FROM images WHERE subdomain = ?").get(agentEntry.subdomain);
-          if (existingImage) {
-            db.run(
-              "UPDATE images SET imageCid = ? WHERE subdomain = ?",
-              imageCid, agentEntry.subdomain
-            );
-          } else {
-            db.run(
-              "INSERT INTO images (subdomain, imageCid) VALUES (?, ?)",
-              agentEntry.subdomain, imageCid
-            );
           }
 
           if (domains instanceof Array) {
@@ -393,7 +387,7 @@ const server = serve({
 
         console.log(requestId, "Generated image CID", imageCid);
 
-        // Prepare data for /createAgent
+        // todo: should pass image with key default in its own images object
         const agentPayload = {
           agent: {
             name: formattedName,
@@ -402,7 +396,6 @@ const server = serve({
           },
         };
 
-        // Call /createAgent endpoint
         const createAgentResponse = await fetch(`http://localhost:${config.get('BUN_PORT')}/createAgent`, {
           method: "POST",
           headers: {
@@ -434,12 +427,7 @@ const server = serve({
       }
     }
 
-    const agentDataQuery = db.query<Agent, { $subdomain?: string }>(`
-      SELECT agents.*, images.imageCid 
-      FROM agents 
-      LEFT JOIN images ON agents.subdomain = images.subdomain 
-      WHERE agents.subdomain = $subdomain
-    `);
+    const agentDataQuery = db.query<Agent, { $subdomain?: string }>("SELECT * FROM agents WHERE subdomain = $subdomain");
 
     const domainDataQuery = db.query<Domain, { $domain: string }>("SELECT subdomain, custom_script_path FROM domains WHERE domain = $domain");
     const domainData = domainDataQuery.get({ $domain: host! });
@@ -475,12 +463,16 @@ const server = serve({
         const customInfoQuery = db.query<CustomInfo, { $subdomain: string }>("SELECT info FROM custom_info WHERE subdomain = $subdomain");
         const customInfoData = customInfoQuery.get({ $subdomain: agentData.subdomain });
 
+        // todo: since it can have multiple images we should pass them all as an object { [image_key]: imageUrl } to serverData.agentImages (resolving files.getUrl for each of them)
+        const imageQuery = db.query<Image, { $subdomain: string }>("SELECT imageCid FROM images WHERE subdomain = $subdomain");
+        const imageData = imageQuery.get({ $subdomain: agentData.subdomain });
+
         const serverData = {
           mintAddress: links.find(it => it.type == 'pumpfun')?.value,
           botName: agentData.name,
           botTag: `${agentData.subdomain}.${constants.BASE_URL}`,
           links: links?.reduce((prev, it) => { return { ...prev, [it.type]: it.value } }, {}),
-          agentImage: await files.getUrl(agentData.imageCid, 3600),
+          agentImage: await files.getUrl(imageData.imageCid, 3600),
           customInfo: customInfoData?.info,
         };
 
@@ -669,3 +661,19 @@ const server = serve({
 });
 
 console.log(`🌐 Server is running on http://localhost:${server.port} 🚀`);
+```
+```ts
+// Update to types.d.ts to reflect the restructuring and add a missing field
+type Agent = {
+  subdomain: string;
+  name: string;
+  prompt: string;
+  workflow: string;
+  imageCid?: string; // To accommodate the previously used field
+};
+
+// Define Image type for the images table
+type Image = {
+  subdomain: string;
+  imageCid: string;
+};
