@@ -199,8 +199,8 @@ const server = serve({
         }));
 
         let info;
-        if (customInfo?.info.endsWith('txt')) {
-          info = await Bun.file(resolve(process.cwd(), customInfo?.info)).text(); 
+        if (customInfo?.info.endsWith('.txt')) {
+          customInfo.info = await Bun.file(resolve(process.cwd(), customInfo?.info)).text(); 
         }
 
         const transaction = db.transaction(() => {
