@@ -105,6 +105,8 @@ UNIFIED_FIELD_EQUATION:
       for (let [key, value] of Object.entries(window.serverData.links || {})) {
         info = info.replace(`__${key.toUpperCase()}__`, value);
       }
+      return info.split('\n').map(line => `>>${line}<<`).join('\n');
+
       return info.split('\n').map((line, index) => <p key={index}>{line}</p>);
     }
     return Object.entries(window.serverData.links || {}).map(([platform, value]) => (
@@ -120,7 +122,7 @@ UNIFIED_FIELD_EQUATION:
       <div className="flex flex-col items-center bg-white/10 backdrop-blur-md rounded-xl border border-white/20 shadow-lg p-4">
         <div className="view-transition-name-container">
           {!window.serverData.customInfo && <span className="text-2xl sm:text-4xl font-bold text-white mb-2 font-geohumanist-sans view-transition-name">{capitalizeFirstLetter(window.serverData.botName)}</span>}
-          <div className="text-white/70">
+          <div className="text-white/70 font-mono text-sm sm:text-base leading-tight whitespace-pre-wrap break-words">
             {renderInfo()}
           </div>
         </div>
