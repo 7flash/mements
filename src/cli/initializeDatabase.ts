@@ -49,22 +49,40 @@ try {
 }
 
 try {
-  // todo: we should remove titles and suggestions fields completely, and imageCid we must move to a new table that we initialize as well thats images table which can include multiple images per agent but each image with unique key aka composed key of agent plus its image key so it can have background or multiple avatars etc
-  db.run(`
-    CREATE TABLE agents (
-      subdomain TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      titles TEXT,
-      suggestions TEXT,
-      prompt TEXT,
-      workflow TEXT,
-      imageCid TEXT
-    )
-  `);
-  console.log('Table "agents" initialized');
+  const migrateAgentsTable = () => {
+    const data = db.query('SELECT subdomain, name, prompt, workflow, imageCid FROM agents').all();
+    db.run('DROP TABLE IF EXISTS agents');
+    db.run(`
+      CREATE TABLE agents (
+        subdomain TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        prompt TEXT,
+        workflow TEXT
+      )
+    `);
+    db.run(`
+      CREATE TABLE images (
+        subdomain TEXT,
+        imageKey TEXT,
+        imageCid TEXT,
+        PRIMARY KEY (subdomain, imageKey),
+        FOREIGN KEY(subdomain) REFERENCES agents(subdomain) ON DELETE CASCADE
+      )
+    `);
+    for (const row of data) {
+      db.run('INSERT INTO agents (subdomain, name, prompt, workflow) VALUES (?, ?, ?, ?)', 
+        [row.subdomain, row.name, row.prompt, row.workflow]);
+      if (row.imageCid) {
+        db.run('INSERT INTO images (subdomain, imageKey, imageCid) VALUES (?, ?, ?)', 
+          [row.subdomain, 'default', row.imageCid]);
+      }
+    }
+  };
+
+  db.transaction(migrateAgentsTable)();
+  console.log('Table "agents" and "images" initialized with migration');
 } catch (error) {
-  // todo: we should implement a migration here then since table already exists we must fetch all data from it and then delete the table and create a new table, insert all the data in a new table and images accordingly to a new images table, and of course wrap it into transaction         const transaction = db.transaction(() => {
-  console.error('Error initializing table "agents":', error);
+  console.error('Error initializing or migrating table "agents":', error);
 }
 
 try {
@@ -155,3 +173,4 @@ try {
 }
 
 console.log('Database initialized at path:', values.path);
+```
