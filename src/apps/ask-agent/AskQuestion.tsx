@@ -57,12 +57,11 @@ export default function() {
 
   return (
     <AppContext.Provider value={{ inputValue, setInputValue, handleSubmit, isLoading }}>
-      <><div className="flex flex-col items-center mt-8 space-y-6">
-            <Avatar />
-            <Header />
-          </div>
-          <ChatInput />
-      </>
+      <div className="flex flex-col items-center mt-8 space-y-6 px-4 sm:px-8 md:px-16 lg:px-24">
+        <Avatar />
+        <Header />
+        <ChatInput />
+      </div>
     </AppContext.Provider>
   );
 };
@@ -80,17 +79,23 @@ const Avatar = () => (
 const Header = () => {
   const capitalizeFirstLetter = (string) => string.charAt(0).toUpperCase() + string.slice(1);
 
+  const infoTemplate = window.serverData.info || '';
+  const links = window.serverData.links || {};
+  const infoWithLinks = Object.entries(links).reduce((info, [key, value]) => {
+    const placeholder = `__${key.toUpperCase()}__`;
+    return info.replace(new RegExp(placeholder, 'g'), value);
+  }, infoTemplate);
+
+  const infoLines = infoWithLinks.split('\n');
+
   return (
     <div className="text-center">
       <div className="flex flex-col items-center bg-white/10 backdrop-blur-md rounded-xl border border-white/20 shadow-lg p-4">
         <div className="view-transition-name-container">
           <span className="text-4xl font-bold text-white mb-2 font-geohumanist-sans view-transition-name">{capitalizeFirstLetter(window.serverData.botName)}</span>
           <div className="text-white/70">
-            {Object.entries(window.serverData.links || {}).map(([platform, value]) => (
-              <p key={platform}>
-                <span data-tootik={platform} data-tootik-conf="invert no-fading shadow multiline">{value}
-                </span>
-              </p>
+            {infoLines.map((line, index) => (
+              <p key={index}>{line}</p>
             ))}
           </div>
         </div>
