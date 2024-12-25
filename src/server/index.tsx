@@ -303,19 +303,11 @@ const server = serve({
           }
 
           if (customInfo) {
-            const existingCustomInfo = db.query("SELECT * FROM custom_info WHERE subdomain = ?").get(agentEntry.subdomain);
-            if (existingCustomInfo) {
-              db.run(
-                "UPDATE custom_info SET info = ? WHERE subdomain = ?",
-                customInfo.info, agentEntry.subdomain
-              );
-            } else {
-              db.run(
-                "INSERT INTO custom_info (subdomain, info) VALUES (?, ?)",
-                agentEntry.subdomain, customInfo.info
-              );
-            }
-            console.log(requestId, "Custom info entry", { subdomain: agentEntry.subdomain, customInfo });
+            db.run(
+              "INSERT INTO custom_info (subdomain, info) VALUES (?, ?) ON CONFLICT(subdomain) DO UPDATE SET info=excluded.info",
+              agentEntry.subdomain, customInfo.info
+            );
+            console.log(requestId, "Custom info entry", { subdomain: agentEntry.subdomain, info: customInfo.info });
           }
 
           return agentEntry;
