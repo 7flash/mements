@@ -487,7 +487,7 @@ const server = serve({
           botTag: `${agentData.subdomain}.${constants.BASE_URL}`,
           links: linksData,
           agentImages,
-          customInfo: customInfoData?.info,
+          customInfo: customInfoData?.info ? encodeURIComponent(customInfoData?.info) : '',
         };
 
         if (path == "/") {
