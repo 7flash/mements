@@ -198,30 +198,24 @@ const server = serve({
           const subdomain = agent.subdomain ?? `${agent.name.toLowerCase().replace(/[^a-z]+/g, '-')}-${randomUUIDForAgent()}`;
           console.log(requestId, "subdomain", subdomain);
 
-          /*
-todo: accordingly to our updated type definitions which corresponds to database schema, now please update insertion of agents to skip fields which are not present, and as well insert images into its own corresponding table, and read it by join accordingly
-          */
           const agentEntry: Agent = {
             subdomain: subdomain,
             name: agent.name,
-            titles: agent.titles,
-            suggestions: agent.suggestions,
             prompt: agent.prompt,
             workflow: agent.workflow,
-            imageCid: imageCid
           };
           console.log(requestId, "agentEntry", agentEntry);
 
           const existingAgent = db.query("SELECT * FROM agents WHERE subdomain = ?").get(agentEntry.subdomain);
           if (existingAgent) {
             db.run(
-              "UPDATE agents SET name = ?, titles = ?, suggestions = ?, prompt = ?, workflow = ?, imageCid = ? WHERE subdomain = ?",
-              agentEntry.name, agentEntry.titles, agentEntry.suggestions, agentEntry.prompt, agentEntry.workflow, agentEntry.imageCid, agentEntry.subdomain
+              "UPDATE agents SET name = ?, prompt = ?, workflow = ? WHERE subdomain = ?",
+              agentEntry.name, agentEntry.prompt, agentEntry.workflow, agentEntry.subdomain
             );
           } else {
             db.run(
-              "INSERT INTO agents (subdomain, name, titles, suggestions, prompt, workflow, imageCid) VALUES (?, ?, ?, ?, ?, ?, ?)",
-              agentEntry.subdomain.toLowerCase(), agentEntry.name, agentEntry.titles, agentEntry.suggestions, agentEntry.prompt, agentEntry.workflow, agentEntry.imageCid
+              "INSERT INTO agents (subdomain, name, prompt, workflow) VALUES (?, ?, ?, ?)",
+              agentEntry.subdomain.toLowerCase(), agentEntry.name, agentEntry.prompt, agentEntry.workflow
             );
 
             // Create wallet for the agent
@@ -234,6 +228,20 @@ todo: accordingly to our updated type definitions which corresponds to database 
               agentEntry.subdomain.toLowerCase(), mintPublicKey, mintPrivateKey
             );
             console.log(requestId, "Wallet created", { publicKey: mintPublicKey });
+          }
+
+          // Insert or update the agent's image
+          const existingImage = db.query("SELECT * FROM images WHERE subdomain = ?").get(agentEntry.subdomain);
+          if (existingImage) {
+            db.run(
+              "UPDATE images SET imageCid = ? WHERE subdomain = ?",
+              imageCid, agentEntry.subdomain
+            );
+          } else {
+            db.run(
+              "INSERT INTO images (subdomain, imageCid) VALUES (?, ?)",
+              agentEntry.subdomain, imageCid
+            );
           }
 
           if (domains instanceof Array) {
@@ -426,7 +434,12 @@ todo: accordingly to our updated type definitions which corresponds to database 
       }
     }
 
-    const agentDataQuery = db.query<Agent, { $subdomain?: string }>("SELECT * FROM agents WHERE subdomain = $subdomain");
+    const agentDataQuery = db.query<Agent, { $subdomain?: string }>(`
+      SELECT agents.*, images.imageCid 
+      FROM agents 
+      LEFT JOIN images ON agents.subdomain = images.subdomain 
+      WHERE agents.subdomain = $subdomain
+    `);
 
     const domainDataQuery = db.query<Domain, { $domain: string }>("SELECT subdomain, custom_script_path FROM domains WHERE domain = $domain");
     const domainData = domainDataQuery.get({ $domain: host! });

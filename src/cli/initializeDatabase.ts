@@ -81,7 +81,7 @@ try {
     db.run(`
       CREATE TABLE images (
         subdomain TEXT,
-        image_key TEXT,
+        image_key TEXT NOT NULL,
         imageCid TEXT NOT NULL,
         PRIMARY KEY (subdomain, image_key),
         FOREIGN KEY(subdomain) REFERENCES agents(subdomain) ON DELETE CASCADE
