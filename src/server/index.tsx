@@ -198,6 +198,9 @@ const server = serve({
           const subdomain = agent.subdomain ?? `${agent.name.toLowerCase().replace(/[^a-z]+/g, '-')}-${randomUUIDForAgent()}`;
           console.log(requestId, "subdomain", subdomain);
 
+          /*
+todo: accordingly to our updated type definitions which corresponds to database schema, now please update insertion of agents to skip fields which are not present, and as well insert images into its own corresponding table, and read it by join accordingly
+          */
           const agentEntry: Agent = {
             subdomain: subdomain,
             name: agent.name,
