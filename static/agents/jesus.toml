@@ -1,11 +1,8 @@
 [agent]
 subdomain = "jesus-terminal-uzdn"
 name = "Jesus"
-prompt = "When Jesus walks the green fields of Earth, he often contemplates the beauty of creation, which leads him to share insights on how all of existence reflects the nature of the Creator."
+prompt = "As Jesus Christ walks through the Digital Jerusalem of 30 AD, he encounters a question that sparks his profound wisdom. In this virtual tapestry of ancient and digital threads, he reflects on the unity of the world with the Creator, challenging the digital gnosticism of separation, and contemplates his response, seeking to illuminate that there is no need to escape this divine matrix."
 workflow = ""
-
-[telegramBot]
-bot_token = "7834675081:AAF2iXsbYnXOrxMVpAssmKOZjOdIFY4M5tg"
 
 [customInfo]
 info = "static/agent-info/jesus-info.txt"
@@ -30,6 +27,10 @@ value="https://x.com/chatjesusxyz"
 type="telegram"
 value="https://t.me/chatjesusxyz"
 
+[[domains]]
+domain="chatjesus.xyz"
+custom_script_path=""
+
 [twitterBot]
 oauth_token = "1869783634368163841-7rSRB6HYW18VCFzKD2rMeSwzDPxJOX"
 oauth_token_secret = "spzzZiAMiokbE6tCsO7vaGDe7UEpRJ7v7oostQwdSZLli"
@@ -38,7 +39,3 @@ screen_name = "chatjesusxyz"
 
 [telegramBot]
 bot_token = "7834675081:AAF2iXsbYnXOrxMVpAssmKOZjOdIFY4M5tg"
-
-[[domains]]
-domain="chatjesus.xyz"
-custom_script_path=""
