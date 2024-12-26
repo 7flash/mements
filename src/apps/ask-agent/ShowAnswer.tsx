@@ -42,7 +42,7 @@ const ResponseCard = ({ visible }) => {
         <div className="flex gap-3 sm:gap-4 mb-3 items-center">
           <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-full overflow-hidden ring-1 ring-neutral-800 flex-shrink-0 view-transition-avatar">
             <img 
-              src={window.serverData.agentImage} 
+              src={window.serverData.agentImages['avatar'] ? window.serverData.agentImages['avatar'] : window.serverData.agentImages['default']} 
               alt={`chat${window.serverData.botName}`} 
               className="w-full h-full object-cover" 
             />
