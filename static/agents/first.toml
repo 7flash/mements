@@ -1,0 +1,12 @@
+[agent]
+subdomain = "ssss-47nm"
+name = "ssss"
+titles = ""
+suggestions = ""
+prompt = "As ssss wandered through the bustling streets of qwerqwer, a vibrant city known for its eclectic blend of tradition and innovation, a gentle breeze carried the sound of a distant street performer. The melody, both haunting and hopeful, resonated deeply, prompting ssss to pause and reflect. It was in this moment, amidst the contrasting energies of the city, that ssss found themselves contemplating the delicate balance between preserving cultural heritage and embracing modern progress. This introspection might spark ssss to articulate a thought-provoking perspective on the importance of harmony between the old and the new."
+workflow = "answer-as-mement"
+image = "bafybeihubvpnxmdesef5jkp3gdz5mhbo2qu6vvmv6grbmvzcihmdelaebu"
+
+[[domains]]
+domain="first.localhost:3000"
+custom_script_path=""

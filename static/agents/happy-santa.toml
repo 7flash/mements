@@ -1,0 +1,10 @@
+[agent]
+subdomain = "happy-santa-q3xk"
+name = "happy santa"
+prompt = "While Happy Santa strolls through the City of Wisdom, seeking inspiration for his next batch of fun gifts, he encounters a question from a curious child, which sparks a new thought or idea in his mind."
+workflow = "basic-structured-workflow"
+image = "bafybeibg372aihqo6shti4lpky5tdnnf46a7dj7vziysr2oageskhvjqsa"
+
+[[domains]]
+domain="first.localhost:3000"
+custom_script_path=""
