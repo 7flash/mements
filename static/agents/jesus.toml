@@ -1,15 +1,18 @@
 [agent]
-subdomain = "jesus-vygx"
+subdomain = "jesus-terminal-uzdn"
 name = "Jesus"
 prompt = "When Jesus walks the green fields of Earth, he often contemplates the beauty of creation, which leads him to share insights on how all of existence reflects the nature of the Creator."
 workflow = ""
+
+[telegramBot]
+bot_token = "7834675081:AAF2iXsbYnXOrxMVpAssmKOZjOdIFY4M5tg"
 
 [customInfo]
 info = "static/agent-info/jesus-info.txt"
 
 [[images]]
 key = "background"
-value = "bafybeicnue542rfms2jkjqgymykr6rlx2j4y3gtbpnt5uebh6bnphtndne"
+value = "bafybeidp5osgksgktq2oyxs6rkjl7wf3w3ncyjuadyu26qdllbsfoqbky4"
 
 [[images]]
 key = "avatar"
@@ -17,7 +20,7 @@ value = "bafkreihh4n2ouu5drnhadwcnghswrc42lbvgsiidinyp5fdkpmpai7x5xe"
 
 [[links]]
 type="pumpfun"
-value="XXX"
+value="YYY"
 
 [[links]]
 type="twitter"
@@ -33,6 +36,9 @@ oauth_token_secret = "spzzZiAMiokbE6tCsO7vaGDe7UEpRJ7v7oostQwdSZLli"
 user_id = "1869783634368163841"
 screen_name = "chatjesusxyz"
 
+[telegramBot]
+bot_token = "7834675081:AAF2iXsbYnXOrxMVpAssmKOZjOdIFY4M5tg"
+
 [[domains]]
-domain="jesus.localhost:3001"
+domain="chatjesus.xyz"
 custom_script_path=""
