@@ -481,10 +481,12 @@ const server = serve({
         const linksData = links?.reduce((prev, it) => { return { ...prev, [it.type]: it.value } }, {})
         console.log("linksData ==> ", linksData);
 
+        const botTag = linksData['twitter'] ? linksData['twitter'].split('/').pop() : `${agentData.subdomain}.${constants.BASE_URL}`;
+ 
         const serverData = {
           mintAddress: links.find(it => it.type == 'pumpfun')?.value,
           botName: agentData.name,
-          botTag: `${agentData.subdomain}.${constants.BASE_URL}`,
+          botTag: botTag,
           links: linksData,
           agentImages,
           customInfo: customInfoData?.info ? encodeURIComponent(customInfoData?.info) : '',
