@@ -4,7 +4,7 @@
   "type": "module",
   "devDependencies": {
     "@types/bun": "latest",
-    "uai": "../uai/"
+    "uai": "git@github.com:universa-ai/uai.git#6161fd67e6d205caa317026dce1bd36f560ebb35"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
