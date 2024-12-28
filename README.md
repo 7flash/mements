@@ -26,16 +26,22 @@ Follow these steps to deploy the Mements platform on your own server:
    ```
    *Note: The server will automatically initialize the database on the first run if this step is skipped.*
 
-3. **Launch the Server:**
+3. **Set up environment variables:**
    ```bash
-   bgrun launch --name=mements-dec24 --directory=$HOME/mements --command="bun run ./src/server/index.tsx" --env="[all envs as per type ConfigKeys]"
+   cp .env.example .env
+   ```
+   Then edit .env to set API keys, database name, and other config variables
+
+4.	**Launch the Server:**
+   ```bash
+   bun run ./src/server/index.tsx
    ```
    *You can use `pm2` or another process manager instead of `bgrun`.*
 
-4. **Create a Mement:**
+5. **Create a Mement:**
    Access the platform at [http://localhost:3000](http://localhost:3000) to create your first mement.
 
-5. **Reconfigure Your Mements:**
+6. **Reconfigure Your Mements:**
    ```bash
    BUN_PORT=3000 bun run ./src/cli/createAgentFromFile.ts --filePath=./static/agents/oracle.toml
    ```
