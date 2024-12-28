@@ -20,8 +20,9 @@ Follow these steps to deploy the Mements platform on your own server:
    cd mements && bun install
    ```
 
-2. **Initialize the Database (Optional):**
+2. **Initialize the Database:**
    ```bash
+   mkdir static/database
    bun run ./src/cli/initializeDatabase.ts --path=./static/database/dec24.sqlite
    ```
    *Note: The server will automatically initialize the database on the first run if this step is skipped.*
