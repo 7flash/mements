@@ -369,7 +369,6 @@ const server = serve({
 
         const trigger = result.triggerSituation.replaceAll('\n', '');
 
-        // Handle image processing and upload
         let imageCid = "";
         const response = await fetch("https://api.openai.com/v1/images/generations", {
           method: "POST",
@@ -539,8 +538,9 @@ const server = serve({
           .from({
             question: data.content,
             situation: agentData.prompt,
+            // context: context
           })
-          .to({
+          .infer({
             success: 'TRUE or FALSE indicating if question is appropriate and answerable',
             answer: 'twitter post, should not contain hash tags, nor double quotes or other special symbols'
           })
