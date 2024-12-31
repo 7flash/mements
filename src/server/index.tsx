@@ -607,7 +607,7 @@ and then we can use that data
             situation: agentData.prompt,
             // context: context
           })
-          .infer({
+          .to({
             success: 'TRUE or FALSE indicating if question is appropriate and answerable',
             answer: 'twitter post, should not contain hash tags, nor double quotes or other special symbols'
           })
