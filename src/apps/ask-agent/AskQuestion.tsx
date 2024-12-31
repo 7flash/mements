@@ -148,7 +148,7 @@ const ChatInput = () => {
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           className="w-full px-4 sm:px-6 py-3 sm:py-4 text-base sm:text-lg text-white bg-white/10 backdrop-blur-md rounded-xl border border-white/20 shadow-lg focus:outline-none focus:border-white/30 transition-all view-transition-question"
-          placeholder="Ask me anything..."
+          placeholder={window.serverData.links['input_placeholder'] ?? 'Ask me anything...'}
           disabled={isLoading}
         />
         <button

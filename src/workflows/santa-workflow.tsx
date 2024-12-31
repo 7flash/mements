@@ -95,6 +95,7 @@ const calculateOwnershipPercentage = (token: any, metadata: any) => {
 };
 
 const findValuableTokens = async (tokens: Token[], startIndex: number = 0, valuableTokens: Token[] = [], maxAttempts: number = 10) => {
+console.log("tokens ==> ", tokens);
     if (valuableTokens.length >= 3 || startIndex >= tokens.length || startIndex >= maxAttempts) {
         return valuableTokens;
     }
@@ -156,6 +157,8 @@ export default {
                 answer: "No tokens found in this wallet"
             };
         }
+
+        if (tokens.error) throw `${tokens.error.name}`
 
         const valuableTokens = await findValuableTokens(tokens);
         const tokenDetails = await Promise.all(
@@ -222,9 +225,12 @@ export default {
 //   answer: "HyYNVYmnFmi87NsQqWzLJhUTPBKQUfgfhdbBa554nMFF\n\n\nSanta's shocked! This wallet's full of Shart and Butt—and that's no bull!\n\n\nNaughty! They've been trading lumps of coal, not gold.\n",
 
         const result = await executePrompt(prompt);
+
+        const shortenedWalletAddress = `${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}`;
+
         return {
             success: true,
-            answer: `Wallet ${walletAddress}:\n${result.analysis}\n\nSanta's Verdict: ${result.verdict}`
+            answer: `${walletAddress}\n\n${result.analysis}\n\n${result.verdict}`
         };
     },
 };

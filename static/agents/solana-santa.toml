@@ -8,3 +8,7 @@ custom_script_path=""
 
 [customInfo]
 info = "static/agent-info/jesus-info.txt"
+
+[[links]]
+type="input_placeholder"
+value="Enter any solana wallet address..."
