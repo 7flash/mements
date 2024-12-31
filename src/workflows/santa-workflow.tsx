@@ -2,6 +2,27 @@
 import React from "react";
 import executePrompt from "uai/src/uai.ts";
 
+interface Token {
+    mint: string;
+    amount: string;
+    decimals: number;
+    name: string;
+    symbol: string;
+  }
+  
+  interface TokenMetadata {
+    name: string;
+    symbol: string;
+    description: string;
+    image: string;
+    showName: boolean;
+    createdOn: string;
+    twitter: string;
+    telegram: string;
+    website: string;
+  }
+  
+
 const fetchWalletTokens = async (walletAddress: string) => {
     try {
         const response = await fetch(
@@ -151,6 +172,23 @@ something like this
             <situation>{this.fromFields.situation}</situation>,
             ...tokenTags
         ];
+
+or like this
+
+        const tagsOfFromFields = [
+            <question>{walletAddress}</question>,
+            <situation>{this.fromFields.situation}</situation>,
+            ...topFiveTokens.map((token, index) => 
+                <token key={index}>
+                    <name>{token.name}</name>
+                    <symbol>{token.symbol}</symbol>
+                    <amount>{token.amount}</amount>
+                    <metadata>{JSON.stringify(tokenMetadata[index])}</metadata>
+                </token>
+            )
+        ];
+
+but dont need to put situation every time        
 
             */
             {
