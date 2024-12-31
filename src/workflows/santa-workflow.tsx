@@ -40,27 +40,6 @@ const fetchWalletTokens = async (walletAddress: string) => {
     }
 };
 
-const fetchTokenPrice = async (tokenMint: string) => {
-    try {
-        const response = await fetch(
-            `https://solana-gateway.moralis.io/token/mainnet/${tokenMint}/price`,
-            {
-                headers: {
-                    'accept': 'application/json',
-                    'X-API-Key': process.env.MORALIS_API_KEY
-                }
-            }
-        );
-        if (response.status === 200) {
-            return await response.json();
-        }
-        return null;
-    } catch (error) {
-        console.error("Error fetching token price:", error);
-        return null;
-    }
-};
-
 const fetchTokenMetadata = async (tokenMint: string) => {
     try {
         const response = await fetch(
@@ -89,6 +68,32 @@ const fetchTokenMetadata = async (tokenMint: string) => {
     }
 };
 
+const fetchTokenPrice = async (tokenMint: string) => {
+    try {
+        const response = await fetch(
+            `https://solana-gateway.moralis.io/token/mainnet/${tokenMint}/price`,
+            {
+                headers: {
+                    'accept': 'application/json',
+                    'X-API-Key': process.env.MORALIS_API_KEY
+                }
+            }
+        );
+        const priceData = await response.json();
+        return priceData.usdPrice || 0;
+    } catch (error) {
+        console.error("Error fetching token price:", error);
+        return 0;
+    }
+};
+
+const calculateOwnershipPercentage = (token: any, metadata: any) => {
+    if (!metadata?.totalSupplyFormatted) return "0.00";
+    const totalSupply = parseFloat(metadata.totalSupplyFormatted);
+    const userAmount = parseFloat(token.amount);
+    return (userAmount / totalSupply * 100).toFixed(2);
+};
+
 export default {
     fromFields: {},
     toFields: {},
@@ -104,63 +109,49 @@ export default {
         return this;
     },
 
-    calculateOwnershipPercentage(token: any, metadata: any) {
-        if (!metadata?.totalSupplyFormatted || !token?.amount) return "0.00";
-        const totalSupply = parseFloat(metadata.totalSupplyFormatted);
-        const userAmount = parseFloat(token.amount);
-        return (userAmount / totalSupply * 100).toFixed(2);
-    },
-
     async exec(instruction: string) {
         this.instruction = instruction;
 
         const walletAddress = this.fromFields.question;
         const tokens = await fetchWalletTokens(walletAddress);
-
+        
         const totalTokenCount = tokens.length;
         const topTokens = tokens
             .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount))
             .slice(0, 3);
 
         const tokenDetails = await Promise.all(
-            topTokens.map(async token => {
-                const metadata = await fetchTokenMetadata(token.mint);
-                const price = await fetchTokenPrice(token.mint);
-                return {
-                    metadata,
-                    price
-                };
-            })
+            topTokens.map(token => fetchTokenMetadata(token.mint))
+        );
+
+        const tokenPrices = await Promise.all(
+            topTokens.map(token => fetchTokenPrice(token.mint))
         );
 
         const tokenTags = topTokens.map((token, index) => {
-            const details = tokenDetails[index];
+            const metadata = tokenDetails[index];
+            const price = tokenPrices[index];
+            const value = price * parseFloat(token.amount);
+            const percentage = calculateOwnershipPercentage(token, metadata);
+                    console.log("token ==> ", token, metadata, price, value, percentage);
+
             return (
                 <token key={index}>
                     <name>{token.name}</name>
                     <symbol>{token.symbol}</symbol>
                     <amount>{token.amount}</amount>
-                    <description>{details?.metadata?.details?.description || "No description available"}</description>
-                    <ownershipPercentage>
-                        {this.calculateOwnershipPercentage(token, details?.metadata)}
-                    </ownershipPercentage>
-                    <usdPrice>{details?.price?.usdPrice || "N/A"}</usdPrice>
+                    <price>{price.toFixed(6)} USD</price>
+                    <value>{value.toFixed(2)} USD</value>
+                    <description>{metadata?.details?.description || "No description available"}</description>
+                    <ownershipPercentage>{percentage}%</ownershipPercentage>
                 </token>
             );
         });
 
-        const tagsOfFromFields = <>
-            <totalTokens>{totalTokenCount}</totalTokens>,
-            ...tokenTags,
-            <situation>
-                {this.fromFields.situation || "Santa is analyzing this wallet's contents to determine if the owner has been naughty or nice"}
-            </situation>
-        </>;
-
-        const tagsOfToFields = <>
-            <success>TRUE or FALSE indicating if the wallet analysis was successful</success>,
-            <answer>A funny Santa-style Twitter post analyzing the wallet contents and determining if the owner is naughty or nice. No hashtags or special characters.</answer>
-        </>;
+        const tagsOfFromFields = <details>
+            <totalTokens>{totalTokenCount}</totalTokens>
+            {...tokenTags}
+        </details>;
 
         const prompt = <>
             <settings temperature={0.7} enablesPrediction={false} />
@@ -169,15 +160,15 @@ export default {
                     You are Santa Claus analyzing a crypto wallet to determine if its owner has been naughty or nice.
                     Based on the tokens they hold and their quantities, create a funny and witty response about their behavior.
                     The response should be in the style of a Twitter post (without hashtags or special characters).
-                    Consider token prices, ownership percentages, and the total variety of tokens in the wallet.
                 </instruction>
                 <responseFormat>
                     <thinking>
-                        THINK about the types of tokens, their purposes, their values, and what they might indicate about the wallet owner's behavior.
-                        Consider both the quantity and quality of their holdings, as well as their portfolio diversity.
+                        THINK about the types of tokens, their purposes, and what they might indicate about the wallet owner's behavior.
+                        Consider token values, ownership percentages, and the total variety of tokens held.
                     </thinking>
                     <requiredFields>
-                        {tagsOfToFields}
+                        <success>TRUE or FALSE indicating if the wallet analysis was successful</success>
+                        <answer>A funny Santa-style Twitter post analyzing the wallet contents and determining if the owner is naughty or nice. No hashtags or special characters.</answer>
                     </requiredFields>
                 </responseFormat>
             </system>
