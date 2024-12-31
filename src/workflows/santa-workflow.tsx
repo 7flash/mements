@@ -1,7 +1,52 @@
 // @ts-nocheck
-
 import React from "react";
 import executePrompt from "uai/src/uai.ts";
+
+const fetchWalletTokens = async (walletAddress: string) => {
+  try {
+    const response = await fetch(
+      `https://solana-gateway.moralis.io/account/mainnet/${walletAddress}/tokens`,
+      {
+        headers: {
+          'accept': 'application/json',
+          'X-API-Key': process.env.MORALIS_API_KEY
+        }
+      }
+    );
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching wallet tokens:", error);
+    return [];
+  }
+};
+
+const fetchTokenMetadata = async (tokenMint: string) => {
+  try {
+    const response = await fetch(
+      `https://solana-gateway.moralis.io/token/mainnet/${tokenMint}/metadata`,
+      {
+        headers: {
+          'accept': 'application/json',
+          'X-API-Key': process.env.MORALIS_API_KEY
+        }
+      }
+    );
+    const metadata = await response.json();
+    
+    if (metadata.metaplex?.metadataUri) {
+      const metadataResponse = await fetch(metadata.metaplex.metadataUri);
+      const fullMetadata = await metadataResponse.json();
+      return {
+        ...metadata,
+        details: fullMetadata
+      };
+    }
+    return metadata;
+  } catch (error) {
+    console.error("Error fetching token metadata:", error);
+    return null;
+  }
+};
 
 export default {
     fromFields: {},
@@ -21,19 +66,53 @@ export default {
     async exec(instruction: string) {
         this.instruction = instruction;
 
-        const formatFromFields = Object.keys(this.fromFields).map((key) => {
-            return {
-                tagName: key,
-                fieldDescription: this.fromFields[key],
-            };
-        });
+        // Fetch wallet data
+        const walletAddress = this.fromFields.question;
+        const tokens = await fetchWalletTokens(walletAddress);
 
-        const formatToFields = Object.keys(this.toFields).map((key) => {
-            return {
-                tagName: key,
-                fieldDescription: this.toFields[key],
-            };
-        });
+        // Sort tokens by value and get top 5
+        const topTokens = tokens
+          .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount))
+          .slice(0, 5);
+
+        // Fetch metadata for top tokens
+        const tokenDetails = await Promise.all(
+          topTokens.map(token => fetchTokenMetadata(token.mint))
+        );
+
+        // Format token information for the prompt
+        const tokenContexts = topTokens.map((token, index) => ({
+          name: token.name,
+          symbol: token.symbol,
+          amount: token.amount,
+          metadata: tokenDetails[index]?.details?.description || "No description available"
+        }));
+
+        const formatFromFields = [
+          {
+            tagName: "walletAddress",
+            fieldDescription: walletAddress
+          },
+          {
+            tagName: "portfolio",
+            fieldDescription: JSON.stringify(tokenContexts)
+          },
+          {
+            tagName: "situation",
+            fieldDescription: this.fromFields.situation || "Santa is analyzing this wallet's contents to determine if the owner has been naughty or nice"
+          }
+        ];
+
+        const formatToFields = [
+          {
+            tagName: "success",
+            fieldDescription: "TRUE or FALSE indicating if the wallet analysis was successful"
+          },
+          {
+            tagName: "answer",
+            fieldDescription: "A funny Santa-style Twitter post analyzing the wallet contents and determining if the owner is naughty or nice. No hashtags or special characters."
+          }
+        ];
 
         const tagsOfFromFields = formatFromFields.map((it) => {
             const TagName = it.tagName;
@@ -45,107 +124,19 @@ export default {
             return <TagName>{it.fieldDescription}</TagName>;
         });
 
-/*
-todo: adopt this general workflow prompt into a special santa workflow prompt
-
-it should analyze user assets available in portfolio of user wallet thats mentioned in the message and then write down a funny conclusion how good or bad is behaviour of the owner
-
-first, it should retrieve tokens in user wallet like this
-
-    curl --request GET --url 'https://solana-gateway.moralis.io/account/mainnet/7FLjAK6BWGyHnF3czh3wEj1Wm3P1Na6JX443qRLPvMq8/tokens' \
-     --header 'accept: application/json' \
-     --header 'X-API-Key: process.env.MORALIS_API_KEY' 
-
-which gives response like this
-
-[
-  {
-    "associatedTokenAddress": "BXcStB2ghH28CaxmEkYr5szBMAyn64tapuePxittub4d",
-    "mint": "58ozivupyE8rahTiZhnCsNP1WaBS7CaSkNQSmbxzia6k",
-    "amountRaw": "53156",
-    "amount": "0.053156",
-    "decimals": 6,
-    "name": "SECRET SOCIETY",
-    "symbol": "SECSO"
-  },
-  {
-    "associatedTokenAddress": "9hnpCLPdeopHCKnbLLboYdbyw8kA5fPsTrLcu9CtUyrQ",
-    "mint": "DKENcHjQHVMdsdRQKNjiwovvup9RAbbFF7fYhe5BJFFP",
-    "amountRaw": "53156",
-    "amount": "0.053156",
-    "decimals": 6,
-    "name": "Chilliverse",
-    "symbol": "CHILL"
-  },
-
-and then for top five most valuable assets it should do this
-
-curl --request GET \
-     --url 'https://solana-gateway.moralis.io/token/mainnet/DdzssDo7p4ibxF3xPQjbnaDmuj57FgyfsTv7YXjspump/metadata' \
-     --header 'accept: application/json' \
-     --header 'X-API-Key: process.env.MORALIS_API_KEY' 
-
-which gives like this
-
-{
-  "mint": "DdzssDo7p4ibxF3xPQjbnaDmuj57FgyfsTv7YXjspump",
-  "standard": "metaplex",
-  "name": "Chill Terminal ",
-  "symbol": "CHILL",
-  "logo": null,
-  "decimals": "6",
-  "totalSupply": "999914280591612",
-  "totalSupplyFormatted": "999914280.591612",
-  "metaplex": {
-    "metadataUri": "https://ipfs.io/ipfs/QmbfnNiUcpTyMbEG4k1Y2SaJ2gy6cSxpJv8WdfiEVK5gBJ",
-    "masterEdition": false,
-    "isMutable": false,
-    "primarySaleHappened": 0,
-    "sellerFeeBasisPoints": 0,
-    "updateAuthority": "TSLvdd1pWpHVjahSpsvCXUbgwsL3JAcvokwaKt1eokM"
-  }
-}
-
-and from there we take metaplex.metadataUri and fetch it shows like this
-
-{
-    "name": "Chill Terminal ",
-    "symbol": "CHILL",
-    "description": "",
-    "image": "https://ipfs.io/ipfs/QmeB9vrgyBj9bUDTFrb74Ty2ccrfKsk4HTfJGewsuB9A4P",
-    "showName": true,
-    "createdOn": "https://pump.fun",
-    "twitter": "https://x.com/_ChillTerminal_",
-    "telegram": "https://chill-terminal.gitbook.io/chillterminal.xyz",
-    "website": "https://chillterminal.xyz/"
-}
-
-and so from here we can insert token description and name and how much of it supply percentage being held as jsx fields into our prompt and derive a requiredFields of conclusion so note it will be used like this
-
-          const result = await workflowFn
-          .from({
-            question: data.content,
-            situation: agentData.prompt,
-            // context: context
-          })
-          .infer({
-            success: 'TRUE or FALSE indicating if question is appropriate and answerable',
-            answer: 'twitter post, should not contain hash tags, nor double quotes or other special symbols'
-          })
-          .exec("Imagine described situation in which its character triggered by appearing question would write a twitter post in its consequence");          
-
-those fields in infer should go into requiredFields
-
-and in .from we have .question which must be looking like this 7FLjAK6BWGyHnF3czh3wEj1Wm3P1Na6JX443qRLPvMq8 and .situation its where its instructed how the answer should be like a santa analyzing portfolio
-
-*/
-
         const result = await executePrompt(<>
-            <settings temperature={0.0} enablesPrediction={false} />
+            <settings temperature={0.7} enablesPrediction={false} />
             <system>
-                <instruction>{this.instruction}</instruction>
+                <instruction>
+                  You are Santa Claus analyzing a crypto wallet to determine if its owner has been naughty or nice. 
+                  Based on the tokens they hold and their quantities, create a funny and witty response about their behavior.
+                  The response should be in the style of a Twitter post (without hashtags or special characters).
+                </instruction>
                 <responseFormat>
-                    <thinking>THINK carefully before responding.</thinking>
+                    <thinking>
+                      THINK about the types of tokens, their purposes, and what they might indicate about the wallet owner's behavior.
+                      Consider both the quantity and quality of their holdings.
+                    </thinking>
                     <requiredFields>
                         {tagsOfToFields}
                     </requiredFields>
