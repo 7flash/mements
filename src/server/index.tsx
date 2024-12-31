@@ -183,7 +183,7 @@ const server = serve({
           if (!telegramBot.group_id) throw 'missing telegram bot group id and cannot be retrieved from updates';
         }
 
-        const imageCids = await Promise.all(images.map(async (img: { key: string, value: string }) => {
+        const imageCids = await Promise.all((images ?? []).map(async (img: { key: string, value: string }) => {
           let imageCid;
           if (/^[a-z0-9]{59,}$/.test(img.value)) {
             imageCid = img.value;
@@ -217,6 +217,15 @@ const server = serve({
 
           const existingAgent = db.query("SELECT * FROM agents WHERE subdomain = ?").get(agentEntry.subdomain);
           if (existingAgent) {
+            if (!agentEntry.name) {
+              agentEntry.name = existingAgent.name;
+            }
+            if (!agentEntry.prompt) {
+              agentEntry.prompt = existingAgent.prompt;
+            }
+            if (!agentEntry.workflow) {
+              agentEntry.workflow = existingAgent.workflow;
+            }
             db.run(
               "UPDATE agents SET name = ?, prompt = ?, workflow = ? WHERE subdomain = ?",
               agentEntry.name, agentEntry.prompt, agentEntry.workflow, agentEntry.subdomain
@@ -615,7 +624,7 @@ and then we can use that data
 
           console.log(requestId, "Workflow result", result);
 
-          if (!result?.success?.toLowerCase().includes('true')) {
+          if (!String(result?.success).toLowerCase().includes('true')) {
             return new Response(JSON.stringify({ error: result.thinking }), {
               headers: { "Content-Type": "application/json" },
               status: 422

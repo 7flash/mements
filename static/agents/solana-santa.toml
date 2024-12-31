@@ -1,0 +1,10 @@
+[agent]
+subdomain = "solanasanta-7pzt"
+workflow = "santa-workflow"
+
+[[domains]]
+domain="first.localhost:3000"
+custom_script_path=""
+
+[customInfo]
+info = "static/agent-info/jesus-info.txt"
