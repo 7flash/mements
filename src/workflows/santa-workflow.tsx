@@ -230,7 +230,7 @@ export default {
 
         return {
             success: true,
-            answer: `${walletAddress}\n\n${result.analysis}\n\n${result.verdict}`
+            answer: `${shortenedWalletAddress}\n${result.analysis}\n${result.verdict}`
         };
     },
 };
