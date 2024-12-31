@@ -231,7 +231,7 @@ export default {
 
         return {
             success: true,
-            answer: `${shortenedWalletAddress}\n${result.analysis}\n${result.verdict}`
+            answer: `${shortenedWalletAddress}: \n${result.analysis}\n${result.verdict}`
         };
     },
 };
