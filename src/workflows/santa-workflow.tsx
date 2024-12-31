@@ -113,8 +113,12 @@ export default {
         this.instruction = instruction;
 
         const walletAddress = this.fromFields.question;
+        // todo: if walletAddress does not look like valid something like 7FLjAK6BWGyHnF3czh3wEj1Wm3P1Na6JX443qRLPvMq8 then we should immediately return success false along with thinking that contains explanation that its not a wallet, and also if wallet does not have any tokens, same
+
         const tokens = await fetchWalletTokens(walletAddress);
         
+        // todo: since tokens are not sorted by their actual price the amount does not mean anything here so what we should do to find at least three tokens which are worth something, we should probably apply algorithm like this: try to request prices of first three tokens and if any of them have price of zero then (keeping those which are not zero) we request some more until no more or we have at least three so we kind of trying to replace that worthless one but if we dont find any its fine we proceed with those worthless ones, and then we proceed to make tokenTags
+
         const totalTokenCount = tokens.length;
         const topTokens = tokens
             .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount))
@@ -133,8 +137,7 @@ export default {
             const price = tokenPrices[index];
             const value = price * parseFloat(token.amount);
             const percentage = calculateOwnershipPercentage(token, metadata);
-                    console.log("token ==> ", token, metadata, price, value, percentage);
-
+            
             return (
                 <token key={index}>
                     <name>{token.name}</name>
@@ -148,11 +151,12 @@ export default {
             );
         });
 
-        const tagsOfFromFields = <details>
+        const tagsOfFromFields = <portfolio>
             <totalTokens>{totalTokenCount}</totalTokens>
             {...tokenTags}
-        </details>;
+        </portfolio>;
 
+        // todo: required fields should be more like funny analysis in twitter post and final verdict which we then concatenate them analysis and verdict and we also prefix it with wallet address to respond with object that has answer field and success field equal true
         const prompt = <>
             <settings temperature={0.7} enablesPrediction={false} />
             <system>
