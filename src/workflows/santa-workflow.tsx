@@ -94,6 +94,29 @@ const calculateOwnershipPercentage = (token: any, metadata: any) => {
     return (userAmount / totalSupply * 100).toFixed(2);
 };
 
+const findValuableTokens = async (tokens: Token[], startIndex: number = 0, valuableTokens: Token[] = [], maxAttempts: number = 10) => {
+    if (valuableTokens.length >= 3 || startIndex >= tokens.length || startIndex >= maxAttempts) {
+        return valuableTokens;
+    }
+
+    const currentBatch = tokens.slice(startIndex, startIndex + 3 - valuableTokens.length);
+    const prices = await Promise.all(currentBatch.map(token => fetchTokenPrice(token.mint)));
+    
+    const newValuableTokens = currentBatch.filter((_, index) => prices[index] > 0);
+    const combinedValuableTokens = [...valuableTokens, ...newValuableTokens];
+
+    if (combinedValuableTokens.length >= 3) {
+        return combinedValuableTokens.slice(0, 3);
+    }
+
+    return findValuableTokens(
+        tokens,
+        startIndex + currentBatch.length,
+        combinedValuableTokens,
+        maxAttempts
+    );
+};
+
 export default {
     fromFields: {},
     toFields: {},
@@ -113,26 +136,37 @@ export default {
         this.instruction = instruction;
 
         const walletAddress = this.fromFields.question;
-        // todo: if walletAddress does not look like valid something like 7FLjAK6BWGyHnF3czh3wEj1Wm3P1Na6JX443qRLPvMq8 then we should immediately return success false along with thinking that contains explanation that its not a wallet, and also if wallet does not have any tokens, same
+        
+        // Validate wallet address format
+        const isValidWallet = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(walletAddress);
+        if (!isValidWallet) {
+            return {
+                success: false,
+                thinking: "This doesn't look like a valid Solana wallet address. Santa needs a proper wallet address to check if you've been naughty or nice!",
+                answer: "Invalid wallet address provided"
+            };
+        }
 
         const tokens = await fetchWalletTokens(walletAddress);
         
-        // todo: since tokens are not sorted by their actual price the amount does not mean anything here so what we should do to find at least three tokens which are worth something, we should probably apply algorithm like this: try to request prices of first three tokens and if any of them have price of zero then (keeping those which are not zero) we request some more until no more or we have at least three so we kind of trying to replace that worthless one but if we dont find any its fine we proceed with those worthless ones, and then we proceed to make tokenTags
+        if (!tokens || tokens.length === 0) {
+            return {
+                success: false,
+                thinking: "Ho ho ho! This wallet seems to be empty. Santa can't analyze an empty wallet!",
+                answer: "No tokens found in this wallet"
+            };
+        }
 
-        const totalTokenCount = tokens.length;
-        const topTokens = tokens
-            .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount))
-            .slice(0, 3);
-
+        const valuableTokens = await findValuableTokens(tokens);
         const tokenDetails = await Promise.all(
-            topTokens.map(token => fetchTokenMetadata(token.mint))
+            valuableTokens.map(token => fetchTokenMetadata(token.mint))
         );
 
         const tokenPrices = await Promise.all(
-            topTokens.map(token => fetchTokenPrice(token.mint))
+            valuableTokens.map(token => fetchTokenPrice(token.mint))
         );
 
-        const tokenTags = topTokens.map((token, index) => {
+        const tokenTags = valuableTokens.map((token, index) => {
             const metadata = tokenDetails[index];
             const price = tokenPrices[index];
             const value = price * parseFloat(token.amount);
@@ -152,27 +186,29 @@ export default {
         });
 
         const tagsOfFromFields = <portfolio>
-            <totalTokens>{totalTokenCount}</totalTokens>
+            <walletAddress>{walletAddress}</walletAddress>
+            <totalTokens>{tokens.length}</totalTokens>
             {...tokenTags}
         </portfolio>;
 
-        // todo: required fields should be more like funny analysis in twitter post and final verdict which we then concatenate them analysis and verdict and we also prefix it with wallet address to respond with object that has answer field and success field equal true
         const prompt = <>
             <settings temperature={0.7} enablesPrediction={false} />
             <system>
                 <instruction>
                     You are Santa Claus analyzing a crypto wallet to determine if its owner has been naughty or nice.
                     Based on the tokens they hold and their quantities, create a funny and witty response about their behavior.
-                    The response should be in the style of a Twitter post (without hashtags or special characters).
+                    Provide two parts: 1) A humorous analysis of their portfolio 2) A final verdict (naughty or nice).
+                    Keep the tone jolly and festive!
                 </instruction>
                 <responseFormat>
                     <thinking>
-                        THINK about the types of tokens, their purposes, and what they might indicate about the wallet owner's behavior.
-                        Consider token values, ownership percentages, and the total variety of tokens held.
+                        THINK about the types of tokens, their values, and what they might indicate about the wallet owner's behavior.
+                        Consider if they're a long-term holder, trader, or collector.
+                        Look for signs of community participation and investment behavior.
                     </thinking>
                     <requiredFields>
-                        <success>TRUE or FALSE indicating if the wallet analysis was successful</success>
-                        <answer>A funny Santa-style Twitter post analyzing the wallet contents and determining if the owner is naughty or nice. No hashtags or special characters.</answer>
+                        <analysis>A witty analysis of the wallet's contents (max 180 characters)</analysis>
+                        <verdict>Final judgment: NAUGHTY or NICE with a brief reason</verdict>
                     </requiredFields>
                 </responseFormat>
             </system>
@@ -184,6 +220,9 @@ export default {
         </>;
 
         const result = await executePrompt(prompt);
-        return result;
+        return {
+            success: true,
+            answer: `Wallet ${walletAddress}:\n${result.analysis}\n\nSanta's Verdict: ${result.verdict}`
+        };
     },
 };
