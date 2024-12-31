@@ -101,7 +101,7 @@ const findValuableTokens = async (tokens: Token[], startIndex: number = 0, valua
 
     const currentBatch = tokens.slice(startIndex, startIndex + 3 - valuableTokens.length);
     const prices = await Promise.all(currentBatch.map(token => fetchTokenPrice(token.mint)));
-    
+
     const newValuableTokens = currentBatch.filter((_, index) => prices[index] > 0);
     const combinedValuableTokens = [...valuableTokens, ...newValuableTokens];
 
@@ -136,7 +136,7 @@ export default {
         this.instruction = instruction;
 
         const walletAddress = this.fromFields.question;
-        
+
         // Validate wallet address format
         const isValidWallet = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(walletAddress);
         if (!isValidWallet) {
@@ -148,7 +148,7 @@ export default {
         }
 
         const tokens = await fetchWalletTokens(walletAddress);
-        
+
         if (!tokens || tokens.length === 0) {
             return {
                 success: false,
@@ -173,7 +173,7 @@ export default {
             const price = tokenPrices[index];
             const value = price * parseFloat(token.amount);
             const percentage = calculateOwnershipPercentage(token, metadata);
-            
+
             return (
                 <token key={index}>
                     <name>{token.name}</name>
@@ -199,17 +199,16 @@ export default {
                 <instruction>
                     You are Santa Claus analyzing a crypto wallet to determine if its owner has been naughty or nice.
                     Based on the tokens they hold and their quantities, create a funny and witty response about their behavior.
-                    Provide two parts: 1) A humorous analysis of their portfolio 2) A final verdict (naughty or nice).
-                    Keep the tone jolly and festive!
+                    The response should be in the style of a Twitter post (without hashtags or special characters) and written in third person view.
+                    Importantly, Analysis and Verdict combined should not exceed the length of 170 symbols.
                 </instruction>
                 <responseFormat>
                     <thinking>
-                        THINK about the types of tokens, their values, and what they might indicate about the wallet owner's behavior.
-                        Consider if they're a long-term holder, trader, or collector.
-                        Look for signs of community participation and investment behavior.
+                        THINK about the types of tokens, their purposes, and what they might indicate about the wallet owner's behavior.
+                        Consider token values, ownership percentages, and the total variety of tokens held.
                     </thinking>
                     <requiredFields>
-                        <analysis>A witty analysis of the wallet's contents (max 180 characters)</analysis>
+                        <analysis>A witty analysis of the wallet's contents</analysis>
                         <verdict>Final judgment: NAUGHTY or NICE with a brief reason</verdict>
                     </requiredFields>
                 </responseFormat>
@@ -218,10 +217,12 @@ export default {
                 <context>
                     {tagsOfFromFields}
                 </context>
+                <responseExample>
+                    <analysis>Santa's shocked! This wallet's full of Shart and Butt—and that's no bull!</analysis>
+                    <verdict>Naughty! They've been trading lumps of coal, not gold.</verdict>
+                </responseExample>
             </user>
         </>;
-
-//   answer: "HyYNVYmnFmi87NsQqWzLJhUTPBKQUfgfhdbBa554nMFF\n\n\nSanta's shocked! This wallet's full of Shart and Butt—and that's no bull!\n\n\nNaughty! They've been trading lumps of coal, not gold.\n",
 
         const result = await executePrompt(prompt);
         console.log("result ==> ", result);
