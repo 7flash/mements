@@ -176,7 +176,7 @@ const server = serve({
             console.log(requestId, "Telegram updates", updates);
 
             if (updates.result && updates.result.length > 0) {
-              const firstUpdate = updates.result[0];
+              const firstUpdate = updates.result.pop();
               telegramBot.group_id = firstUpdate.channel_post ? firstUpdate.channel_post.chat.id : firstUpdate.message.chat.id;
             }
           }
