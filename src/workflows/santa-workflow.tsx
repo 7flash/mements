@@ -95,7 +95,6 @@ const calculateOwnershipPercentage = (token: any, metadata: any) => {
 };
 
 const findValuableTokens = async (tokens: Token[], startIndex: number = 0, valuableTokens: Token[] = [], maxAttempts: number = 10) => {
-console.log("tokens ==> ", tokens);
     if (valuableTokens.length >= 3 || startIndex >= tokens.length || startIndex >= maxAttempts) {
         return valuableTokens;
     }
@@ -225,6 +224,7 @@ export default {
 //   answer: "HyYNVYmnFmi87NsQqWzLJhUTPBKQUfgfhdbBa554nMFF\n\n\nSanta's shocked! This wallet's full of Shart and Butt—and that's no bull!\n\n\nNaughty! They've been trading lumps of coal, not gold.\n",
 
         const result = await executePrompt(prompt);
+        console.log("result ==> ", result);
 
         const shortenedWalletAddress = `${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}`;
 
