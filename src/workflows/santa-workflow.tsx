@@ -95,7 +95,16 @@ export default {
         }
         
         however it might return 500 error meaning its price very low
-        
+
+also might use this function
+
+    calculateOwnershipPercentage(token: any, metadata: any) {
+        const totalSupply = parseFloat(metadata.totalSupplyFormatted);
+        const userAmount = parseFloat(token.amount);
+        return (userAmount / totalSupply * 100).toFixed(2);
+    }
+
+
         */
 
         const topTokens = tokens
@@ -122,7 +131,28 @@ export default {
                 tagName: "walletAddress",
                 fieldDescription: walletAddress
             },
-            // todo: should not just serialize to json but rather make nested JSX
+            /* todo: should not just serialize to json but rather make nested JSX
+
+something like this
+
+        const tokenTags = topTokens.map((token, index) => {
+            const metadata = tokenMetadata[index];
+            return (
+                <token>
+                    <name>{metadata.name}</name>
+                    <description>{metadata.description}</description>
+                    <ownershipPercentage>{this.calculateOwnershipPercentage(token, metadata)}%</ownershipPercentage>
+                </token>
+            );
+        });
+
+        const tagsOfFromFields = [
+            <question>{walletAddress}</question>,
+            <situation>{this.fromFields.situation}</situation>,
+            ...tokenTags
+        ];
+
+            */
             {
                 tagName: "portfolio",
                 fieldDescription: JSON.stringify(tokenContexts)
