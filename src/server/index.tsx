@@ -742,7 +742,10 @@ and then we can use that data
     }
 
     if (path === "/" || path === "/create" || path === "/success") {
-      return new Response(htmlTemplate(assets.getLink('createAgentApp'), JSON.stringify({})), {
+      return new Response(htmlTemplate(assets.getLink('createAgentApp'), JSON.stringify({
+        twitterAccount: process.env.TWITTER_ACCOUNT,
+        contractAddress: process.env.CONTRACT_ADDRESS,
+      })), {
         headers: { "content-type": "text/html" }
       });
     }

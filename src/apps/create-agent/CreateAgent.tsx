@@ -3,6 +3,7 @@ import { Bot, MessageSquare, Terminal, Rss, Zap, Check, ArrowLeft, ArrowRight } 
 import { Link, Route, Switch, useLocation } from "wouter";
 import Confetti from 'react-confetti';
 import { Toaster, toast } from 'sonner';
+import { Twitter } from 'lucide-react';
 
 import assets from "#generated/assets.json";
 import constants from "#generated/constants.json";
@@ -68,6 +69,41 @@ export function Navigation() {
         </Link>
       ))}
     </nav>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="bg-white border-t border-gray-200 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+          {window.serverData?.twitterAccount && <a 
+              href={`https://twitter.com/${window.serverData?.twitterAccount}`}
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-gray-600 hover:text-purple-600 transition-colors"
+            >
+              <Twitter className="w-5 h-5" />
+              <span>@{window.serverData?.twitterAccount}</span>
+            </a>}
+          </div>
+          <div className="flex flex-col md:flex-row items-center gap-4">
+            {
+              window.serverData?.contractAddress && <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">Contract Address:</span>
+              <code className="px-3 py-1 bg-gray-100 rounded text-sm font-mono">
+              {window.serverData?.contractAddress}
+              </code>
+            </div>
+            }
+            <div className="text-sm text-gray-500">
+              © {2025} Mements. All rights reserved.
+            </div>
+          </div>
+        </div>
+      </div>
+    </footer>
   );
 }
 
@@ -514,8 +550,9 @@ function App() {
   
   return (
     <AgentProvider>
-      <div className="min-h-screen bg-gray-50">
-        <Header />
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+      <Header />
+      <div className="flex-grow">
         <Switch>
           <Route path="/">
             <LandingHero onProceed={() => setLocation('/create')} />
@@ -527,6 +564,9 @@ function App() {
             <DeploymentSuccess />
           </Route>
         </Switch>
+        </div>
+        <Footer />
+
         <Toaster richColors />
       </div>
     </AgentProvider>
