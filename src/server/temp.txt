@@ -1,0 +1,68 @@
+/*
+todo: instead of using different workflow as a function we import here,
+we should rather always use the same "basic-structured-workflow" function
+but something we should do if agentData has .workflow then we should spawn it as a separate
+$`bun run ../workers/agentData.workflow` thats assumed to insert some data into our database; like this it will insert some knowledge
+
+import Query from "../uai/src/query";
+
+const token = { mint: userMessage }
+
+const metadata; // we fetch it from api
+
+// we do it for each token in user wallet derived from user message
+await Query.from(token, {
+  'qaId': `${token.mintx}-metadata`,
+  'partitionKey': 'tokens-metadata',
+}).reinforce(
+  metadataValues,
+);
+
+anyway above code is executed within of agentData.workflow.ts whatever its doing do insert some data for our workflow to use
+
+and so now our workflow it can kind of access list of tokens their information of tokens in user wallet that we can read in our query somehow it must be universal to fetch all above whatever might have been inserted and embed into our prompt
+
+            SELECT 
+                qa_id,
+                from_data,
+                to_data,
+                distance
+            FROM vec_uai 
+            WHERE content_embedding MATCH rembed("text-embedding-3-small", $query)
+
+this is general prompt
+
+            <system>
+                <instruction>{this.instruction}</instruction>
+                <responseFormat>
+                    <thinking>THINK carefully before responding.</thinking>
+                    <requiredFields>
+                        {tagsOfToFields}
+                    </requiredFields>
+                </responseFormat>
+            </system>
+            <user>
+                <context>
+                    {tagsOfFromFields}
+                </context>
+            </user>
+
+in this case tagsOfFromFields should describe tokens in user wallet and tagsOfToFields should instruct to derive a conclusion from those assets as a santa whether you are good or bad holder
+
+so the question how do we find those inserted values from database and do we even need to insert here if its just kind of temporary or we just stick with workflowsp
+ 
+const query = await Query.from(token, "gpt-4o-mini").embedHypothetical({
+    'ideaDescription': 'imagine which one-phrase description might have been provided in order to generate token details shown in a context',
+}, {
+    'qaId': token.mint,
+    'partitionKey': 'test-token',
+}, {
+    mint: true,
+    image: true,
+});
+
+
+and then we can use that data 
+*/
+
+          const { default: workflowFn } = await import(`../workflows/${agentData.workflow || "basic-structured-workflow"}.tsx`);
