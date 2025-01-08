@@ -123,6 +123,37 @@ function htmlTemplate(scriptLink: string, serverData: string = '{}'): string {
   `;
 }
 
+async function tryGenerateImageWithKeys(prompt: string, keys: string[]): Promise<string> {
+  for (const key of keys) {
+    try {
+      const response = await fetch("https://api.openai.com/v1/images/generations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${key.trim()}`,
+        },
+        body: JSON.stringify({
+          model: "dall-e-3",
+          prompt: prompt,
+          n: 1,
+          size: "1024x1024",
+          response_format: "b64_json"
+        }),
+      });
+
+      const imageData = await response.json();
+      if (!imageData?.error && imageData?.data?.[0]?.b64_json) {
+        return imageData.data[0].b64_json;
+      }
+      console.log(`API key ${key.substring(0, 8)}... failed:`, imageData?.error || 'Unknown error');
+    } catch (err) {
+      console.log(`API key ${key.substring(0, 8)}... failed with error:`, err);
+      continue;
+    }
+  }
+  throw 'All available DALL-E API keys failed';
+}
+
 const server = serve({
   async fetch(req) {
     const url = new URL(req.url);
@@ -378,34 +409,24 @@ const server = serve({
 
         const trigger = result.triggerSituation.replaceAll('\n', '');
 
-        // todo: instead of config.get('DALLE_API_KEY') we should iterate over a list of available api keys trying to make request with each one until success or until no more keys in the list only then throw an error
         let imageCid = "";
-        const response = await fetch("https://api.openai.com/v1/images/generations", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${config.get('DALLE_API_KEY')}`,
-          },
-          body: JSON.stringify({
-            model: "dall-e-3",
-            prompt: trigger,
-            n: 1,
-            size: "1024x1024",
-            response_format: "b64_json"
-          }),
-        });
+        try {
+          const apiKeys = [
+            config.get('DALLE_API_KEY'),
+          ];
+          if (!apiKeys.length) {
+            throw 'No DALL-E API keys configured';
+          }
 
-        const imageData = await response.json();
-        if (imageData?.error) {
-          console.log("imageData ==> ", imageData);
-          throw `image generation error`;
+          const base64Image = await tryGenerateImageWithKeys(trigger, apiKeys);
+          const file = new File([Buffer.from(base64Image, 'base64')], "agent-image.png", { type: "image/png" });
+          imageCid = await files.upload(file);
+          
+          console.log(requestId, "Generated image CID", imageCid);
+        } catch (err) {
+          console.log(requestId, "Failed to generate image:", err);
+          throw `Too many agents created on the server, please try again in a minute`;
         }
-
-        const base64Image = imageData.data[0].b64_json;
-        const file = new File([Buffer.from(base64Image, 'base64')], "agent-image.png", { type: "image/png" });
-        imageCid = await files.upload(file);
-
-        console.log(requestId, "Generated image CID", imageCid);
 
         const agentPayload = {
           agent: {
