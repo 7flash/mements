@@ -439,6 +439,7 @@ function DeployProgress() {
   );
 }
 
+// todo: we should implement a footer with icons leading to twitter along with its handle @MementsOfficial and string for Contract Address "GAiY7y3tRNTdNKVhr5q58YQJkx587YuZWwn2hYSjpump" and copyright 2025
 function LandingHero({ onProceed }: LandingHeroProps) {
   return (
     <div className="text-center max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
