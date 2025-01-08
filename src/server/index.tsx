@@ -378,6 +378,7 @@ const server = serve({
 
         const trigger = result.triggerSituation.replaceAll('\n', '');
 
+        // todo: instead of config.get('DALLE_API_KEY') we should iterate over a list of available api keys trying to make request with each one until success or until no more keys in the list only then throw an error
         let imageCid = "";
         const response = await fetch("https://api.openai.com/v1/images/generations", {
           method: "POST",
