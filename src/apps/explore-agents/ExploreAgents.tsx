@@ -291,12 +291,6 @@ function MementGrid({ mements, pagination, onPageChange }: {
           <MementCard key={mement.subdomain} mement={mement} />
         ))}
       </div>
-      {/* todo: it should also push page filters into navigation so that we can refresh page and be on the same place, also it should read window.serverData.filters which looks like           filters: {
-            search,
-            category,
-            sortBy
-          } and apply it into ui elements accordingly
- */}
       {pagination.pages > 1 && (
         <div className="flex justify-center mt-8 sm:mt-12">
           <nav className="flex items-center gap-2">
@@ -465,7 +459,6 @@ function ExplorePage() {
     1
   );
   
-  // todo: fix search query is not embedded into url so when page refreshed its lost
   const [searchQuery, setSearchQuery] = useState(
     urlParams.get('search') || 
     window.serverData?.filters?.search || 
@@ -597,7 +590,7 @@ function ExplorePage() {
       params.set('sortBy', filterOptions.sortBy);
     }
     
-    // todo: currently it inserts a new item in history on every letter typed which is obviously wrong it should only happen after search debounce
+    // todo: currently it inserts a new item in history on every letter typed which is obviously wrong it should only happen alongside with search debounce
     setLocation(`/explore?${params.toString()}`);
     debouncedSearch(query);
   };
