@@ -208,10 +208,14 @@ function MementCard({ mement }: { mement: Agent }) {
   );
 }
 
-function MementGrid({ mements, currentPage, totalPages, onPageChange }: {
+function MementGrid({ mements, pagination, onPageChange }: {
   mements: Agent[];
-  currentPage: number;
-  totalPages: number;
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  };
   onPageChange: (page: number) => void;
 }) {
   return (
@@ -223,36 +227,24 @@ function MementGrid({ mements, currentPage, totalPages, onPageChange }: {
         ))}
       </div>
       
-      {/* 
-      
-todo: use what we already have in window.serverData.pagination object like this
-
-{
-    "total": 1180,
-    "page": 1,
-    "limit": 10,
-    "pages": 118
-}
-      
-      */}
-      {totalPages > 1 && (
+      {pagination.pages > 1 && (
         <div className="flex justify-center mt-8 sm:mt-12">
           <nav className="flex items-center gap-2">
             <button
-              onClick={() => onPageChange(currentPage - 1)}
-              disabled={currentPage === 1}
+              onClick={() => onPageChange(pagination.page - 1)}
+              disabled={pagination.page === 1}
               className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 hover:bg-gray-50 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
             
             <span className="px-4 py-2 text-sm sm:text-base">
-              Page {currentPage} of {totalPages}
+              Page {pagination.page} of {pagination.pages}
             </span>
             
             <button
-              onClick={() => onPageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
+              onClick={() => onPageChange(pagination.page + 1)}
+              disabled={pagination.page === pagination.pages}
               className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 hover:bg-gray-50 transition-colors"
             >
               <ArrowRight className="w-5 h-5" />
@@ -310,18 +302,19 @@ function LandingHero() {
 }
 
 function ExplorePage() {
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 9;
+  const [currentPage, setCurrentPage] = useState(window.serverData?.pagination?.page || 1);
   const agents = window.serverData?.agents || [];
-  const totalPages = Math.ceil(agents.length / itemsPerPage);
-  const currentAgents = agents.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const pagination = window.serverData?.pagination || {
+    total: 0,
+    page: 1,
+    limit: 10,
+    pages: 1
+  };
 
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);
     window.scrollTo(0, 0);
+    // todo: we should actually implement complete working pagination, and also filters, and search of course, and we must have agents per page to nicely fit on a grid layout
   };
 
   return (
@@ -331,9 +324,8 @@ function ExplorePage() {
           Explore Mements
         </h1>
         <MementGrid 
-          mements={currentAgents}
-          currentPage={currentPage}
-          totalPages={totalPages}
+          mements={agents}
+          pagination={pagination}
           onPageChange={handlePageChange}
         />
       </div>
