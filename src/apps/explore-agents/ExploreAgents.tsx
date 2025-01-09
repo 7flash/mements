@@ -213,6 +213,7 @@ function MementCard({ mement }: { mement: Agent }) {
           </p>
           
           <div className="flex items-center justify-between pt-4">
+            {/* todo: instead of "Last active: 09.01.2025" it should say "Last active a minute ago" or etc..*/}
             <div className="text-sm text-white/60">
               Last active: {new Date(mement.last_activity).toLocaleDateString()}
             </div>
@@ -251,7 +252,7 @@ function MementGrid({ mements, pagination, onPageChange }: {
             <button
               onClick={() => onPageChange(pagination.page - 1)}
               disabled={pagination.page === 1}
-              className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 hover:bg-gray-50 transition-colors"
+              className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 hover:bg-gray-50 transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -263,7 +264,7 @@ function MementGrid({ mements, pagination, onPageChange }: {
             <button
               onClick={() => onPageChange(pagination.page + 1)}
               disabled={pagination.page === pagination.pages}
-              className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 hover:bg-gray-50 transition-colors"
+              className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 hover:bg-gray-50 transition-colors cursor-pointer"
             >
               <ArrowRight className="w-5 h-5" />
             </button>
@@ -319,12 +320,11 @@ function LandingHero() {
   );
 }
 
+// todo: it should pass correspondingly values of name / chats / or last_activity
 interface FilterOptions {
   sortBy: 'recent' | 'popular' | 'name';
   category?: string;
 }
-
-// todo: currently search and filters only works over the agents already present on the page, but of course we need to utilize backend here to actually retrieve all the results from database along with updated pagination of a new set of agents corresponding to search and filters and sorting
 
 function SearchBar({ onSearch }: { onSearch: (query: string) => void }) {
   return (
