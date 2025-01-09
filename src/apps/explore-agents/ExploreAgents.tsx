@@ -466,20 +466,10 @@ function ExplorePage() {
                    sortBy === 'popular' ? 'total_chats' : 'name',
         sortOrder: sortBy === 'name' ? 'asc' : 'desc'
       }));
-      
-      fetchAgents(page, search, filterOptions);
     }
   }, [location]);
 
-  // Debounced search function
-  const debouncedSearch = useMemo(
-    () => debounce((query: string) => {
-      fetchAgents(1, query, filterOptions);
-    }, 500),
-    [filterOptions]
-  );
-
-  // Fetch agents from backend
+  // todo: fetchAgents should be ONLY called when our location changes that's it
   const fetchAgents = async (page: number, query: string, filters: FilterOptions) => {
     try {
       setLoading(true);
@@ -583,8 +573,6 @@ function ExplorePage() {
                    sortBy === 'popular' ? 'total_chats' : 'name',
         sortOrder: sortBy === 'name' ? 'asc' : 'desc'
       }));
-      
-      fetchAgents(page, search, filterOptions);
     }
   }, [location]);
 
@@ -645,14 +633,7 @@ function App() {
       <div className="min-h-screen bg-gray-50 flex flex-col">
         <Header />
         <div className="flex-grow">
-          <Switch>
-            <Route path="/">
-              <LandingHero />
-            </Route>
-            <Route path="/explore">
-              <ExplorePage />
-            </Route>
-          </Switch>
+          <ExplorePage />
         </div>
         <Footer />
         <Toaster richColors />
