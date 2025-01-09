@@ -127,8 +127,15 @@ function htmlTemplate(scriptLink: string, serverData: string = '{}'): string {
   `;
 }
 
-async function tryGenerateImageWithKeys(prompt: string, keys: string[]): Promise<string> {
-  for (const key of keys) {
+// todo: lets just read from a local Bun.file where multiple keys can be each on its own line
+const dalleApiKeys: any = [];
+
+if (!dalleApiKeys.length) {
+  throw 'No DALL-E API keys configured';
+}
+
+async function tryGenerateImageWithKeys(prompt: strin): Promise<string> {
+  for (const key of dalleApiKeys) {
     try {
       const response = await fetch("https://api.openai.com/v1/images/generations", {
         method: "POST",
@@ -636,13 +643,6 @@ const server = serve({
 
         let imageCid = "";
         try {
-          const apiKeys = [
-            config.get('DALLE_API_KEY'),
-          ];
-          if (!apiKeys.length) {
-            throw 'No DALL-E API keys configured';
-          }
-
           const base64Image = await tryGenerateImageWithKeys(trigger, apiKeys);
           const file = new File([Buffer.from(base64Image, 'base64')], "agent-image.png", { type: "image/png" });
           imageCid = await files.upload(file);
