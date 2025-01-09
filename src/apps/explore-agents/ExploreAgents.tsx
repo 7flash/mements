@@ -428,8 +428,10 @@ function ExplorePage() {
     sortOrder: 'desc'
   });
 
+  // todo: it seems like even though url changes but this effect is not being triggered and therefore list of agents is not updated, fix it
   useEffect(() => {
     const params = new URLSearchParams(location);
+    console.log("params ==> ", params);
     const page = parseInt(params.get('page') || '1');
     const search = params.get('search') || '';
     const sortBy = params.get('sortBy') as FilterOptions['sortBy'] || 'recent';
