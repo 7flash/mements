@@ -290,6 +290,7 @@ const server = serve({
       }
     }
 
+    // todo: maybe it can accept already optionally filters and page number so that we can refresh and share page link 
     if (path === "/explore") {
       try {
         const page = parseInt(url.searchParams.get('page') || '1');
