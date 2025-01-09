@@ -337,35 +337,27 @@ const server = serve({
             orderByClause += " c.timestamp DESC NULLS LAST";
         }
 
-        // todo: we should also measure this query and others as well
-        const agentsQuery = db.query(`
-          SELECT 
-            a.subdomain,
-            a.name,
-            a.prompt,
-            a.workflow,
-            i.imageCid as avatar,
-            c.timestamp as last_activity,
-            (SELECT COUNT(*) FROM chats WHERE subdomain = a.subdomain) as total_chats
-          FROM agents a
-          LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
-          LEFT JOIN chats c ON c.subdomain = a.subdomain AND c.timestamp = (
-            SELECT MAX(timestamp) FROM chats WHERE subdomain = a.subdomain
-          )
-          ${whereClause}
-          ${orderByClause}
-          LIMIT ? OFFSET ?
-        `);
-
-        const totalCountQuery = db.query(`
-          SELECT COUNT(*) as count 
-          FROM agents a
-          ${whereClause}
-        `);
-        const { count } = totalCountQuery.get(...params) as { count: number };    
-        console.log("count ==> ", count);
-
-        const agents = agentsQuery.all(...params, limit, offset) as Array<{
+        const agents = measureQueryPerformance(requestId, "fetch-explore-agents", () => {
+          const agentsQuery = db.query(`
+            SELECT 
+              a.subdomain,
+              a.name,
+              a.prompt,
+              a.workflow,
+              i.imageCid as avatar,
+              c.timestamp as last_activity,
+              (SELECT COUNT(*) FROM chats WHERE subdomain = a.subdomain) as total_chats
+            FROM agents a
+            LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
+            LEFT JOIN chats c ON c.subdomain = a.subdomain AND c.timestamp = (
+              SELECT MAX(timestamp) FROM chats WHERE subdomain = a.subdomain
+            )
+            ${whereClause}
+            ${orderByClause}
+            LIMIT ? OFFSET ?
+          `);
+          return agentsQuery.all(...params, limit, offset);
+        }) as Array<{
           subdomain: string;
           name: string;
           prompt: string;
@@ -374,6 +366,16 @@ const server = serve({
           last_activity: string;
           total_chats: number;
         }>;
+
+        const { count } = measureQueryPerformance(requestId, "count-explore-agents", () => {
+          const totalCountQuery = db.query(`
+            SELECT COUNT(*) as count 
+            FROM agents a
+            ${whereClause}
+          `);
+          return totalCountQuery.get(...params) as { count: number };
+        });
+
 
         const agentsWithImages = await Promise.all(agents.map(async (agent) => ({
           ...agent,
