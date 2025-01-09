@@ -429,12 +429,12 @@ function ExplorePage() {
   });
 
   useEffect(() => {
-    // Update state based on URL params whenever location changes
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(location);
     const page = parseInt(params.get('page') || '1');
     const search = params.get('search') || '';
     const sortBy = params.get('sortBy') as FilterOptions['sortBy'] || 'recent';
-    
+
+    // Update local state based on URL
     setCurrentPage(page);
     setSearchQuery(search);
     setFilterOptions(prev => ({
@@ -444,72 +444,52 @@ function ExplorePage() {
                  sortBy === 'popular' ? 'total_chats' : 'name',
       sortOrder: sortBy === 'name' ? 'asc' : 'desc'
     }));
-    
-    if (!window.serverData?.agents) {
-      fetchAgents(page, search, filterOptions);
-    }
-  }, []);
 
-  useEffect(() => {
-    const params = new URLSearchParams(location);
-    const page = parseInt(params.get('page') || '1');
-    const search = params.get('search') || '';
-    const sortBy = params.get('sortBy') as FilterOptions['sortBy'] || 'recent';
-    
-    if (page !== currentPage || search !== searchQuery || sortBy !== filterOptions.sortBy) {
-      setCurrentPage(page);
-      setSearchQuery(search);
-      setFilterOptions(prev => ({
-        ...prev,
-        sortBy,
-        sortField: sortBy === 'recent' ? 'last_activity' : 
-                   sortBy === 'popular' ? 'total_chats' : 'name',
-        sortOrder: sortBy === 'name' ? 'asc' : 'desc'
-      }));
+    // Only fetch if we don't have server-side data on initial load
+    if (window.serverData?.agents && location === '/explore') {
+      return;
     }
+
+    // Fetch agents based on URL params
+    const fetchAgents = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const fetchParams = new URLSearchParams({
+          page: page.toString(),
+          limit: AGENTS_PER_PAGE.toString(),
+          search,
+          sortBy: sortBy === 'recent' ? 'last_activity' :
+                 sortBy === 'popular' ? 'total_chats' : 'name',
+          sortOrder: sortBy === 'name' ? 'asc' : 'desc'
+        });
+
+        const response = await fetch(`/api/agents?${fetchParams}`);
+        if (!response.ok) throw new Error('Failed to fetch agents');
+
+        const data = await response.json();
+        
+        setAgents(data.agents);
+        setPagination({
+          total: data.total,
+          page: data.page,
+          limit: AGENTS_PER_PAGE,
+          pages: Math.ceil(data.total / AGENTS_PER_PAGE)
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+        toast.error('Failed to load agents');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAgents();
   }, [location]);
 
-  // todo: fetchAgents should be ONLY called when our location changes that's it
-  const fetchAgents = async (page: number, query: string, filters: FilterOptions) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const sortField = filters.sortBy === 'recent' ? 'last_activity' :
-      filters.sortBy === 'popular' ? 'total_chats' :
-      'name';
-
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: AGENTS_PER_PAGE.toString(),
-        search: query,
-        sortBy: sortField,
-        sortOrder: filters.sortBy === 'name' ? 'asc' : 'desc',
-          ...(filters.category && { category: filters.category })
-      });
-
-      const response = await fetch(`/api/agents?${params}`);
-      if (!response.ok) throw new Error('Failed to fetch agents');
-
-      const data = await response.json();
-      
-      setAgents(data.agents);
-      setPagination({
-        total: data.total,
-        page: data.page,
-        limit: AGENTS_PER_PAGE,
-        pages: Math.ceil(data.total / AGENTS_PER_PAGE)
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      toast.error('Failed to load agents');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const debouncedSearch = useMemo(
-    () => debounce((query: string, filters: FilterOptions) => {
+    () => debounce((query: string) => {
       const newUrl = new URL(window.location.pathname, window.location.origin);
       const params = new URLSearchParams(newUrl.search);
       
@@ -519,62 +499,42 @@ function ExplorePage() {
         params.delete('search');
       }
       
-      if (filters.sortBy) {
-        params.set('sortBy', filters.sortBy);
-      }
-      
+      params.set('sortBy', filterOptions.sortBy);
       setLocation(`/explore?${params.toString()}`);
-      fetchAgents(1, query, filters);
     }, 500),
-    []
+    [filterOptions.sortBy]
   );
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    setCurrentPage(1);
-    
-    debouncedSearch(query, filterOptions);
+    debouncedSearch(query);
   };
 
   const handleFilterChange = (options: FilterOptions) => {
-    setFilterOptions(prev => {
-      const newOptions = { ...prev, ...options };
-      fetchAgents(1, searchQuery, newOptions);
-      return newOptions;
-    });
-    setCurrentPage(1);
+    const newUrl = new URL(window.location.pathname, window.location.origin);
+    const params = new URLSearchParams(newUrl.search);
+    
+    params.set('sortBy', options.sortBy);
+    if (searchQuery) {
+      params.set('search', searchQuery);
+    }
+    
+    setLocation(`/explore?${params.toString()}`);
   };
 
   const handlePageChange = (newPage: number) => {
-    setCurrentPage(newPage);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    fetchAgents(newPage, searchQuery, filterOptions);
-  };
-
-  useEffect(() => {
-    if (!window.serverData?.agents) {
-      fetchAgents(currentPage, searchQuery, filterOptions);
-    }
-  }, []);
-
-  useEffect(() => {
-    const params = new URLSearchParams(location);
-    const page = parseInt(params.get('page') || '1');
-    const search = params.get('search') || '';
-    const sortBy = params.get('sortBy') as FilterOptions['sortBy'] || 'recent';
+    const newUrl = new URL(window.location.pathname, window.location.origin);
+    const params = new URLSearchParams(newUrl.search);
     
-    if (page !== currentPage || search !== searchQuery || sortBy !== filterOptions.sortBy) {
-      setCurrentPage(page);
-      setSearchQuery(search);
-      setFilterOptions(prev => ({
-        ...prev,
-        sortBy,
-        sortField: sortBy === 'recent' ? 'last_activity' : 
-                   sortBy === 'popular' ? 'total_chats' : 'name',
-        sortOrder: sortBy === 'name' ? 'asc' : 'desc'
-      }));
+    params.set('page', newPage.toString());
+    if (searchQuery) {
+      params.set('search', searchQuery);
     }
-  }, [location]);
+    params.set('sortBy', filterOptions.sortBy);
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setLocation(`/explore?${params.toString()}`);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
