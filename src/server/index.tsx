@@ -319,10 +319,10 @@ const server = serve({
           case 'name':
             orderByClause += " a.name ASC";
             break;
-          case 'total_chats':
+          case 'popular':
             orderByClause += " total_chats DESC";
             break;
-          case 'last_activity':
+          case 'recent':
           default:
             orderByClause += " c.timestamp DESC NULLS LAST";
         }
@@ -352,6 +352,7 @@ const server = serve({
           ${whereClause}
         `);
         const { count } = totalCountQuery.get(...params) as { count: number };    
+        console.log("count ==> ", count);
 
         const agents = agentsQuery.all(...params, limit, offset) as Array<{
           subdomain: string;

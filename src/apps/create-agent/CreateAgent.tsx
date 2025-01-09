@@ -484,6 +484,7 @@ function LandingHero({ onProceed }: LandingHeroProps) {
       <p className="text-lg text-gray-600 mb-12">
         Create, manage, and scale your AI personalities effortlessly. Bring your Mements to life with our cutting-edge deployment platform.
       </p>
+      {/* Create a secondary button "Explore" as a link to /explore in _blank */}
       <button
         onClick={onProceed}
         className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-purple-500 to-blue-600 text-white rounded-lg font-medium hover:opacity-90 transition-opacity mb-16 cursor-pointer"

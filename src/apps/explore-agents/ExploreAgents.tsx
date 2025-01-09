@@ -241,9 +241,9 @@ function MementCard({ mement }: { mement: Agent }) {
             <div className="text-sm text-white/60">
               Last active {formatRelativeTime(mement.last_activity)}
             </div>
-            <Link className="px-4 py-2 bg-white/10 backdrop-blur-md rounded-lg text-white hover:bg-white/20 transition-colors" href={`https://${mement.subdomain}.${constants.BASE_URL}`} target='_blank'>
+            <a className="px-4 py-2 bg-white/10 backdrop-blur-md rounded-lg text-white hover:bg-white/20 transition-colors" href={`https://${mement.subdomain}.${constants.BASE_URL}`} target='_blank'>
                 Visit →
-            </Link>
+            </a>
           </div>
         </div>
       </div>
