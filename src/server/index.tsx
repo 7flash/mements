@@ -188,6 +188,7 @@ const server = serve({
 
     const subdomain = host ? host.split(".")[0] : "";
 
+    // todo: can we add some performance measurements for each requestId specifically for database queries
     if (path === "/api/agents") {
       try {
         const page = parseInt(url.searchParams.get('page') || '1');
@@ -297,7 +298,6 @@ const server = serve({
         const offset = (page - 1) * limit;
 
         const search = url.searchParams.get('search') || '';
-        console.log("search ==> ", search);
         const sortBy = url.searchParams.get('sortBy') || 'last_activity';
         const category = url.searchParams.get('category');    
 
