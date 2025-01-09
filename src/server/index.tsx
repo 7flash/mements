@@ -158,7 +158,15 @@ async function tryGenerateImageWithKeys(prompt: string, keys: string[]): Promise
   throw 'All available DALL-E API keys failed';
 }
 
-// todo: lets implement a new endpoint /explore where we pass to corresponding frontend app Explore a list of all mements paginated and sorted by date
+function measureQueryPerformance(requestId: string, queryName: string, queryFn: () => any) {
+  const start = performance.now();
+  const result = queryFn();
+  const end = performance.now();
+  const duration = end - start;
+  console.log(requestId, `Query '${queryName}' took ${duration.toFixed(2)}ms`);
+  return result;
+}
+
 const server = serve({
   async fetch(req) {
     const url = new URL(req.url);
@@ -188,7 +196,6 @@ const server = serve({
 
     const subdomain = host ? host.split(".")[0] : "";
 
-    // todo: can we add some performance measurements for each requestId specifically for database queries
     if (path === "/api/agents") {
       try {
         const page = parseInt(url.searchParams.get('page') || '1');
@@ -225,33 +232,36 @@ const server = serve({
             orderByClause += " c.timestamp DESC NULLS LAST";
         }
 
-        const totalCountQuery = db.query(`
-          SELECT COUNT(*) as count 
-          FROM agents a
-          ${whereClause}
-        `);
-        const { count } = totalCountQuery.get(...params) as { count: number };
+        const { count } = measureQueryPerformance(requestId, "count-agents", () => {
+          const totalCountQuery = db.query(`
+            SELECT COUNT(*) as count 
+            FROM agents a
+            ${whereClause}
+          `);
+          return totalCountQuery.get(...params) as { count: number };
+        });
 
-        const agentsQuery = db.query(`
-          SELECT 
-            a.subdomain,
-            a.name,
-            a.prompt,
-            a.workflow,
-            i.imageCid as avatar,
-            c.timestamp as last_activity,
-            (SELECT COUNT(*) FROM chats WHERE subdomain = a.subdomain) as total_chats
-          FROM agents a
-          LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
-          LEFT JOIN chats c ON c.subdomain = a.subdomain AND c.timestamp = (
-            SELECT MAX(timestamp) FROM chats WHERE subdomain = a.subdomain
-          )
-          ${whereClause}
-          ${orderByClause}
-          LIMIT ? OFFSET ?
-        `);
-
-        const agents = agentsQuery.all(...params, limit, offset) as Array<{
+        const agents = measureQueryPerformance(requestId, "fetch-agents", () => {
+          const agentsQuery = db.query(`
+            SELECT 
+              a.subdomain,
+              a.name,
+              a.prompt,
+              a.workflow,
+              i.imageCid as avatar,
+              c.timestamp as last_activity,
+              (SELECT COUNT(*) FROM chats WHERE subdomain = a.subdomain) as total_chats
+            FROM agents a
+            LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
+            LEFT JOIN chats c ON c.subdomain = a.subdomain AND c.timestamp = (
+              SELECT MAX(timestamp) FROM chats WHERE subdomain = a.subdomain
+            )
+            ${whereClause}
+            ${orderByClause}
+            LIMIT ? OFFSET ?
+          `);
+          return agentsQuery.all(...params, limit, offset);
+        }) as Array<{
           subdomain: string;
           name: string;
           prompt: string;
@@ -814,9 +824,13 @@ const server = serve({
             }
           }
 
-          const telegramBotQuery = db.query<TelegramBot, { $subdomain: string }>("SELECT bot_token, group_id FROM telegram_bots WHERE subdomain = $subdomain");
-          const telegramBotData = telegramBotQuery.get({ $subdomain: agentData.subdomain });
-
+          const telegramBotData = measureQueryPerformance(requestId, "fetch-telegram-bot", () => {
+            const telegramBotQuery = db.query<TelegramBot, { $subdomain: string }>(
+              "SELECT bot_token, group_id FROM telegram_bots WHERE subdomain = $subdomain"
+            );
+            return telegramBotQuery.get({ $subdomain: agentData.subdomain });
+          });
+    
           if (telegramBotData && telegramBotData.group_id) {
             const telegramApiUrl = `https://api.telegram.org/bot${telegramBotData.bot_token}/sendMessage`;
             const messageBody = {
