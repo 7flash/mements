@@ -328,13 +328,19 @@ interface FilterOptions {
   search?: string;
 }
 
-function SearchBar({ onSearch }: { onSearch: (query: string) => void }) {
+function SearchBar({ onSearch, initialValue = '' }: { onSearch: (query: string) => void, initialValue?: string }) {
+  const [value, setValue] = useState(initialValue);
+
   return (
     <div className="relative w-full max-w-md">
       <input
         type="text"
         placeholder="Search..."
-        onChange={(e) => onSearch(e.target.value)}
+        value={value}
+        onChange={(e) => {
+          setValue(e.target.value);
+          onSearch(e.target.value);
+        }}
         className="w-full px-4 py-2 pl-10 pr-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
       />
       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -549,8 +555,8 @@ function ExplorePage() {
           </h1>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-            <SearchBar onSearch={handleSearch} />
-            <FilterBar onFilterChange={handleFilterChange} initialValue={filterOptions.sortBy} />
+          <SearchBar onSearch={handleSearch} initialValue={searchQuery} />
+          <FilterBar onFilterChange={handleFilterChange} initialValue={filterOptions.sortBy} />
           </div>
         </div>
 
