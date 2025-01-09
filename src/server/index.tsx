@@ -294,7 +294,7 @@ const server = serve({
     if (path === "/explore") {
       try {
         const page = parseInt(url.searchParams.get('page') || '1');
-        const limit = parseInt(url.searchParams.get('limit') || '10');
+        const limit = parseInt(url.searchParams.get('limit') || '9');
         const offset = (page - 1) * limit;
 
         const search = url.searchParams.get('search') || '';
@@ -302,6 +302,7 @@ const server = serve({
         const sortBy = url.searchParams.get('sortBy') || 'last_activity';
         const category = url.searchParams.get('category');    
 
+        // todo: fix pagination here with similar query totalCountQuery as in api/agents
         const totalCountQuery = db.query("SELECT COUNT(*) as count FROM agents");
         const { count } = totalCountQuery.get() as { count: number };
 
@@ -349,8 +350,6 @@ const server = serve({
           ${orderByClause}
           LIMIT ? OFFSET ?
         `);
-
-        console.log(agentsQuery.toString());
 
         const agents = agentsQuery.all(...params, limit, offset) as Array<{
           subdomain: string;
