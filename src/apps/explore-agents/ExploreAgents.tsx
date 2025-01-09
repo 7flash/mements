@@ -301,37 +301,138 @@ function LandingHero() {
   );
 }
 
+interface FilterOptions {
+  sortBy: 'recent' | 'popular' | 'name';
+  category?: string;
+}
+
+// currently search and filters only works over the agents already present on the page, but of course we need to utilize backend here to actually retrieve all the results from database along with updated pagination of a new set of agents corresponding to search and filters and sorting
+
+function SearchBar({ onSearch }: { onSearch: (query: string) => void }) {
+  return (
+    <div className="relative w-full max-w-md">
+      <input
+        type="text"
+        placeholder="Search..."
+        onChange={(e) => onSearch(e.target.value)}
+        className="w-full px-4 py-2 pl-10 pr-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+      />
+      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+function FilterBar({ onFilterChange }: { onFilterChange: (options: FilterOptions) => void }) {
+  return (
+    <div className="flex flex-wrap gap-4 items-center">
+      <select 
+        onChange={(e) => onFilterChange({ sortBy: e.target.value as FilterOptions['sortBy'] })}
+        className="px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+      >
+        <option value="recent">Most Recent</option>
+        <option value="popular">Most Popular</option>
+        <option value="name">Name A-Z</option>
+      </select>
+    </div>
+  );
+}
+
 function ExplorePage() {
+  const AGENTS_PER_PAGE = 9; // 3x3 grid layout
   const [currentPage, setCurrentPage] = useState(window.serverData?.pagination?.page || 1);
-  const agents = window.serverData?.agents || [];
-  const pagination = window.serverData?.pagination || {
-    total: 0,
-    page: 1,
-    limit: 10,
-    pages: 1
-  };
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>({ sortBy: 'recent' });
+  const [agents, setAgents] = useState(window.serverData?.agents || []);
+
+  // Filter and sort agents based on search query and filter options
+  const filteredAgents = useMemo(() => {
+    let filtered = [...agents];
+    
+    // Apply search filter
+    if (searchQuery) {
+      filtered = filtered.filter(agent => 
+        agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        agent.prompt.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
+    // Apply sorting
+    switch (filterOptions.sortBy) {
+      case 'recent':
+        filtered.sort((a, b) => new Date(b.last_activity).getTime() - new Date(a.last_activity).getTime());
+        break;
+      case 'popular':
+        filtered.sort((a, b) => b.total_chats - a.total_chats);
+        break;
+      case 'name':
+        filtered.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+    }
+    
+    return filtered;
+  }, [agents, searchQuery, filterOptions]);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredAgents.length / AGENTS_PER_PAGE);
+  const paginatedAgents = filteredAgents.slice(
+    (currentPage - 1) * AGENTS_PER_PAGE,
+    currentPage * AGENTS_PER_PAGE
+  );
 
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);
-    window.scrollTo(0, 0);
-    // todo: we should actually implement complete working pagination, and also filters, and search of course, and we must have agents per page to nicely fit on a grid layout
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    setCurrentPage(1); // Reset to first page when searching
+  };
+
+  const handleFilterChange = (options: FilterOptions) => {
+    setFilterOptions(prev => ({ ...prev, ...options }));
+    setCurrentPage(1); // Reset to first page when filtering
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-6 sm:mb-8">
-          Explore Mements
-        </h1>
-        <MementGrid 
-          mements={agents}
-          pagination={pagination}
-          onPageChange={handlePageChange}
-        />
+        <div className="flex flex-col gap-6 mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+            Explore Memetic Agents
+          </h1>
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+            <SearchBar onSearch={handleSearch} />
+            <FilterBar onFilterChange={handleFilterChange} />
+          </div>
+        </div>
+
+        {filteredAgents.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500 text-lg">No Mements found matching your criteria</p>
+          </div>
+        ) : (
+          <MementGrid 
+            mements={paginatedAgents}
+            pagination={{
+              total: filteredAgents.length,
+              page: currentPage,
+              limit: AGENTS_PER_PAGE,
+              pages: totalPages
+            }}
+            onPageChange={handlePageChange}
+          />
+        )}
       </div>
     </div>
   );
 }
+
 
 function App() {
   return (
