@@ -154,6 +154,7 @@ async function tryGenerateImageWithKeys(prompt: string, keys: string[]): Promise
   throw 'All available DALL-E API keys failed';
 }
 
+// todo: lets implement a new endpoint /explore where we pass to corresponding frontend app Explore a list of all mements paginated and sorted by date
 const server = serve({
   async fetch(req) {
     const url = new URL(req.url);
