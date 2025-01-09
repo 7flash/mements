@@ -337,6 +337,7 @@ const server = serve({
             orderByClause += " c.timestamp DESC NULLS LAST";
         }
 
+        // todo: we should also measure this query and others as well
         const agentsQuery = db.query(`
           SELECT 
             a.subdomain,
