@@ -269,7 +269,7 @@ function MementGrid({ mements, pagination, onPageChange }: {
           <MementCard key={mement.subdomain} mement={mement} />
         ))}
       </div>
-      
+      {/* todo: it should also push page filters into navigation so that */}
       {pagination.pages > 1 && (
         <div className="flex justify-center mt-8 sm:mt-12">
           <nav className="flex items-center gap-2">

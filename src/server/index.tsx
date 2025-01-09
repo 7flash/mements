@@ -297,9 +297,38 @@ const server = serve({
         const limit = parseInt(url.searchParams.get('limit') || '10');
         const offset = (page - 1) * limit;
 
+        const search = url.searchParams.get('search') || '';
+        const sortBy = url.searchParams.get('sortBy') || 'last_activity';
+        const category = url.searchParams.get('category');    
+
         const totalCountQuery = db.query("SELECT COUNT(*) as count FROM agents");
         const { count } = totalCountQuery.get() as { count: number };
-        console.log("count ==> ", count);
+
+        let whereClause = "WHERE 1=1";
+        const params: any[] = [];
+    
+        if (search) {
+          whereClause += " AND (a.name LIKE ? OR a.prompt LIKE ?)";
+          params.push(`%${search}%`, `%${search}%`);
+        }
+    
+        if (category) {
+          whereClause += " AND a.workflow = ?";
+          params.push(category);
+        }
+    
+        let orderByClause = "ORDER BY";
+        switch (sortBy) {
+          case 'name':
+            orderByClause += " a.name ASC";
+            break;
+          case 'total_chats':
+            orderByClause += " total_chats DESC";
+            break;
+          case 'last_activity':
+          default:
+            orderByClause += " c.timestamp DESC NULLS LAST";
+        }    
 
         const agentsQuery = db.query(`
           SELECT 
@@ -315,7 +344,8 @@ const server = serve({
           LEFT JOIN chats c ON c.subdomain = a.subdomain AND c.timestamp = (
             SELECT MAX(timestamp) FROM chats WHERE subdomain = a.subdomain
           )
-          ORDER BY c.timestamp DESC NULLS LAST
+          ${whereClause}
+          ${orderByClause}
           LIMIT ? OFFSET ?
         `);
 
@@ -338,6 +368,11 @@ const server = serve({
 
         const serverData = {
           agents: agentsWithImages,
+          filters: {
+            search,
+            category,
+            sortBy
+          },    
           pagination: {
             total: count,
             page,
@@ -347,7 +382,7 @@ const server = serve({
         };
 
         return new Response(htmlTemplate(assets.getLink('exploreAgentsApp'), JSON.stringify(serverData)), {
-          headers: { "content-type": "text/html" },
+          headers: { "content-type": "text/html", "Cache-Control": "no-cache" },
         });
 
       } catch (err) {
