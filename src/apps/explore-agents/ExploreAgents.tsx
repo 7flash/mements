@@ -557,6 +557,7 @@ function ExplorePage() {
     fetchAgents(newPage, searchQuery, filterOptions);
   };
 
+  // todo: fix search does not work it switches page to undefined?sortBy=popular&search=s
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     setCurrentPage(1);
