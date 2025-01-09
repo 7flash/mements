@@ -597,7 +597,7 @@ function ExplorePage() {
       params.set('sortBy', filterOptions.sortBy);
     }
     
-    // Update location with correct pathname and query parameters
+    // todo: currently it inserts a new item in history on every letter typed which is obviously wrong it should only happen after search debounce
     setLocation(`/explore?${params.toString()}`);
     debouncedSearch(query);
   };
