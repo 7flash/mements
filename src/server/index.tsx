@@ -185,6 +185,73 @@ const server = serve({
     const subdomain = host ? host.split(".")[0] : "";
     console.log(requestId, "subdomain", subdomain);
 
+    if (path === "/explore") {
+      try {
+        // Get pagination parameters from query string
+        const page = parseInt(url.searchParams.get('page') || '1');
+        const limit = parseInt(url.searchParams.get('limit') || '10');
+        const offset = (page - 1) * limit;
+
+        // Get total count of agents
+        const totalCountQuery = db.query("SELECT COUNT(*) as count FROM agents");
+        const { count } = totalCountQuery.get() as { count: number };
+
+        // Get paginated agents with their latest chat
+        const agentsQuery = db.query(`
+          SELECT 
+            a.subdomain,
+            a.name,
+            a.prompt,
+            a.workflow,
+            i.imageCid as avatar,
+            c.timestamp as last_activity,
+            (SELECT COUNT(*) FROM chats WHERE subdomain = a.subdomain) as total_chats
+          FROM agents a
+          LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
+          LEFT JOIN chats c ON c.subdomain = a.subdomain AND c.timestamp = (
+            SELECT MAX(timestamp) FROM chats WHERE subdomain = a.subdomain
+          )
+          ORDER BY c.timestamp DESC NULLS LAST
+          LIMIT ? OFFSET ?
+        `);
+
+        const agents = agentsQuery.all(limit, offset) as Array<{
+          subdomain: string;
+          name: string;
+          prompt: string;
+          workflow: string;
+          avatar: string;
+          last_activity: string;
+          total_chats: number;
+        }>;
+
+        // Transform the data and add image URLs
+        const agentsWithImages = await Promise.all(agents.map(async (agent) => ({
+          ...agent,
+          avatar: agent.avatar ? await files.getUrl(agent.avatar, 3600) : null,
+        })));
+
+        const serverData = {
+          agents: agentsWithImages,
+          pagination: {
+            total: count,
+            page,
+            limit,
+            pages: Math.ceil(count / limit)
+          }
+        };
+
+        // Return HTML with the explore app and server data
+        return new Response(htmlTemplate(assets.getLink('exploreApp'), JSON.stringify(serverData)), {
+          headers: { "content-type": "text/html" },
+        });
+
+      } catch (err) {
+        console.log(requestId, "Error fetching agents for explore page", err);
+        return new Response("Internal Server Error", { status: 500 });
+      }
+    }
+
     if (req.method === "POST" && path === "/createAgent") {
       try {
         const authHeader = req.headers.get('Authorization');
