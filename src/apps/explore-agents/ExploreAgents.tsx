@@ -428,14 +428,16 @@ function ExplorePage() {
     sortOrder: 'desc'
   });
 
-  // todo: it seems like even though url changes but this effect is not being triggered and therefore list of agents is not updated, fix it
   useEffect(() => {
-    const params = new URLSearchParams(location);
-    console.log("params ==> ", params);
+    // Extract search params from location string properly
+    const [pathname, search] = location.split('?');
+    const params = new URLSearchParams(search || '');
+    
+    // Get values from URL params with proper fallbacks
     const page = parseInt(params.get('page') || '1');
     const search = params.get('search') || '';
     const sortBy = params.get('sortBy') as FilterOptions['sortBy'] || 'recent';
-
+  
     // Update local state based on URL
     setCurrentPage(page);
     setSearchQuery(search);
@@ -446,9 +448,9 @@ function ExplorePage() {
                  sortBy === 'popular' ? 'total_chats' : 'name',
       sortOrder: sortBy === 'name' ? 'asc' : 'desc'
     }));
-
-    // Only fetch if we don't have server-side data on initial load
-    if (window.serverData?.agents && location === '/explore') {
+  
+    // Skip fetch if we have server-side data and we're on the initial load
+    if (window.serverData?.agents && pathname === '/explore' && !search && page === 1 && sortBy === 'recent') {
       return;
     }
 
