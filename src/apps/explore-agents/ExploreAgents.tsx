@@ -261,6 +261,16 @@ function MementGrid({ mements, pagination, onPageChange }: {
   };
   onPageChange: (page: number) => void;
 }) {
+  const [location, setLocation] = useLocation();
+  
+  // Update URL when page changes
+  const handlePageChange = (newPage: number) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', newPage.toString());
+    setLocation(url.pathname + url.search);
+    onPageChange(newPage);
+  };
+
   return (
     <div className="w-full">
       {/* Responsive grid with proper spacing */}
@@ -279,7 +289,7 @@ function MementGrid({ mements, pagination, onPageChange }: {
         <div className="flex justify-center mt-8 sm:mt-12">
           <nav className="flex items-center gap-2">
             <button
-              onClick={() => onPageChange(pagination.page - 1)}
+              onClick={() => handlePageChange(pagination.page - 1)}
               disabled={pagination.page === 1}
               className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 hover:bg-gray-50 transition-colors cursor-pointer"
             >
@@ -291,7 +301,7 @@ function MementGrid({ mements, pagination, onPageChange }: {
             </span>
             
             <button
-              onClick={() => onPageChange(pagination.page + 1)}
+              onClick={() => handlePageChange(pagination.page + 1)}
               disabled={pagination.page === pagination.pages}
               className="p-2 rounded-lg border border-gray-300 disabled:opacity-50 hover:bg-gray-50 transition-colors cursor-pointer"
             >
@@ -349,10 +359,12 @@ function LandingHero() {
   );
 }
 
-// todo: it should pass correspondingly values of name / chats / or last_activity
 interface FilterOptions {
   sortBy: 'recent' | 'popular' | 'name';
+  sortField: 'last_activity' | 'total_chats' | 'name';
+  sortOrder: 'asc' | 'desc';
   category?: string;
+  search?: string;
 }
 
 function SearchBar({ onSearch }: { onSearch: (query: string) => void }) {
@@ -373,20 +385,30 @@ function SearchBar({ onSearch }: { onSearch: (query: string) => void }) {
   );
 }
 
-function FilterBar({ onFilterChange }: { onFilterChange: (options: FilterOptions) => void }) {
+function FilterBar({ onFilterChange, initialValue }: { 
+  onFilterChange: (options: FilterOptions) => void;
+  initialValue?: string;
+}) {
+  const [location, setLocation] = useLocation();
+  
+  const handleChange = (value: FilterOptions['sortBy']) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('sortBy', value);
+    setLocation(url.pathname + url.search);
+    
+    onFilterChange({ 
+      sortBy: value,
+      sortField: value === 'recent' ? 'last_activity' : 
+                value === 'popular' ? 'total_chats' : 'name',
+      sortOrder: value === 'name' ? 'asc' : 'desc'
+    });
+  };
+
   return (
     <div className="flex flex-wrap gap-4 items-center">
       <select 
-        onChange={(e) => {
-          const value = e.target.value as FilterOptions['sortBy'];
-          onFilterChange({ 
-            sortBy: value,
-            // Map the user-friendly options to actual sort fields
-            ...(value === 'recent' && { sortField: 'last_activity' }),
-            ...(value === 'popular' && { sortField: 'total_chats' }),
-            ...(value === 'name' && { sortField: 'name' })
-          });
-        }}
+        value={initialValue || 'recent'}
+        onChange={(e) => handleChange(e.target.value as FilterOptions['sortBy'])}
         className="px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
       >
         <option value="recent">Recently Active</option>
@@ -401,9 +423,6 @@ function ExplorePage() {
   const AGENTS_PER_PAGE = 9;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(window.serverData?.pagination?.page || 1);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterOptions, setFilterOptions] = useState<FilterOptions>({ sortBy: 'recent' });
   const [agents, setAgents] = useState(window.serverData?.agents || []);
   const [pagination, setPagination] = useState({
     total: window.serverData?.pagination?.total || 0,
@@ -411,6 +430,51 @@ function ExplorePage() {
     limit: AGENTS_PER_PAGE,
     pages: window.serverData?.pagination?.pages || 1
   });
+
+  const [location] = useLocation();
+  const urlParams = new URLSearchParams(window.location.search);
+
+  const [currentPage, setCurrentPage] = useState(
+    parseInt(urlParams.get('page') || '') || 
+    window.serverData?.pagination?.page || 
+    1
+  );
+  
+  const [searchQuery, setSearchQuery] = useState(
+    urlParams.get('search') || 
+    window.serverData?.filters?.search || 
+    ''
+  );
+
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>({
+    sortBy: (urlParams.get('sortBy') as FilterOptions['sortBy']) || 
+           window.serverData?.filters?.sortBy || 
+           'recent',
+    sortField: 'last_activity',
+    sortOrder: 'desc'
+  });
+
+  useEffect(() => {
+    // Update state based on URL params whenever location changes
+    const params = new URLSearchParams(window.location.search);
+    const page = parseInt(params.get('page') || '1');
+    const search = params.get('search') || '';
+    const sortBy = params.get('sortBy') as FilterOptions['sortBy'] || 'recent';
+    
+    setCurrentPage(page);
+    setSearchQuery(search);
+    setFilterOptions(prev => ({
+      ...prev,
+      sortBy,
+      sortField: sortBy === 'recent' ? 'last_activity' : 
+                 sortBy === 'popular' ? 'total_chats' : 'name',
+      sortOrder: sortBy === 'name' ? 'asc' : 'desc'
+    }));
+    
+    if (!window.serverData?.agents) {
+      fetchAgents(page, search, filterOptions);
+    }
+  }, [location]);
 
   // Debounced search function
   const debouncedSearch = useMemo(
