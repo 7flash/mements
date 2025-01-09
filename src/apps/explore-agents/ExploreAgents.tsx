@@ -8,6 +8,16 @@ import { Twitter } from 'lucide-react';
 import assets from "#generated/assets.json";
 import constants from "#generated/constants.json";
 
+interface Agent {
+  avatar: string;
+  last_activity: string;
+  name: string;
+  prompt: string;
+  subdomain: string;
+  total_chats: number;
+  workflow: any;
+}
+
 interface AgentContextType {
   agentConfig: Partial<AgentConfig>;
   updateAgentConfig: (updates: Partial<AgentConfig>) => void;
@@ -156,12 +166,107 @@ export function Header() {
   );
 }
 
-function MementCard({ mement }: { mement: AgentConfig }) {
+/*
+todo: fix grid, currently its totally messed up.
+
+should be just three vertical cards in one row in a page, its blurred image of the card and on top a partly transparent container for its name and description, similarly as its implemented on question page:
+
+
+  // todo: improve mobile layout currently it shows a desktop version thats not responsive just very big distance around the edges and very small text
+  return (
+    <AppContext.Provider value={{ inputValue, setInputValue, handleSubmit, isLoading }}>
+      <div className="flex flex-col items-center mt-4 sm:mt-8 space-y-4 sm:space-y-6 px-4 sm:px-0">
+        <Avatar />
+        <Header />
+        <ChatInput />
+      </div>
+    </AppContext.Provider>
+  );
+};
+
+const Avatar = () => (
+  <div className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden border-4 border-white/20 shadow-2xl view-transition-avatar">
+    <img 
+      src={window.serverData.agentImages['avatar'] ? window.serverData.agentImages['avatar'] : window.serverData.agentImages['default']}
+      alt="Avatar"
+      className="w-full h-full object-cover"
+    />
+  </div>
+);
+
+const Header = () => {
+  const capitalizeFirstLetter = (string) => string.charAt(0).toUpperCase() + string.slice(1);
+
+  const renderInfo = () => {
+    if (window.serverData.customInfo) {
+      let info = decodeURIComponent(window.serverData.customInfo);
+      for (let [key, value] of Object.entries(window.serverData.links || {})) {
+        info = info.replace(`__${key.toUpperCase()}__`, value);
+      }
+
+      return info.split('\n').map((line, index) => <p key={index}>{line}</p>);
+    }
+    return Object.entries(window.serverData.links || {}).map(([platform, value]) => (
+      <p key={platform}>
+        <span data-tootik={platform} data-tootik-conf="invert no-fading shadow multiline">{value}
+        </span>
+      </p>
+    ));
+  };
+
+  return (
+    <div className="text-left">
+      <div className="flex flex-col items-center bg-white/10 backdrop-blur-md rounded-xl border border-white/20 shadow-lg p-4">
+        <div className="view-transition-name-container">
+          {!window.serverData.customInfo && <span className="text-2xl sm:text-4xl font-bold text-white mb-2 font-geohumanist-sans view-transition-name">{capitalizeFirstLetter(window.serverData.botName)}</span>}
+          <div className="text-white/70 font-mono text-sm sm:text-base leading-tight whitespace-pre-wrap break-words">
+            {renderInfo()}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ChatInput = () => {
+  const { inputValue, setInputValue, handleSubmit, isLoading } = useContext(AppContext);
+
+  const onSubmit = (e) => {
+    e.preventDefault();
+    if (!inputValue.trim()) return;
+    handleSubmit(inputValue);
+  };
+
+  return (
+    <form onSubmit={onSubmit} className="w-full max-w-md sm:max-w-2xl">
+      <div className="relative view-transition-question-container">
+        <input
+          type="text"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          className="w-full px-4 sm:px-6 py-3 sm:py-4 text-base sm:text-lg text-white bg-white/10 backdrop-blur-md rounded-xl border border-white/20 shadow-lg focus:outline-none focus:border-white/30 transition-all view-transition-question"
+          placeholder={window.serverData.links['input_placeholder'] ?? 'Ask me anything...'}
+          disabled={isLoading}
+        />
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition-colors"
+        >
+          {isLoading ? '...' : '→'}
+        </button>
+      </div>
+    </form>
+  );
+};
+*/
+
+function MementCard({ mement }: { mement: Agent }) {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
       <div className="aspect-w-16 aspect-h-9 rounded-t-xl overflow-hidden">
         <img 
-          src={mement.image} 
+          src={mement.avatar} 
           alt={mement.name}
           className="w-full h-full object-cover"
         />
@@ -169,24 +274,14 @@ function MementCard({ mement }: { mement: AgentConfig }) {
       <div className="p-6">
         <div className="flex items-center gap-2 mb-3">
           <span className="px-3 py-1 bg-purple-100 rounded-full text-sm text-purple-600 font-medium">
-            {mement.type}
+            {mement.total_chats} chats
           </span>
         </div>
         <h3 className="text-xl font-semibold mb-2">{mement.name}</h3>
-        <p className="text-gray-600 mb-4 line-clamp-2">{mement.description}</p>
+        <p className="text-gray-600 mb-4 line-clamp-2">{mement.prompt}</p>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {mement.links.map(link => (
-              <a 
-                key={link.type}
-                href={link.value}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-500 hover:text-purple-600"
-              >
-                {link.type === 'twitter' ? <Twitter size={18} /> : <MessageSquare size={18} />}
-              </a>
-            ))}
+          <div className="text-sm text-gray-500">
+            Last active: {new Date(mement.last_activity).toLocaleDateString()}
           </div>
           <Link href={`https://${mement.subdomain}.${constants.BASE_URL}`}>
             <a className="text-purple-600 hover:text-purple-700 font-medium">
@@ -200,7 +295,7 @@ function MementCard({ mement }: { mement: AgentConfig }) {
 }
 
 function MementGrid({ mements, currentPage, totalPages, onPageChange }: {
-  mements: AgentConfig[];
+  mements: Agent[];
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
@@ -213,29 +308,31 @@ function MementGrid({ mements, currentPage, totalPages, onPageChange }: {
         ))}
       </div>
       
-      <div className="flex justify-center mt-12">
-        <nav className="flex items-center gap-2">
-          <button
-            onClick={() => onPageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-            className="p-2 rounded-lg border border-gray-300 disabled:opacity-50"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          
-          <span className="px-4 py-2">
-            Page {currentPage} of {totalPages}
-          </span>
-          
-          <button
-            onClick={() => onPageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            className="p-2 rounded-lg border border-gray-300 disabled:opacity-50"
-          >
-            <ArrowRight size={20} />
-          </button>
-        </nav>
-      </div>
+      {totalPages > 1 && (
+        <div className="flex justify-center mt-12">
+          <nav className="flex items-center gap-2">
+            <button
+              onClick={() => onPageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="p-2 rounded-lg border border-gray-300 disabled:opacity-50"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            
+            <span className="px-4 py-2">
+              Page {currentPage} of {totalPages}
+            </span>
+            
+            <button
+              onClick={() => onPageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="p-2 rounded-lg border border-gray-300 disabled:opacity-50"
+            >
+              <ArrowRight size={20} />
+            </button>
+          </nav>
+        </div>
+      )}
     </div>
   );
 }
@@ -287,40 +384,20 @@ function LandingHero() {
 
 function ExplorePage() {
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 9; // Number of items to show per page
-  
-  // Transform and paginate the data
-  const transformedMements = React.useMemo(() => {
-    const agents = window.serverData?.agents || [];
-    return agents.map(agent => ({
-      type: 'chat',
-      name: agent.name,
-      description: agent.prompt,
-      image: agent.avatar,
-      subdomain: agent.subdomain,
-      links: [], // Add links if available in your data
-      total_chats: agent.total_chats,
-      last_activity: agent.last_activity
-    }));
-  }, []);
+  const itemsPerPage = 9;
 
-  // Calculate pagination
-  const totalPages = Math.ceil(transformedMements.length / itemsPerPage);
-  
-  // Get current page items
-  const currentMements = React.useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    return transformedMements.slice(startIndex, endIndex);
-  }, [currentPage, transformedMements]);
+  // Get agents from window.serverData
+  const agents = window.serverData?.agents || [];
+  const totalPages = Math.ceil(agents.length / itemsPerPage);
 
-  // Handle page change
+  // Calculate current page items
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentAgents = agents.slice(startIndex, endIndex);
+
   const handlePageChange = (newPage: number) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setCurrentPage(newPage);
-      // Scroll to top when page changes
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    setCurrentPage(newPage);
+    window.scrollTo(0, 0);
   };
 
   return (
@@ -328,7 +405,7 @@ function ExplorePage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Explore Mements</h1>
         <MementGrid 
-          mements={currentMements}
+          mements={currentAgents}
           currentPage={currentPage}
           totalPages={totalPages}
           onPageChange={handlePageChange}

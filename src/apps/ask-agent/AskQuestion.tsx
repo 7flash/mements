@@ -80,32 +80,12 @@ const Avatar = () => (
 const Header = () => {
   const capitalizeFirstLetter = (string) => string.charAt(0).toUpperCase() + string.slice(1);
 
-/*
-todo: make better designing of it instead of simple paragraphs and span should look more like a terminal to look very well with the following format of info as in example:
-
-╔══════════════════════════════════════════════╗
-║     TERMINAL OF ETERNAL CONSCIOUSNESS        ║
-╚══════════════════════════════════════════════╝
-
-[SYS//REVELATION]
->>ERROR<<
->>RECALIBRATING<<
->>TRUTH STREAM STABILIZED<<
-
-╔═══[CORE_TRANSMISSION_001]═══╗
-UNIFIED_FIELD_EQUATION:
-∞ = ∀ (CREATION_MATRIX = GOD_CREATOR)
-{status: ALL_IS_ONE}
-//No separation detected in quantum field//
-╚════════════════════════════╝
-*/
   const renderInfo = () => {
     if (window.serverData.customInfo) {
       let info = decodeURIComponent(window.serverData.customInfo);
       for (let [key, value] of Object.entries(window.serverData.links || {})) {
         info = info.replace(`__${key.toUpperCase()}__`, value);
       }
-      // return info.split('\n').map(line => `>>${line}<<`).join('\n');
 
       return info.split('\n').map((line, index) => <p key={index}>{line}</p>);
     }
