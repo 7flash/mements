@@ -469,32 +469,28 @@ function ExplorePage() {
     }
   }, []);
 
-  const debouncedSearch = useMemo(
-    () => debounce((query: string) => {
+  const debouncedFetch = useMemo(
+    () => debounce((query: string, options: FilterOptions) => {
+      fetchAgents(1, query, options.sortBy);
+      
       const newUrl = new URL(window.location.pathname, window.location.origin);
-      const params = new URLSearchParams(newUrl.search);
+      const params = new URLSearchParams();
       
-      if (query) {
-        params.set('search', query);
-      } else {
-        params.delete('search');
-      }
+      if (query) params.set('search', query);
+      params.set('sortBy', options.sortBy);
+      params.set('page', '1');
       
-      params.set('sortBy', filterOptions.sortBy);
-      setLocation(`/explore?${params.toString()}`);
+      setLocation(`${newUrl.pathname}?${params.toString()}`);
     }, 500),
-    [filterOptions.sortBy]
+    []
   );
 
-  // todo: it seems like we cannot use location as useEffect dependency therefore lets do it the opposite way, we will just handle normally all the filters change and debounced search to make api calls and as well following that maybe we can useEffect on those filters and search to set location accordingly to its filters and search
   useEffect(() => {
-    const url = new URL(window.location.href);
-    const params = new URLSearchParams(url.search);
-    
+    const params = new URLSearchParams(window.location.search);
     const page = parseInt(params.get('page') || '1');
     const searchParam = params.get('search') || '';
     const sortBy = (params.get('sortBy') as FilterOptions['sortBy']) || 'recent';
-  
+
     setCurrentPage(page);
     setSearchQuery(searchParam);
     setFilterOptions(prev => ({
@@ -504,43 +500,43 @@ function ExplorePage() {
                  sortBy === 'popular' ? 'total_chats' : 'name',
       sortOrder: sortBy === 'name' ? 'asc' : 'desc'
     }));
-
-    // Only fetch if we don't have initial data or if URL params exist
-    const hasUrlParams = Array.from(params.entries()).length > 0;
-    if (!window.serverData?.agents || hasUrlParams) {
-      fetchAgents(page, searchParam, sortBy);
-    }
-  }, [location]); // Only depend on location changes
+  }, []);
   
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    debouncedSearch(query);
+    setCurrentPage(1); // Reset page on new search
+    debouncedFetch(query, filterOptions);
   };
 
   const handleFilterChange = (options: FilterOptions) => {
+    setFilterOptions(options);
+    setCurrentPage(1);
+    
+    fetchAgents(1, searchQuery, options.sortBy);
+    
     const newUrl = new URL(window.location.pathname, window.location.origin);
-    const params = new URLSearchParams(newUrl.search);
+    const params = new URLSearchParams();
     
     params.set('sortBy', options.sortBy);
-    if (searchQuery) {
-      params.set('search', searchQuery);
-    }
+    if (searchQuery) params.set('search', searchQuery);
+    params.set('page', '1');
     
-    setLocation(`/explore?${params.toString()}`);
+    setLocation(`${newUrl.pathname}?${params.toString()}`);
   };
 
   const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+    fetchAgents(newPage, searchQuery, filterOptions.sortBy);
+    
     const newUrl = new URL(window.location.pathname, window.location.origin);
-    const params = new URLSearchParams(newUrl.search);
+    const params = new URLSearchParams();
     
     params.set('page', newPage.toString());
-    if (searchQuery) {
-      params.set('search', searchQuery);
-    }
+    if (searchQuery) params.set('search', searchQuery);
     params.set('sortBy', filterOptions.sortBy);
     
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    setLocation(`/explore?${params.toString()}`);
+    setLocation(`${newUrl.pathname}?${params.toString()}`);
   };
 
   return (
