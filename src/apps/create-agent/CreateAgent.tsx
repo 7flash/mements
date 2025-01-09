@@ -475,8 +475,6 @@ function DeployProgress() {
   );
 }
 
-// todo: lets rewrite this app to have same layout of footer/header but instead of current Creation flow and Create button it must be Explore flow with paginated list of mements cards showing their images and all info and "Explore all" button leading to it 
-
 function LandingHero({ onProceed }: LandingHeroProps) {
   return (
     <div className="text-center max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">

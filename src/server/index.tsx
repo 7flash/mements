@@ -61,6 +61,10 @@ const assets = await buildAssets({
     href: "/assets/ask-agent.js",
     source: join(import.meta.dir, "../apps/ask-agent/index.tsx"),
   },
+  exploreAgentsApp: {
+    href: "/assets/explore-agents.js",
+    source: join(import.meta.dir, "../apps/explore-agents/index.tsx"),
+  },  
   fontSans: {
     href: "/assets/Geist.ttf",
     path: join(process.cwd(), "static/fonts", "Geist.ttf"),
@@ -177,26 +181,23 @@ const server = serve({
       month: "short",
       year: "numeric",
     });
-    console.log(requestId, `Request received at ${localTime}`);
 
     const host = req.headers.get("host");
-    console.log(requestId, "host", host);
+
+    console.log(requestId, `${localTime}`, host);
 
     const subdomain = host ? host.split(".")[0] : "";
-    console.log(requestId, "subdomain", subdomain);
 
     if (path === "/explore") {
       try {
-        // Get pagination parameters from query string
         const page = parseInt(url.searchParams.get('page') || '1');
         const limit = parseInt(url.searchParams.get('limit') || '10');
         const offset = (page - 1) * limit;
 
-        // Get total count of agents
         const totalCountQuery = db.query("SELECT COUNT(*) as count FROM agents");
         const { count } = totalCountQuery.get() as { count: number };
+        console.log("count ==> ", count);
 
-        // Get paginated agents with their latest chat
         const agentsQuery = db.query(`
           SELECT 
             a.subdomain,
@@ -225,7 +226,6 @@ const server = serve({
           total_chats: number;
         }>;
 
-        // Transform the data and add image URLs
         const agentsWithImages = await Promise.all(agents.map(async (agent) => ({
           ...agent,
           avatar: agent.avatar ? await files.getUrl(agent.avatar, 3600) : null,
@@ -241,8 +241,7 @@ const server = serve({
           }
         };
 
-        // Return HTML with the explore app and server data
-        return new Response(htmlTemplate(assets.getLink('exploreApp'), JSON.stringify(serverData)), {
+        return new Response(htmlTemplate(assets.getLink('exploreAgentsApp'), JSON.stringify(serverData)), {
           headers: { "content-type": "text/html" },
         });
 
