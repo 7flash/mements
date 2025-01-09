@@ -428,19 +428,21 @@ function ExplorePage() {
     sortOrder: 'desc'
   });
 
+  // todo: please fix it seems like this effect is not being triggered when we change filters etc
   useEffect(() => {
     // Extract search params from location string properly
     const [pathname, search] = location.split('?');
+    console.log("pathname ==> ", pathname);
     const params = new URLSearchParams(search || '');
     
     // Get values from URL params with proper fallbacks
     const page = parseInt(params.get('page') || '1');
-    const search = params.get('search') || '';
+    const searchParam = params.get('search') || '';
     const sortBy = params.get('sortBy') as FilterOptions['sortBy'] || 'recent';
   
     // Update local state based on URL
     setCurrentPage(page);
-    setSearchQuery(search);
+    setSearchQuery(searchParam);
     setFilterOptions(prev => ({
       ...prev,
       sortBy,
