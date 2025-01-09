@@ -184,6 +184,31 @@ export function Header() {
   );
 }
 
+function formatRelativeTime(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  if (diffInSeconds < 60) {
+    return 'just now';
+  } else if (diffInSeconds < 3600) {
+    const minutes = Math.floor(diffInSeconds / 60);
+    return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+  } else if (diffInSeconds < 86400) {
+    const hours = Math.floor(diffInSeconds / 3600);
+    return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+  } else if (diffInSeconds < 2592000) {
+    const days = Math.floor(diffInSeconds / 86400);
+    return `${days} day${days > 1 ? 's' : ''} ago`;
+  } else if (diffInSeconds < 31536000) {
+    const months = Math.floor(diffInSeconds / 2592000);
+    return `${months} month${months > 1 ? 's' : ''} ago`;
+  } else {
+    const years = Math.floor(diffInSeconds / 31536000);
+    return `${years} year${years > 1 ? 's' : ''} ago`;
+  }
+}
+
 function MementCard({ mement }: { mement: Agent }) {
   return (
     <div className="relative h-[400px] rounded-xl overflow-hidden group hover:shadow-lg transition-shadow">
@@ -215,7 +240,7 @@ function MementCard({ mement }: { mement: Agent }) {
           <div className="flex items-center justify-between pt-4">
             {/* todo: instead of "Last active: 09.01.2025" it should say "Last active a minute ago" or etc..*/}
             <div className="text-sm text-white/60">
-              Last active: {new Date(mement.last_activity).toLocaleDateString()}
+              Last active {formatRelativeTime(mement.last_activity)}
             </div>
             <Link className="px-4 py-2 bg-white/10 backdrop-blur-md rounded-lg text-white hover:bg-white/20 transition-colors" href={`https://${mement.subdomain}.${constants.BASE_URL}`} target='_blank'>
                 Visit →
@@ -348,7 +373,16 @@ function FilterBar({ onFilterChange }: { onFilterChange: (options: FilterOptions
   return (
     <div className="flex flex-wrap gap-4 items-center">
       <select 
-        onChange={(e) => onFilterChange({ sortBy: e.target.value as FilterOptions['sortBy'] })}
+        onChange={(e) => {
+          const value = e.target.value as FilterOptions['sortBy'];
+          onFilterChange({ 
+            sortBy: value,
+            // Map the user-friendly options to actual sort fields
+            ...(value === 'recent' && { sortField: 'last_activity' }),
+            ...(value === 'popular' && { sortField: 'total_chats' }),
+            ...(value === 'name' && { sortField: 'name' })
+          });
+        }}
         className="px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
       >
         <option value="recent">Most Recent</option>
@@ -388,12 +422,17 @@ function ExplorePage() {
       setLoading(true);
       setError(null);
 
+      const sortField = filters.sortBy === 'recent' ? 'last_activity' :
+      filters.sortBy === 'popular' ? 'total_chats' :
+      'name';
+
       const params = new URLSearchParams({
         page: page.toString(),
         limit: AGENTS_PER_PAGE.toString(),
         search: query,
-        sortBy: filters.sortBy,
-        ...(filters.category && { category: filters.category })
+        sortBy: sortField,
+        sortOrder: filters.sortBy === 'name' ? 'asc' : 'desc',
+          ...(filters.category && { category: filters.category })
       });
 
       const response = await fetch(`/api/agents?${params}`);
