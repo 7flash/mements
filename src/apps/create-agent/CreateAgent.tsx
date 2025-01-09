@@ -484,13 +484,22 @@ function LandingHero({ onProceed }: LandingHeroProps) {
       <p className="text-lg text-gray-600 mb-12">
         Create, manage, and scale your AI personalities effortlessly. Bring your Mements to life with our cutting-edge deployment platform.
       </p>
-      {/* TODO: Create a secondary button "Explore" as a link to /explore in _blank */}
-      <button
-        onClick={onProceed}
-        className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-purple-500 to-blue-600 text-white rounded-lg font-medium hover:opacity-90 transition-opacity mb-16 cursor-pointer"
-      >
-        Create New Mement
-      </button>
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
+        <button
+          onClick={onProceed}
+          className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-purple-500 to-blue-600 text-white rounded-lg font-medium hover:opacity-90 transition-opacity cursor-pointer"
+        >
+          Create New Mement
+        </button>
+        <a 
+          href="/explore" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="w-full sm:w-auto px-8 py-3 border-2 border-purple-500 text-purple-600 rounded-lg font-medium hover:bg-purple-50 transition-colors cursor-pointer"
+        >
+          Explore
+        </a>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
         <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col items-center">
           <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
