@@ -188,44 +188,107 @@ const server = serve({
 
     const subdomain = host ? host.split(".")[0] : "";
 
-    if (path === "/explore") {
-      /*
-todo: implement a new endpoint to satisfy this function on frontend
+    if (path === "/api/agents") {
+      try {
+        const page = parseInt(url.searchParams.get('page') || '1');
+        const limit = parseInt(url.searchParams.get('limit') || '10');
+        const search = url.searchParams.get('search') || '';
+        const sortBy = url.searchParams.get('sortBy') || 'last_activity';
+        const category = url.searchParams.get('category');
+        
+        const offset = (page - 1) * limit;
 
-  const fetchAgents = async (page: number, query: string, filters: FilterOptions) => {
-    try {
-      setLoading(true);
-      setError(null);
+        let whereClause = "WHERE 1=1";
+        const params: any[] = [];
 
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: AGENTS_PER_PAGE.toString(),
-        search: query,
-        sortBy: filters.sortBy,
-        ...(filters.category && { category: filters.category })
-      });
+        if (search) {
+          whereClause += " AND (a.name LIKE ? OR a.prompt LIKE ?)";
+          params.push(`%${search}%`, `%${search}%`);
+        }
 
-      const response = await fetch(`/api/agents?${params}`);
-      if (!response.ok) throw new Error('Failed to fetch agents');
+        if (category) {
+          whereClause += " AND a.workflow = ?";
+          params.push(category);
+        }
 
-      const data = await response.json();
-      
-      setAgents(data.agents);
-      setPagination({
-        total: data.total,
-        page: data.page,
-        limit: AGENTS_PER_PAGE,
-        pages: Math.ceil(data.total / AGENTS_PER_PAGE)
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      toast.error('Failed to load agents');
-    } finally {
-      setLoading(false);
+        let orderByClause = "ORDER BY";
+        switch (sortBy) {
+          case 'name':
+            orderByClause += " a.name ASC";
+            break;
+          case 'chats':
+            orderByClause += " total_chats DESC";
+            break;
+          case 'last_activity':
+          default:
+            orderByClause += " c.timestamp DESC NULLS LAST";
+        }
+
+        const totalCountQuery = db.query(`
+          SELECT COUNT(*) as count 
+          FROM agents a
+          ${whereClause}
+        `);
+        const { count } = totalCountQuery.get(...params) as { count: number };
+
+        const agentsQuery = db.query(`
+          SELECT 
+            a.subdomain,
+            a.name,
+            a.prompt,
+            a.workflow,
+            i.imageCid as avatar,
+            c.timestamp as last_activity,
+            (SELECT COUNT(*) FROM chats WHERE subdomain = a.subdomain) as total_chats
+          FROM agents a
+          LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
+          LEFT JOIN chats c ON c.subdomain = a.subdomain AND c.timestamp = (
+            SELECT MAX(timestamp) FROM chats WHERE subdomain = a.subdomain
+          )
+          ${whereClause}
+          ${orderByClause}
+          LIMIT ? OFFSET ?
+        `);
+
+        const agents = agentsQuery.all(...params, limit, offset) as Array<{
+          subdomain: string;
+          name: string;
+          prompt: string;
+          workflow: string;
+          avatar: string;
+          last_activity: string;
+          total_chats: number;
+        }>;
+
+        const agentsWithImages = await Promise.all(agents.map(async (agent) => ({
+          ...agent,
+          avatar: agent.avatar ? await files.getUrl(agent.avatar, 3600) : null,
+        })));
+
+        return new Response(JSON.stringify({
+          agents: agentsWithImages,
+          total: count,
+          page,
+          limit
+        }), {
+          headers: { 
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache"
+          }
+        });
+
+      } catch (err) {
+        console.log(requestId, "Error fetching agents", err);
+        return new Response(JSON.stringify({ 
+          error: "Failed to fetch agents"
+        }), { 
+          status: 500,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
     }
-  };
 
-      */
+    if (path === "/explore") {
       try {
         const page = parseInt(url.searchParams.get('page') || '1');
         const limit = parseInt(url.searchParams.get('limit') || '10');
