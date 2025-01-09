@@ -1,4 +1,4 @@
-import React, { useState, createContext, useContext, useMemo } from 'react';
+import React, { useState, createContext, useContext, useMemo, useEffect } from 'react';
 import { Bot, MessageSquare, Terminal, Rss, Zap, Check, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Link, Route, Switch, useLocation } from "wouter";
 import Confetti from 'react-confetti';
@@ -7,6 +7,25 @@ import { Twitter } from 'lucide-react';
 
 import assets from "#generated/assets.json";
 import constants from "#generated/constants.json";
+
+declare global {
+  interface Window {
+    serverData?: {
+      agents: Agent[];
+      pagination?: {
+        page: number;
+      };
+      twitterAccount?: string;
+      contractAddress?: string;
+    };
+    phantom?: {
+      solana?: {
+        isPhantom?: boolean;
+        connect(): Promise<{ publicKey: { toString(): string } }>;
+      };
+    };
+  }
+}
 
 interface Agent {
   avatar: string;
@@ -341,61 +360,92 @@ function FilterBar({ onFilterChange }: { onFilterChange: (options: FilterOptions
 }
 
 function ExplorePage() {
-  const AGENTS_PER_PAGE = 9; // 3x3 grid layout
+  const AGENTS_PER_PAGE = 9;
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(window.serverData?.pagination?.page || 1);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({ sortBy: 'recent' });
   const [agents, setAgents] = useState(window.serverData?.agents || []);
+  const [pagination, setPagination] = useState({
+    total: window.serverData?.pagination?.total || 0,
+    page: window.serverData?.pagination?.page || 1,
+    limit: AGENTS_PER_PAGE,
+    pages: window.serverData?.pagination?.pages || 1
+  });
 
-  // Filter and sort agents based on search query and filter options
-  const filteredAgents = useMemo(() => {
-    let filtered = [...agents];
-    
-    // Apply search filter
-    if (searchQuery) {
-      filtered = filtered.filter(agent => 
-        agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        agent.prompt.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-    
-    // Apply sorting
-    switch (filterOptions.sortBy) {
-      case 'recent':
-        filtered.sort((a, b) => new Date(b.last_activity).getTime() - new Date(a.last_activity).getTime());
-        break;
-      case 'popular':
-        filtered.sort((a, b) => b.total_chats - a.total_chats);
-        break;
-      case 'name':
-        filtered.sort((a, b) => a.name.localeCompare(b.name));
-        break;
-    }
-    
-    return filtered;
-  }, [agents, searchQuery, filterOptions]);
-
-  // Calculate pagination
-  const totalPages = Math.ceil(filteredAgents.length / AGENTS_PER_PAGE);
-  const paginatedAgents = filteredAgents.slice(
-    (currentPage - 1) * AGENTS_PER_PAGE,
-    currentPage * AGENTS_PER_PAGE
+  // Debounced search function
+  const debouncedSearch = useMemo(
+    () => debounce((query: string) => {
+      fetchAgents(1, query, filterOptions);
+    }, 500),
+    [filterOptions]
   );
 
+  // Fetch agents from backend
+  const fetchAgents = async (page: number, query: string, filters: FilterOptions) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: AGENTS_PER_PAGE.toString(),
+        search: query,
+        sortBy: filters.sortBy,
+        ...(filters.category && { category: filters.category })
+      });
+
+      const response = await fetch(`/api/agents?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch agents');
+
+      const data = await response.json();
+      
+      setAgents(data.agents);
+      setPagination({
+        total: data.total,
+        page: data.page,
+        limit: AGENTS_PER_PAGE,
+        pages: Math.ceil(data.total / AGENTS_PER_PAGE)
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+      toast.error('Failed to load agents');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle page change
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    fetchAgents(newPage, searchQuery, filterOptions);
   };
 
+  // Handle search
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    setCurrentPage(1); // Reset to first page when searching
+    setCurrentPage(1);
+    debouncedSearch(query);
   };
 
+  // Handle filter change
   const handleFilterChange = (options: FilterOptions) => {
-    setFilterOptions(prev => ({ ...prev, ...options }));
-    setCurrentPage(1); // Reset to first page when filtering
+    setFilterOptions(prev => {
+      const newOptions = { ...prev, ...options };
+      fetchAgents(1, searchQuery, newOptions);
+      return newOptions;
+    });
+    setCurrentPage(1);
   };
+
+  // Initial fetch on mount
+  useEffect(() => {
+    if (!window.serverData?.agents) {
+      fetchAgents(currentPage, searchQuery, filterOptions);
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -411,19 +461,24 @@ function ExplorePage() {
           </div>
         </div>
 
-        {filteredAgents.length === 0 ? (
+        {error && (
+          <div className="text-center py-12">
+            <p className="text-red-500 text-lg">{error}</p>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto" />
+          </div>
+        ) : agents.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-500 text-lg">No Mements found matching your criteria</p>
           </div>
         ) : (
           <MementGrid 
-            mements={paginatedAgents}
-            pagination={{
-              total: filteredAgents.length,
-              page: currentPage,
-              limit: AGENTS_PER_PAGE,
-              pages: totalPages
-            }}
+            mements={agents}
+            pagination={pagination}
             onPageChange={handlePageChange}
           />
         )}
@@ -432,6 +487,17 @@ function ExplorePage() {
   );
 }
 
+// Utility function for debouncing
+function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+}
 
 function App() {
   return (
