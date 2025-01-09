@@ -404,6 +404,7 @@ function FilterBar({ onFilterChange, initialValue }: {
     });
   };
 
+  // todo: fix an error ui always shows first option in dropdown as its value even after its changed
   return (
     <div className="flex flex-wrap gap-4 items-center">
       <select 
@@ -440,6 +441,7 @@ function ExplorePage() {
     1
   );
   
+  // todo: fix search query is not embedded into url so when page refreshed its lost
   const [searchQuery, setSearchQuery] = useState(
     urlParams.get('search') || 
     window.serverData?.filters?.search || 
