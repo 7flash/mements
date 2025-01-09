@@ -127,7 +127,7 @@ function htmlTemplate(scriptLink: string, serverData: string = '{}'): string {
   `;
 }
 
-// todo: lets just read from a local Bun.file where multiple keys can be each on its own line
+// todo: lets just read from a local Bun.file where multiple keys can be each on its own line and this relative path to file can be coming from config.get('DALLE_API_KEYS_PATH') which is most probably inside of ./static
 const dalleApiKeys: any = [];
 
 if (!dalleApiKeys.length) {
