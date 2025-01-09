@@ -320,51 +320,6 @@ function MementGrid({ mements, pagination, onPageChange }: {
   );
 }
 
-function LandingHero() {
-  return (
-    <div className="text-center max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-      <h1 className="text-4xl sm:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-blue-600 mb-6">
-        Explore AI Personalities
-      </h1>
-      <p className="text-lg text-gray-600 mb-12">
-        Discover unique AI agents with distinct personalities, purposes, and capabilities. 
-        Interact with Mements that bring imagination to life.
-      </p>
-      <Link href="/explore">
-        <a className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-purple-500 to-blue-600 text-white rounded-lg font-medium hover:opacity-90 transition-opacity mb-16 inline-block">
-          Explore All Mements
-        </a>
-      </Link>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
-        <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col items-center">
-          <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
-            <Bot className="w-6 h-6 text-purple-600" />
-          </div>
-          <h3 className="text-lg font-semibold mb-2">Self-evolving</h3>
-          <p className="text-gray-600 text-center">Each Mement inhabits its own unique imaginary world.</p>
-        </div>
-        
-        <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col items-center">
-          <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-            <Zap className="w-6 h-6 text-blue-600" />
-          </div>
-          <h3 className="text-lg font-semibold mb-2">Self-initiative</h3>
-          <p className="text-gray-600 text-center">Mements engage independently across social platforms.</p>
-        </div>
-        
-        <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col items-center">
-          <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
-            <Check className="w-6 h-6 text-green-600" />
-          </div>
-          <h3 className="text-lg font-semibold mb-2">Community-driven</h3>
-          <p className="text-gray-600 text-center">Powered by community engagement and Solana tokens.</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 interface FilterOptions {
   sortBy: 'recent' | 'popular' | 'name';
   sortField: 'last_activity' | 'total_chats' | 'name';
@@ -563,39 +518,34 @@ function ExplorePage() {
     }
   };
 
-  // Handle page change
-  const handlePageChange = (newPage: number) => {
-    setCurrentPage(newPage);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    fetchAgents(newPage, searchQuery, filterOptions);
-  };
+  const debouncedSearch = useMemo(
+    () => debounce((query: string, filters: FilterOptions) => {
+      const newUrl = new URL(window.location.pathname, window.location.origin);
+      const params = new URLSearchParams(newUrl.search);
+      
+      if (query) {
+        params.set('search', query);
+      } else {
+        params.delete('search');
+      }
+      
+      if (filters.sortBy) {
+        params.set('sortBy', filters.sortBy);
+      }
+      
+      setLocation(`/explore?${params.toString()}`);
+      fetchAgents(1, query, filters);
+    }, 500),
+    []
+  );
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     setCurrentPage(1);
     
-    // Create new URL with current pathname
-    const newUrl = new URL(window.location.pathname, window.location.origin);
-    const params = new URLSearchParams(newUrl.search);
-    
-    // Add or update search parameter
-    if (query) {
-      params.set('search', query);
-    } else {
-      params.delete('search');
-    }
-    
-    // Preserve existing filters
-    if (filterOptions.sortBy) {
-      params.set('sortBy', filterOptions.sortBy);
-    }
-    
-    // todo: currently it inserts a new item in history on every letter typed which is obviously wrong it should only happen alongside with search debounce
-    setLocation(`/explore?${params.toString()}`);
-    debouncedSearch(query);
+    debouncedSearch(query, filterOptions);
   };
 
-  // Handle filter change
   const handleFilterChange = (options: FilterOptions) => {
     setFilterOptions(prev => {
       const newOptions = { ...prev, ...options };
@@ -605,12 +555,38 @@ function ExplorePage() {
     setCurrentPage(1);
   };
 
-  // Initial fetch on mount
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    fetchAgents(newPage, searchQuery, filterOptions);
+  };
+
   useEffect(() => {
     if (!window.serverData?.agents) {
       fetchAgents(currentPage, searchQuery, filterOptions);
     }
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location);
+    const page = parseInt(params.get('page') || '1');
+    const search = params.get('search') || '';
+    const sortBy = params.get('sortBy') as FilterOptions['sortBy'] || 'recent';
+    
+    if (page !== currentPage || search !== searchQuery || sortBy !== filterOptions.sortBy) {
+      setCurrentPage(page);
+      setSearchQuery(search);
+      setFilterOptions(prev => ({
+        ...prev,
+        sortBy,
+        sortField: sortBy === 'recent' ? 'last_activity' : 
+                   sortBy === 'popular' ? 'total_chats' : 'name',
+        sortOrder: sortBy === 'name' ? 'asc' : 'desc'
+      }));
+      
+      fetchAgents(page, search, filterOptions);
+    }
+  }, [location]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -622,7 +598,7 @@ function ExplorePage() {
           
           <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
             <SearchBar onSearch={handleSearch} />
-            <FilterBar onFilterChange={handleFilterChange} />
+            <FilterBar onFilterChange={handleFilterChange} initialValue={filterOptions.sortBy} />
           </div>
         </div>
 
@@ -652,7 +628,6 @@ function ExplorePage() {
   );
 }
 
-// Utility function for debouncing
 function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number
