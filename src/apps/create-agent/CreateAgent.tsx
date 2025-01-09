@@ -475,7 +475,8 @@ function DeployProgress() {
   );
 }
 
-// todo: we should implement a footer with icons leading to twitter along with its handle @MementsOfficial and string for Contract Address "GAiY7y3tRNTdNKVhr5q58YQJkx587YuZWwn2hYSjpump" and copyright 2025
+// todo: lets rewrite this app to have same layout of footer/header but instead of current Creation flow and Create button it must be Explore flow with paginated list of mements cards showing their images and all info and "Explore all" button leading to it 
+
 function LandingHero({ onProceed }: LandingHeroProps) {
   return (
     <div className="text-center max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
