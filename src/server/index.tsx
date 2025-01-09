@@ -189,6 +189,43 @@ const server = serve({
     const subdomain = host ? host.split(".")[0] : "";
 
     if (path === "/explore") {
+      /*
+todo: implement a new endpoint to satisfy this function on frontend
+
+  const fetchAgents = async (page: number, query: string, filters: FilterOptions) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: AGENTS_PER_PAGE.toString(),
+        search: query,
+        sortBy: filters.sortBy,
+        ...(filters.category && { category: filters.category })
+      });
+
+      const response = await fetch(`/api/agents?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch agents');
+
+      const data = await response.json();
+      
+      setAgents(data.agents);
+      setPagination({
+        total: data.total,
+        page: data.page,
+        limit: AGENTS_PER_PAGE,
+        pages: Math.ceil(data.total / AGENTS_PER_PAGE)
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+      toast.error('Failed to load agents');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+      */
       try {
         const page = parseInt(url.searchParams.get('page') || '1');
         const limit = parseInt(url.searchParams.get('limit') || '10');
