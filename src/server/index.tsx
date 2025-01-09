@@ -298,6 +298,7 @@ const server = serve({
         const offset = (page - 1) * limit;
 
         const search = url.searchParams.get('search') || '';
+        console.log("search ==> ", search);
         const sortBy = url.searchParams.get('sortBy') || 'last_activity';
         const category = url.searchParams.get('category');    
 
@@ -349,7 +350,9 @@ const server = serve({
           LIMIT ? OFFSET ?
         `);
 
-        const agents = agentsQuery.all(limit, offset) as Array<{
+        console.log(agentsQuery.toString());
+
+        const agents = agentsQuery.all(...params, limit, offset) as Array<{
           subdomain: string;
           name: string;
           prompt: string;
