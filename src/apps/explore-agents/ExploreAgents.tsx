@@ -269,7 +269,12 @@ function MementGrid({ mements, pagination, onPageChange }: {
           <MementCard key={mement.subdomain} mement={mement} />
         ))}
       </div>
-      {/* todo: it should also push page filters into navigation so that */}
+      {/* todo: it should also push page filters into navigation so that we can refresh page and be on the same place, also it should read window.serverData.filters which looks like           filters: {
+            search,
+            category,
+            sortBy
+          } and apply it into ui elements accordingly
+ */}
       {pagination.pages > 1 && (
         <div className="flex justify-center mt-8 sm:mt-12">
           <nav className="flex items-center gap-2">
