@@ -290,7 +290,6 @@ const server = serve({
       }
     }
 
-    // todo: maybe it can accept already optionally filters and page number so that we can refresh and share page link 
     if (path === "/explore") {
       try {
         const page = parseInt(url.searchParams.get('page') || '1');
@@ -301,10 +300,6 @@ const server = serve({
         console.log("search ==> ", search);
         const sortBy = url.searchParams.get('sortBy') || 'last_activity';
         const category = url.searchParams.get('category');    
-
-        // todo: fix pagination here with similar query totalCountQuery as in api/agents
-        const totalCountQuery = db.query("SELECT COUNT(*) as count FROM agents");
-        const { count } = totalCountQuery.get() as { count: number };
 
         let whereClause = "WHERE 1=1";
         const params: any[] = [];
@@ -330,7 +325,7 @@ const server = serve({
           case 'last_activity':
           default:
             orderByClause += " c.timestamp DESC NULLS LAST";
-        }    
+        }
 
         const agentsQuery = db.query(`
           SELECT 
@@ -350,6 +345,13 @@ const server = serve({
           ${orderByClause}
           LIMIT ? OFFSET ?
         `);
+
+        const totalCountQuery = db.query(`
+          SELECT COUNT(*) as count 
+          FROM agents a
+          ${whereClause}
+        `);
+        const { count } = totalCountQuery.get(...params) as { count: number };    
 
         const agents = agentsQuery.all(...params, limit, offset) as Array<{
           subdomain: string;
