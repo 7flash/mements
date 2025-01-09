@@ -491,6 +491,7 @@ function ExplorePage() {
     const searchParam = params.get('search') || '';
     const sortBy = (params.get('sortBy') as FilterOptions['sortBy']) || 'recent';
 
+    // todo: fix here even though filter options set correctly but setting search query does not work when we have it like this in url http://localhost:3001/explore?sortBy=popular&search=super&page=1
     setCurrentPage(page);
     setSearchQuery(searchParam);
     setFilterOptions(prev => ({
