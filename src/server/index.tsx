@@ -127,14 +127,30 @@ function htmlTemplate(scriptLink: string, serverData: string = '{}'): string {
   `;
 }
 
-// todo: lets just read from a local Bun.file where multiple keys can be each on its own line and this relative path to file can be coming from config.get('DALLE_API_KEYS_PATH') which is most probably inside of ./static
-const dalleApiKeys: any = [];
+let dalleApiKeys: string[] = [];
+try {
+  const keysPath = config.get('DALLE_API_KEYS_PATH');
+  
+  const keysFile = Bun.file(path.join(process.cwd(), keysPath));
+  const keysContent = await keysFile.text();
+  
+  dalleApiKeys = keysContent
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line && !line.startsWith('#'));
 
-if (!dalleApiKeys.length) {
-  throw 'No DALL-E API keys configured';
+  if (!dalleApiKeys.length) {
+    throw new Error('No valid API keys found in keys file');
+  }
+  
+  console.log(`Loaded ${dalleApiKeys.length} DALL-E API keys`);
+} catch (err) {
+  console.error('Failed to load DALL-E API keys:', err);
+  throw new Error('No DALL-E API keys configured');
 }
+console.log("dalleApiKeys ==> ", dalleApiKeys);
 
-async function tryGenerateImageWithKeys(prompt: strin): Promise<string> {
+async function tryGenerateImageWithKeys(prompt: string): Promise<string> {
   for (const key of dalleApiKeys) {
     try {
       const response = await fetch("https://api.openai.com/v1/images/generations", {
@@ -162,7 +178,7 @@ async function tryGenerateImageWithKeys(prompt: strin): Promise<string> {
       continue;
     }
   }
-  throw 'All available DALL-E API keys failed';
+  throw new Error('All available DALL-E API keys failed');
 }
 
 function measureQueryPerformance(requestId: string, queryName: string, queryFn: () => any) {
