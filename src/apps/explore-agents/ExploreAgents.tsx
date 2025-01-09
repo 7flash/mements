@@ -428,82 +428,47 @@ function ExplorePage() {
     sortOrder: 'desc'
   });
 
-  useEffect(() => {
-    // Parse URL parameters more robustly
-    const url = new URL(window.location.href);
-    const params = new URLSearchParams(url.search);
-    
-    // Get values from URL params with proper fallbacks
-    const page = parseInt(params.get('page') || '1');
-    const searchParam = params.get('search') || '';
-    const sortBy = (params.get('sortBy') as FilterOptions['sortBy']) || 'recent';
-  
-    // Update local state based on URL
-    setCurrentPage(page);
-    setSearchQuery(searchParam);
-    setFilterOptions(prev => ({
-      ...prev,
-      sortBy,
-      sortField: sortBy === 'recent' ? 'last_activity' : 
-                 sortBy === 'popular' ? 'total_chats' : 'name',
-      sortOrder: sortBy === 'name' ? 'asc' : 'desc'
-    }));
-  
-    // Only skip initial fetch if we have server-side data and no URL params
-    const hasUrlParams = Array.from(params.entries()).length > 0;
-    if (window.serverData?.agents && !hasUrlParams) {
-      return;
-    }
-  
-    // todo: fix api call is triggered on every keystroke ignoring debounce
-    const fetchAgents = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-  
-        const fetchParams = new URLSearchParams({
-          page: page.toString(),
-          limit: AGENTS_PER_PAGE.toString(),
-          sortBy: sortBy === 'recent' ? 'last_activity' :
-                 sortBy === 'popular' ? 'total_chats' : 'name',
-          sortOrder: sortBy === 'name' ? 'asc' : 'desc'
-        });
-  
-        // Only add search param if it exists
-        if (searchParam) {
-          fetchParams.set('search', searchParam);
-        }
-  
-        const response = await fetch(`/api/agents?${fetchParams}`);
-        if (!response.ok) throw new Error('Failed to fetch agents');
-  
-        const data = await response.json();
-        
-        setAgents(data.agents);
-        setPagination({
-          total: data.total,
-          page: data.page,
-          limit: AGENTS_PER_PAGE,
-          pages: Math.ceil(data.total / AGENTS_PER_PAGE)
-        });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-        toast.error('Failed to load agents');
-      } finally {
-        setLoading(false);
+  const fetchAgents = useMemo(() => async (
+    page: number,
+    search: string,
+    sortBy: FilterOptions['sortBy']
+  ) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const fetchParams = new URLSearchParams({
+        page: page.toString(),
+        limit: AGENTS_PER_PAGE.toString(),
+        sortBy: sortBy === 'recent' ? 'last_activity' :
+               sortBy === 'popular' ? 'total_chats' : 'name',
+        sortOrder: sortBy === 'name' ? 'asc' : 'desc'
+      });
+
+      if (search) {
+        fetchParams.set('search', search);
       }
-    };
-  
-    // Create debounced version of fetch for search
-    const debouncedFetch = debounce(fetchAgents, searchParam ? 500 : 0);
-    debouncedFetch();
-  
-    // Cleanup
-    return () => {
-      debouncedFetch.cancel?.();
-    };
-  }, [location, searchQuery, filterOptions.sortBy]);
-  
+
+      const response = await fetch(`/api/agents?${fetchParams}`);
+      if (!response.ok) throw new Error('Failed to fetch agents');
+
+      const data = await response.json();
+      
+      setAgents(data.agents);
+      setPagination({
+        total: data.total,
+        page: data.page,
+        limit: AGENTS_PER_PAGE,
+        pages: Math.ceil(data.total / AGENTS_PER_PAGE)
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+      toast.error('Failed to load agents');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const debouncedSearch = useMemo(
     () => debounce((query: string) => {
       const newUrl = new URL(window.location.pathname, window.location.origin);
@@ -521,6 +486,32 @@ function ExplorePage() {
     [filterOptions.sortBy]
   );
 
+  // todo: it seems like we cannot use location as useEffect dependency therefore lets do it the opposite way, we will just handle normally all the filters change and debounced search to make api calls and as well following that maybe we can useEffect on those filters and search to set location accordingly to its filters and search
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const params = new URLSearchParams(url.search);
+    
+    const page = parseInt(params.get('page') || '1');
+    const searchParam = params.get('search') || '';
+    const sortBy = (params.get('sortBy') as FilterOptions['sortBy']) || 'recent';
+  
+    setCurrentPage(page);
+    setSearchQuery(searchParam);
+    setFilterOptions(prev => ({
+      ...prev,
+      sortBy,
+      sortField: sortBy === 'recent' ? 'last_activity' : 
+                 sortBy === 'popular' ? 'total_chats' : 'name',
+      sortOrder: sortBy === 'name' ? 'asc' : 'desc'
+    }));
+
+    // Only fetch if we don't have initial data or if URL params exist
+    const hasUrlParams = Array.from(params.entries()).length > 0;
+    if (!window.serverData?.agents || hasUrlParams) {
+      fetchAgents(page, searchParam, sortBy);
+    }
+  }, [location]); // Only depend on location changes
+  
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     debouncedSearch(query);
@@ -592,15 +583,28 @@ function ExplorePage() {
   );
 }
 
+type DebouncedFunction<T extends (...args: any[]) => any> = {
+  (...args: Parameters<T>): void;
+  cancel?: () => void;
+}
+
+// Improved debounce implementation with cancel functionality
 function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number
-): (...args: Parameters<T>) => void {
+): DebouncedFunction<T> {
   let timeout: NodeJS.Timeout;
-  return (...args: Parameters<T>) => {
+  
+  const debounced: DebouncedFunction<T> = (...args: Parameters<T>) => {
     clearTimeout(timeout);
     timeout = setTimeout(() => func(...args), wait);
   };
+
+  debounced.cancel = () => {
+    clearTimeout(timeout);
+  };
+
+  return debounced;
 }
 
 function App() {
