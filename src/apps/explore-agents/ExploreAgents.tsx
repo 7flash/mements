@@ -263,14 +263,27 @@ function MementGrid({ mements, pagination, onPageChange }: {
 }) {
   const [location, setLocation] = useLocation();
   
-  // Update URL when page changes
   const handlePageChange = (newPage: number) => {
     const url = new URL(window.location.href);
-    url.searchParams.set('page', newPage.toString());
-    setLocation(url.pathname + url.search);
+    const currentParams = new URLSearchParams(url.search);
+    currentParams.set('page', newPage.toString());
+    
+    // Preserve existing filters
+    if (window.serverData?.filters) {
+      if (window.serverData.filters.search) {
+        currentParams.set('search', window.serverData.filters.search);
+      }
+      if (window.serverData.filters.category) {
+        currentParams.set('category', window.serverData.filters.category);
+      }
+      if (window.serverData.filters.sortBy) {
+        currentParams.set('sortBy', window.serverData.filters.sortBy);
+      }
+    }
+    
+    setLocation(`${url.pathname}?${currentParams.toString()}`);
     onPageChange(newPage);
   };
-
   return (
     <div className="w-full">
       {/* Responsive grid with proper spacing */}
@@ -390,11 +403,24 @@ function FilterBar({ onFilterChange, initialValue }: {
   initialValue?: string;
 }) {
   const [location, setLocation] = useLocation();
+  const [currentValue, setCurrentValue] = useState(
+    initialValue || 
+    window.serverData?.filters?.sortBy || 
+    'recent'
+  );
   
   const handleChange = (value: FilterOptions['sortBy']) => {
+    setCurrentValue(value);
     const url = new URL(window.location.href);
     url.searchParams.set('sortBy', value);
-    setLocation(url.pathname + url.search);
+    
+    // Preserve other params
+    const currentParams = new URLSearchParams(url.search);
+    if (window.serverData?.filters?.search) {
+      currentParams.set('search', window.serverData.filters.search);
+    }
+    
+    setLocation(`${url.pathname}?${currentParams.toString()}`);
     
     onFilterChange({ 
       sortBy: value,
@@ -404,11 +430,10 @@ function FilterBar({ onFilterChange, initialValue }: {
     });
   };
 
-  // todo: fix an error ui always shows first option in dropdown as its value even after its changed
   return (
     <div className="flex flex-wrap gap-4 items-center">
       <select 
-        value={initialValue || 'recent'}
+        value={currentValue}
         onChange={(e) => handleChange(e.target.value as FilterOptions['sortBy'])}
         className="px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
       >
@@ -432,7 +457,7 @@ function ExplorePage() {
     pages: window.serverData?.pagination?.pages || 1
   });
 
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const urlParams = new URLSearchParams(window.location.search);
 
   const [currentPage, setCurrentPage] = useState(
@@ -532,10 +557,25 @@ function ExplorePage() {
     fetchAgents(newPage, searchQuery, filterOptions);
   };
 
-  // Handle search
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     setCurrentPage(1);
+    
+    // Update URL with search query
+    const url = new URL(window.location.href);
+    const currentParams = new URLSearchParams(url.search);
+    if (query) {
+      currentParams.set('search', query);
+    } else {
+      currentParams.delete('search');
+    }
+    
+    // Preserve other filters
+    if (filterOptions.sortBy) {
+      currentParams.set('sortBy', filterOptions.sortBy);
+    }
+    
+    setLocation(`${location.pathname}?${currentParams.toString()}`);
     debouncedSearch(query);
   };
 
