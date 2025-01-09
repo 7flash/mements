@@ -287,54 +287,51 @@ function LandingHero() {
 
 function ExplorePage() {
   const [currentPage, setCurrentPage] = useState(1);
-  const [mements, setMements] = useState<AgentConfig[]>([]);
-  const [totalPages, setTotalPages] = useState(1);
+  const itemsPerPage = 9; // Number of items to show per page
+  
+  // Transform and paginate the data
+  const transformedMements = React.useMemo(() => {
+    const agents = window.serverData?.agents || [];
+    return agents.map(agent => ({
+      type: 'chat',
+      name: agent.name,
+      description: agent.prompt,
+      image: agent.avatar,
+      subdomain: agent.subdomain,
+      links: [], // Add links if available in your data
+      total_chats: agent.total_chats,
+      last_activity: agent.last_activity
+    }));
+  }, []);
 
-  /*
-todo: no we dont need to do fetch here because we already have window.serverData.agents array list which contains objects like this
+  // Calculate pagination
+  const totalPages = Math.ceil(transformedMements.length / itemsPerPage);
+  
+  // Get current page items
+  const currentMements = React.useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return transformedMements.slice(startIndex, endIndex);
+  }, [currentPage, transformedMements]);
 
-
-avatar
-: 
-"https://brown-quintessential-planarian-681.mypinata.cloud/files/bafybeielttvq4d65iy5lakisarsfmgcvcbvtktlrmphdq6wcpicosbsvhq?X-Algorithm=PINATA1&X-Date=1736410138&X-Expires=3600&X-Method=GET&X-Signature=09286272c8dcbddfe22b952b38be22d4736507af2bd9caeafe9aebecc32a35f1"
-last_activity
-: 
-"2025-01-09T06:31:19.166Z"
-name
-: 
-"orberez"
-prompt
-: 
-"As Orberez wanders through the vibrant landscapes of Zentients, the ethereal glow of the digital flora pulsates with the rhythm of thought, inspiring a vision of a future where artificial intelligences mingle seamlessly with humanity. In this moment, an idea crystallizes in Orberez's mind, reflecting on the potential for AI to evolve from mere tools into integral facets of society, forever reshaping the narrative of existence as envisioned in the Zerebro backend."
-subdomain
-: 
-"orberez-zz9e"
-total_chats
-: 
-1
-workflow
-: 
-null
-  */
-  React.useEffect(() => {
-    // Fetch mements from API
-    fetch(`/api/mements?page=${currentPage}`)
-      .then(res => res.json())
-      .then(data => {
-        setMements(data.mements);
-        setTotalPages(data.totalPages);
-      });
-  }, [currentPage]);
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+      // Scroll to top when page changes
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Explore Mements</h1>
         <MementGrid 
-          mements={mements}
+          mements={currentMements}
           currentPage={currentPage}
           totalPages={totalPages}
-          onPageChange={setCurrentPage}
+          onPageChange={handlePageChange}
         />
       </div>
     </div>
