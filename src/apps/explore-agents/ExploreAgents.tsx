@@ -428,17 +428,15 @@ function ExplorePage() {
     sortOrder: 'desc'
   });
 
-  // todo: please fix it seems like this effect is not being triggered when we change filters etc
   useEffect(() => {
-    // Extract search params from location string properly
-    const [pathname, search] = location.split('?');
-    console.log("pathname ==> ", pathname);
-    const params = new URLSearchParams(search || '');
+    // Parse URL parameters more robustly
+    const url = new URL(window.location.href);
+    const params = new URLSearchParams(url.search);
     
     // Get values from URL params with proper fallbacks
     const page = parseInt(params.get('page') || '1');
     const searchParam = params.get('search') || '';
-    const sortBy = params.get('sortBy') as FilterOptions['sortBy'] || 'recent';
+    const sortBy = (params.get('sortBy') as FilterOptions['sortBy']) || 'recent';
   
     // Update local state based on URL
     setCurrentPage(page);
@@ -451,29 +449,34 @@ function ExplorePage() {
       sortOrder: sortBy === 'name' ? 'asc' : 'desc'
     }));
   
-    // Skip fetch if we have server-side data and we're on the initial load
-    if (window.serverData?.agents && pathname === '/explore' && !search && page === 1 && sortBy === 'recent') {
+    // Only skip initial fetch if we have server-side data and no URL params
+    const hasUrlParams = Array.from(params.entries()).length > 0;
+    if (window.serverData?.agents && !hasUrlParams) {
       return;
     }
-
-    // Fetch agents based on URL params
+  
+    // todo: fix api call is triggered on every keystroke ignoring debounce
     const fetchAgents = async () => {
       try {
         setLoading(true);
         setError(null);
-
+  
         const fetchParams = new URLSearchParams({
           page: page.toString(),
           limit: AGENTS_PER_PAGE.toString(),
-          search,
           sortBy: sortBy === 'recent' ? 'last_activity' :
                  sortBy === 'popular' ? 'total_chats' : 'name',
           sortOrder: sortBy === 'name' ? 'asc' : 'desc'
         });
-
+  
+        // Only add search param if it exists
+        if (searchParam) {
+          fetchParams.set('search', searchParam);
+        }
+  
         const response = await fetch(`/api/agents?${fetchParams}`);
         if (!response.ok) throw new Error('Failed to fetch agents');
-
+  
         const data = await response.json();
         
         setAgents(data.agents);
@@ -490,10 +493,17 @@ function ExplorePage() {
         setLoading(false);
       }
     };
-
-    fetchAgents();
-  }, [location]);
-
+  
+    // Create debounced version of fetch for search
+    const debouncedFetch = debounce(fetchAgents, searchParam ? 500 : 0);
+    debouncedFetch();
+  
+    // Cleanup
+    return () => {
+      debouncedFetch.cancel?.();
+    };
+  }, [location, searchQuery, filterOptions.sortBy]);
+  
   const debouncedSearch = useMemo(
     () => debounce((query: string) => {
       const newUrl = new URL(window.location.pathname, window.location.origin);
