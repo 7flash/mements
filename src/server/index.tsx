@@ -216,7 +216,7 @@ const server = serve({
           case 'name':
             orderByClause += " a.name ASC";
             break;
-          case 'chats':
+          case 'total_chats':
             orderByClause += " total_chats DESC";
             break;
           case 'last_activity':
@@ -262,7 +262,9 @@ const server = serve({
 
         const agentsWithImages = await Promise.all(agents.map(async (agent) => ({
           ...agent,
-          avatar: agent.avatar ? await files.getUrl(agent.avatar, 3600) : null,
+          avatar: agent.avatar ? await files.getUrl(agent.avatar, 3600, {
+            width: 512, height: 512,
+          }) : null,
         })));
 
         return new Response(JSON.stringify({
@@ -328,7 +330,9 @@ const server = serve({
 
         const agentsWithImages = await Promise.all(agents.map(async (agent) => ({
           ...agent,
-          avatar: agent.avatar ? await files.getUrl(agent.avatar, 3600) : null,
+          avatar: agent.avatar ? await files.getUrl(agent.avatar, 3600, {
+            width: 512, height: 512,
+          }) : null,
         })));
 
         const serverData = {

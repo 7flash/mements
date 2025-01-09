@@ -238,7 +238,6 @@ function MementCard({ mement }: { mement: Agent }) {
           </p>
           
           <div className="flex items-center justify-between pt-4">
-            {/* todo: instead of "Last active: 09.01.2025" it should say "Last active a minute ago" or etc..*/}
             <div className="text-sm text-white/60">
               Last active {formatRelativeTime(mement.last_activity)}
             </div>
@@ -385,7 +384,7 @@ function FilterBar({ onFilterChange }: { onFilterChange: (options: FilterOptions
         }}
         className="px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
       >
-        <option value="recent">Most Recent</option>
+        <option value="recent">Recently Active</option>
         <option value="popular">Most Popular</option>
         <option value="name">Name A-Z</option>
       </select>

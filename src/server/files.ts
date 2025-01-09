@@ -35,17 +35,25 @@ export default class Files implements IFiles {
     }
   }
 
-  async getUrl(cid: string, expires: number): Promise<string> {
+  async getUrl(cid: string, expires: number, options?: OptimizeImageOptions): Promise<string> {
     const cached = this.urlCache.get(cid);
     if (cached && cached.expires > Date.now()) {
       return cached.url;
     }
 
     try {
-      const url = await this.pinata.gateways.createSignedURL({
-        cid: cid,
-        expires: expires,
-      });
+      let url;
+      if (options) {
+        url = await this.pinata.gateways.createSignedURL({
+          cid: cid,
+          expires: expires,
+        }).optimizeImage(options);
+      } else {
+        url = await this.pinata.gateways.createSignedURL({
+          cid: cid,
+          expires: expires,
+        })
+      }
       this.urlCache.set(cid, { url, expires: Date.now() + expires * 1000 });
       return url;
     } catch (error) {

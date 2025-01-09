@@ -1,6 +1,20 @@
+type OptimizeImageOptions = {
+  width?: number;
+  height?: number;
+  dpr?: number;
+  fit?: "scaleDown" | "contain" | "cover" | "crop" | "pad";
+  gravity?: "auto" | "side" | string;
+  quality?: number;
+  format?: "auto" | "webp";
+  animation?: boolean;
+  sharpen?: number;
+  onError?: boolean;
+  metadata?: "keep" | "copyright" | "none";
+};
+
 interface IFiles {
   upload(file: File): Promise<string>;
-  getUrl(cid: string, expires: number): Promise<string>;
+  getUrl(cid: string, expires: number, options?: OptimizeImageOptions): Promise<string>;
   createTemporaryAdminKey(): Promise<any>;
 }
 
