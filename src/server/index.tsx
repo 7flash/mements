@@ -184,7 +184,7 @@ const server = serve({
 
     const host = req.headers.get("host");
 
-    console.log(requestId, `${localTime}`, host);
+    console.log(requestId, `${localTime}`, host, path);
 
     const subdomain = host ? host.split(".")[0] : "";
 

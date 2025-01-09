@@ -266,21 +266,20 @@ function MementGrid({ mements, pagination, onPageChange }: {
   const handlePageChange = (newPage: number) => {
     const url = new URL(window.location.href);
     const currentParams = new URLSearchParams(url.search);
+    
+    // Update page number
     currentParams.set('page', newPage.toString());
     
-    // Preserve existing filters
+    // Preserve all existing filters from window.serverData.filters
     if (window.serverData?.filters) {
-      if (window.serverData.filters.search) {
-        currentParams.set('search', window.serverData.filters.search);
-      }
-      if (window.serverData.filters.category) {
-        currentParams.set('category', window.serverData.filters.category);
-      }
-      if (window.serverData.filters.sortBy) {
-        currentParams.set('sortBy', window.serverData.filters.sortBy);
-      }
+      Object.entries(window.serverData.filters).forEach(([key, value]) => {
+        if (value) {
+          currentParams.set(key, value.toString());
+        }
+      });
     }
     
+    // Update location with preserved filters
     setLocation(`${url.pathname}?${currentParams.toString()}`);
     onPageChange(newPage);
   };
@@ -501,6 +500,27 @@ function ExplorePage() {
     if (!window.serverData?.agents) {
       fetchAgents(page, search, filterOptions);
     }
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location);
+    const page = parseInt(params.get('page') || '1');
+    const search = params.get('search') || '';
+    const sortBy = params.get('sortBy') as FilterOptions['sortBy'] || 'recent';
+    
+    if (page !== currentPage || search !== searchQuery || sortBy !== filterOptions.sortBy) {
+      setCurrentPage(page);
+      setSearchQuery(search);
+      setFilterOptions(prev => ({
+        ...prev,
+        sortBy,
+        sortField: sortBy === 'recent' ? 'last_activity' : 
+                   sortBy === 'popular' ? 'total_chats' : 'name',
+        sortOrder: sortBy === 'name' ? 'asc' : 'desc'
+      }));
+      
+      fetchAgents(page, search, filterOptions);
+    }
   }, [location]);
 
   // Debounced search function
@@ -557,26 +577,28 @@ function ExplorePage() {
     fetchAgents(newPage, searchQuery, filterOptions);
   };
 
-  // todo: fix search does not work it switches page to undefined?sortBy=popular&search=s
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     setCurrentPage(1);
     
-    // Update URL with search query
-    const url = new URL(window.location.href);
-    const currentParams = new URLSearchParams(url.search);
+    // Create new URL with current pathname
+    const newUrl = new URL(window.location.pathname, window.location.origin);
+    const params = new URLSearchParams(newUrl.search);
+    
+    // Add or update search parameter
     if (query) {
-      currentParams.set('search', query);
+      params.set('search', query);
     } else {
-      currentParams.delete('search');
+      params.delete('search');
     }
     
-    // Preserve other filters
+    // Preserve existing filters
     if (filterOptions.sortBy) {
-      currentParams.set('sortBy', filterOptions.sortBy);
+      params.set('sortBy', filterOptions.sortBy);
     }
     
-    setLocation(`${location.pathname}?${currentParams.toString()}`);
+    // Update location with correct pathname and query parameters
+    setLocation(`/explore?${params.toString()}`);
     debouncedSearch(query);
   };
 
