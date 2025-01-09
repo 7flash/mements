@@ -66,7 +66,6 @@ export function cls(...classes: any) {
 
 export function Navigation() {
   const links = [
-    // Add navigation links here if needed
   ];
 
   return (
@@ -306,7 +305,7 @@ interface FilterOptions {
   category?: string;
 }
 
-// currently search and filters only works over the agents already present on the page, but of course we need to utilize backend here to actually retrieve all the results from database along with updated pagination of a new set of agents corresponding to search and filters and sorting
+// todo: currently search and filters only works over the agents already present on the page, but of course we need to utilize backend here to actually retrieve all the results from database along with updated pagination of a new set of agents corresponding to search and filters and sorting
 
 function SearchBar({ onSearch }: { onSearch: (query: string) => void }) {
   return (
