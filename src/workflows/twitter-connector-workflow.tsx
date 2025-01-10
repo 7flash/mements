@@ -22,7 +22,7 @@ export default {
         return this;
     },
 
-    async exec(context: { subdomain: string }) {
+    async exec(context: { subdomain: string, agentData: any }) {
         const userMessage = this.fromFields.message || "";
         if (!userMessage.startsWith("/request") && !userMessage.startsWith("/approve")) {
             return {
@@ -69,6 +69,11 @@ export default {
                 const oAuthRequestToken = new URLSearchParams(body);
                 authorizeURL.searchParams.append('oauth_token', oAuthRequestToken.get('oauth_token'));
 
+                // Save the oauth_token for later use
+                await Bun.write(tokenFilePath, JSON.stringify({
+                    oauth_token: oAuthRequestToken.get('oauth_token')
+                }));
+
                 return {
                     success: true,
                     message: `Please visit this URL to authorize the application: ${authorizeURL.href}\nThen use /approve <PIN> to complete the setup.`,
@@ -114,6 +119,14 @@ export default {
                 const body = await response.text();
                 const oAuthAccessToken = new URLSearchParams(body);
 
+                // Store the access tokens
+                const tokenData = {
+                    oauth_token: oAuthAccessToken.get('oauth_token'),
+                    oauth_token_secret: oAuthAccessToken.get('oauth_token_secret'),
+                    user_id: oAuthAccessToken.get('user_id'),
+                    screen_name: oAuthAccessToken.get('screen_name')
+                };
+
                 const agentResponse = await fetch(`http://localhost:${process.env.BUN_PORT}/createAgent`, {
                     method: 'POST',
                     headers: {
@@ -124,44 +137,38 @@ export default {
                         agent: {
                             subdomain: context.agentData.subdomain,
                         },
-                        twitterBot: {
-                            oauth_token: oAuthAccessToken.get('oauth_token'),
-                            oauth_token_secret: oAuthAccessToken.get('oauth_token_secret'),
-                            user_id: oAuthAccessToken.get('user_id'),
-                            screen_name: oAuthAccessToken.get('screen_name')
-                        }
+                        twitterBot: tokenData
                     }),
                 });
 
-                /*
-                
-                todo: it should write an announcement that explains that this twitter account has been transferred under control of memetic agent $subdomain.mements.xyz and now all his thoughts triggered on the website are being echoed here
-                
-                saying it in a beautiful poetic way perhaps the text itself can be generated with prompt
-                
-        const result = await executePrompt(<>
-            <settings temperature={0.0} enablesPrediction={false} />
-            <system>
-                <instruction>...</instruction>
-                <responseFormat>
-                    <thinking>THINK carefully before responding.</thinking>
-                    <requiredFields>
-                        <announcementMessage>this is what it should say</announcementMessage>
-                    </requiredFields>
-                </responseFormat>
-            </system>
-            <user>
-                <context>
-                    {agentData.prompt - his personality}
-                </context>
-            </user>
-        </>);
-        console.log("result ==> ", result);
-            
-                */
+                // Generate announcement tweet using the agent's personality
+                const result = await executePrompt(<>
+                    <settings temperature={0.7} />
+                    <system>
+                        <instruction>
+                            Create a poetic announcement tweet that explains this Twitter account is now controlled by a memetic agent. 
+                            The tweet should mention that the account will echo thoughts from {subdomain}.mements.xyz.
+                            Keep it under 280 characters and make it engaging and mysterious.
+                            Include relevant hashtags.
+                        </instruction>
+                        <responseFormat>
+                            <thinking>THINK carefully before responding.</thinking>
+                            <requiredFields>
+                                <announcementMessage>The announcement tweet text</announcementMessage>
+                            </requiredFields>
+                        </responseFormat>
+                    </system>
+                    <user>
+                        <context>
+                            {context.agentData.prompt}
+                            Subdomain: {context.subdomain}
+                        </context>
+                    </user>
+                </>);
 
-                const announcementText = "🤖 Exciting news! I'm a new type of terminal agent that works with specific commands. Unlike AI agents, I focus on executing precise commands for specific tasks. What kind of terminal agents would you like to see? Reply with your ideas! #TerminalAgents #automation";
+                const announcementText = result.announcementMessage;
                 
+                // Post the announcement tweet
                 await fetch('https://api.twitter.com/2/tweets', {
                     method: 'POST',
                     headers: {
@@ -179,7 +186,7 @@ export default {
 
                 return {
                     success: true,
-                    message: "Twitter account successfully connected! I've posted an announcement tweet about terminal agents. Check your Twitter profile to see it!",
+                    message: "Twitter account successfully connected! I've posted an announcement tweet. Check your Twitter profile to see it!",
                     agent: tokenData.screen_name
                 };
             } catch (error) {
