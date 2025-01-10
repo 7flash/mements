@@ -70,7 +70,7 @@ export default {
                 const oAuthRequestToken = new URLSearchParams(body);
                 authorizeURL.searchParams.append('oauth_token', oAuthRequestToken.get('oauth_token'));
 
-                // Save the oauth_token for later use
+                // todo: we probably dont need to persist it in file just in variable
                 await Bun.write(tokenFilePath, JSON.stringify({
                     oauth_token: oAuthRequestToken.get('oauth_token')
                 }));
@@ -127,7 +127,7 @@ export default {
                 const body = await response.text();
                 const oAuthAccessToken = new URLSearchParams(body);
 
-                const agentResponse = await fetch(`http://localhost:${process.env.BUN_PORT}/createAgent`, {
+                const agentResponse = await fetch(`http://localhost:${process.env.BUN_PORT}/registerSharedAccount`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

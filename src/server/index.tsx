@@ -432,6 +432,36 @@ const server = serve({
       }
     }
 
+    /*
+todo: we should implement corresponding endpoint to this invocation
+
+                const agentResponse = await fetch(`http://localhost:${process.env.BUN_PORT}/registerSharedAccount`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${process.env.CREATE_AGENT_SECRET}`
+                    },
+                    body: JSON.stringify({
+                        agent: {
+                            subdomain: context.agentData.subdomain,
+                        },
+                        twitterBot: {
+                            oauth_token: oAuthAccessToken.get('oauth_token'),
+                            oauth_token_secret: oAuthAccessToken.get('oauth_token_secret'),
+                            user_id: oAuthAccessToken.get('user_id'),
+                            screen_name: oAuthAccessToken.get('screen_name')
+                        }
+                    }),
+                });
+
+it should insert it into database like this
+
+          db.run(
+            "INSERT INTO shared_twitter_accounts (oauth_token, oauth_token_secret, user_id, screen_name) VALUES (?, ?, ?, ?)",
+            twitterBot.oauth_token, twitterBot.oauth_token_secret, twitterBot.user_id, twitterBot.screen_name
+          );
+    */
+
     if (req.method === "POST" && path === "/createAgent") {
       try {
         const authHeader = req.headers.get('Authorization');
@@ -871,37 +901,37 @@ const server = serve({
 
           let twitterPostLink = null;
           try {
-            const twitterBotQuery = db.query<TwitterBot, { $subdomain: string }>("SELECT oauth_token, oauth_token_secret, user_id, screen_name FROM twitter_bots WHERE subdomain = $subdomain");
-            const twitterBotData = twitterBotQuery.get({ $subdomain: agentData.subdomain });
-
+            const twitterBotQuery = db.query<TwitterBot, { $subdomain: string }>(
+              "SELECT oauth_token, oauth_token_secret, user_id, screen_name FROM twitter_bots WHERE subdomain = $subdomain"
+            );
+            let twitterBotData = twitterBotQuery.get({ $subdomain: agentData.subdomain });
+          
             if (!twitterBotData) {
-              /*
-                todo: in this case when agent does not have a special account for himself, then we should look up whether any shared accounts available and take the one which been used the lowest number of times
-
-so, a new table for shared bots should be initialized, take a loot how current table is made and do similar in beginning of script
-
-try {
-  db.run(`
-    CREATE TABLE twitter_bots (
-      subdomain TEXT PRIMARY KEY,
-      oauth_token TEXT NOT NULL,
-      oauth_token_secret TEXT NOT NULL,
-      user_id TEXT NOT NULL,
-      screen_name TEXT NOT NULL,
-      FOREIGN KEY(subdomain) REFERENCES agents(subdomain) ON DELETE CASCADE
-    )
-  `);
-  console.log('Table "twitter_bots" initialized');
-} catch (error) {
-  console.error('Error initializing table "twitter_bots":', error);
-}
-
-and finally, third, in /createAgent API when there is agentData.twitterBot provided then we should insert it into the list of shared accounts
-              
-              */
-              throw `No Twitter account associated with ${agentData.subdomain}, falling back to web post`;
+              const sharedBotQuery = db.query(`
+                SELECT * FROM shared_twitter_accounts 
+                ORDER BY usage_count ASC 
+                LIMIT 1
+              `);
+              const sharedBot = sharedBotQuery.get();
+          
+              if (!sharedBot) {
+                throw `No Twitter account available for ${agentData.subdomain}, falling back to web post`;
+              }
+          
+              twitterBotData = {
+                subdomain: agentData.subdomain,
+                oauth_token: sharedBot.oauth_token,
+                oauth_token_secret: sharedBot.oauth_token_secret,
+                user_id: sharedBot.user_id,
+                screen_name: sharedBot.screen_name
+              };
+          
+              db.run(
+                "UPDATE shared_twitter_accounts SET usage_count = usage_count + 1 WHERE id = ?",
+                sharedBot.id
+              );
             }
-
+          
             const twitterEndpointURL = 'https://api.twitter.com/2/tweets';
             const tweetData = { text: result.answer };
 
