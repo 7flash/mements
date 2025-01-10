@@ -659,7 +659,7 @@ const server = serve({
 
         let imageCid = "";
         try {
-          const base64Image = await tryGenerateImageWithKeys(trigger, apiKeys);
+          const base64Image = await tryGenerateImageWithKeys(trigger);
           const file = new File([Buffer.from(base64Image, 'base64')], "agent-image.png", { type: "image/png" });
           imageCid = await files.upload(file);
           
