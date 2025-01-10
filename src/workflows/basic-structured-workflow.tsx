@@ -6,7 +6,6 @@ import executePrompt from "uai/src/uai.ts";
 export default {
     fromFields: {},
     toFields: {},
-    instruction: "",
 
     from(fields: { [key: string]: any }) {
         this.fromFields = fields;
@@ -18,9 +17,7 @@ export default {
         return this;
     },
 
-    async exec(instruction: string) {
-        this.instruction = instruction;
-
+    async exec(context) {
         const formatFromFields = Object.keys(this.fromFields).map((key) => {
             return {
                 tagName: key,
@@ -48,7 +45,7 @@ export default {
         const result = await executePrompt(<>
             <settings temperature={0.0} enablesPrediction={false} />
             <system>
-                <instruction>{this.instruction}</instruction>
+                <instruction>Imagine described situation in which its character triggered by appearing question would write a twitter post in its consequence</instruction>
                 <responseFormat>
                     <thinking>THINK carefully before responding.</thinking>
                     <requiredFields>

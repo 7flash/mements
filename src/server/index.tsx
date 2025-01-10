@@ -724,7 +724,7 @@ const server = serve({
       agentData = agentDataQuery.get({ $subdomain: subdomain });
     }
 
-    console.log(requestId, "agentData", agentData);
+    // console.log(requestId, "agentData", agentData);
 
     if (agentData) {
       appName = appName || 'askAgentApp';
@@ -810,13 +810,14 @@ const server = serve({
           .from({
             question: data.content,
             situation: agentData.prompt,
-            // context: context
           })
           .to({
             success: 'TRUE or FALSE indicating if question is appropriate and answerable',
             answer: 'twitter post, should not contain hash tags, nor double quotes or other special symbols'
           })
-          .exec("Imagine described situation in which its character triggered by appearing question would write a twitter post in its consequence");          
+          .exec({
+            agentData
+          });
 
           console.log(requestId, "Workflow result", result);
 

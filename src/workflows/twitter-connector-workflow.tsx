@@ -22,8 +22,7 @@ export default {
         return this;
     },
 
-    async exec(instruction: string) {
-        // Validate command format
+    async exec(context: { subdomain: string }) {
         const userMessage = this.fromFields.message || "";
         if (!userMessage.startsWith("/request") && !userMessage.startsWith("/approve")) {
             return {
@@ -32,7 +31,6 @@ export default {
             };
         }
 
-        // Setup OAuth configuration
         const consumer_key = process.env.TWITTER_API_KEY!;
         const consumer_secret = process.env.TWITTER_API_SECRET!;
         const requestTokenURL = 'https://api.twitter.com/oauth/request_token?oauth_callback=oob&x_auth_access_type=write';
@@ -53,7 +51,6 @@ export default {
             }
         });
 
-        // Handle /request command
         if (userMessage.startsWith("/request")) {
             try {
                 const authHeader = oauth.toHeader(oauth.authorize({
@@ -85,7 +82,6 @@ export default {
             }
         }
 
-        // Handle /approve command
         if (userMessage.startsWith("/approve")) {
             const pin = userMessage.split(" ")[1];
             if (!pin) {
@@ -118,31 +114,52 @@ export default {
                 const body = await response.text();
                 const oAuthAccessToken = new URLSearchParams(body);
 
-                // Save token data
-                const tokenData = {
-                    oauth_token: oAuthAccessToken.get('oauth_token'),
-                    oauth_token_secret: oAuthAccessToken.get('oauth_token_secret'),
-                    user_id: oAuthAccessToken.get('user_id'),
-                    screen_name: oAuthAccessToken.get('screen_name')
-                };
-                await Bun.write(tokenFilePath, JSON.stringify(tokenData, null, 2));
-
-                // Create agent configuration
-                const agentConfig = {
-                    twitterBot: tokenData
-                };
-
-                // Update agent via API
                 const agentResponse = await fetch(`http://localhost:${process.env.BUN_PORT}/createAgent`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${process.env.CREATE_AGENT_SECRET}`
                     },
-                    body: JSON.stringify(agentConfig),
+                    body: JSON.stringify({
+                        agent: {
+                            subdomain: context.agentData.subdomain,
+                        },
+                        twitterBot: {
+                            oauth_token: oAuthAccessToken.get('oauth_token'),
+                            oauth_token_secret: oAuthAccessToken.get('oauth_token_secret'),
+                            user_id: oAuthAccessToken.get('user_id'),
+                            screen_name: oAuthAccessToken.get('screen_name')
+                        }
+                    }),
                 });
 
-                // Post announcement tweet
+                /*
+                
+                todo: it should write an announcement that explains that this twitter account has been transferred under control of memetic agent $subdomain.mements.xyz and now all his thoughts triggered on the website are being echoed here
+                
+                saying it in a beautiful poetic way perhaps the text itself can be generated with prompt
+                
+        const result = await executePrompt(<>
+            <settings temperature={0.0} enablesPrediction={false} />
+            <system>
+                <instruction>...</instruction>
+                <responseFormat>
+                    <thinking>THINK carefully before responding.</thinking>
+                    <requiredFields>
+                        <announcementMessage>this is what it should say</announcementMessage>
+                    </requiredFields>
+                </responseFormat>
+            </system>
+            <user>
+                <context>
+                    {agentData.prompt - his personality}
+                </context>
+            </user>
+        </>);
+        console.log("result ==> ", result);
+            
+                */
+
                 const announcementText = "🤖 Exciting news! I'm a new type of terminal agent that works with specific commands. Unlike AI agents, I focus on executing precise commands for specific tasks. What kind of terminal agents would you like to see? Reply with your ideas! #TerminalAgents #automation";
                 
                 await fetch('https://api.twitter.com/2/tweets', {

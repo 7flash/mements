@@ -120,7 +120,6 @@ const findValuableTokens = async (tokens: Token[], startIndex: number = 0, valua
 export default {
     fromFields: {},
     toFields: {},
-    instruction: "",
 
     from(fields: { [key: string]: any }) {
         this.fromFields = fields;
@@ -132,9 +131,7 @@ export default {
         return this;
     },
 
-    async exec(instruction: string) {
-        this.instruction = instruction;
-
+    async exec() {
         const walletAddress = this.fromFields.question;
 
         // Validate wallet address format
