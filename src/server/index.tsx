@@ -435,6 +435,7 @@ const server = serve({
     if (req.method === "POST" && path === "/createAgent") {
       try {
         const authHeader = req.headers.get('Authorization');
+        console.log("authHeader ==> ", authHeader);
         const token = authHeader?.split(' ')[1];
         console.log(requestId, "token", token);
 
@@ -444,7 +445,7 @@ const server = serve({
         }
 
         const { agent, images, links, twitterBot, telegramBot, domains, customInfo } = await req.json();
-        console.log(requestId, "Received data", { agent, links, twitterBot, telegramBot, domains, customInfo });
+        console.log(requestId, "Received data", { agent, links, images, twitterBot, telegramBot, domains, customInfo });
 
         if (telegramBot) {
           console.log(requestId, "telegramBot", telegramBot);
@@ -470,6 +471,7 @@ const server = serve({
             const file = await Bun.file(resolve(process.cwd(), img.value)).bytes();
             console.log(requestId, "file size", file.length);
             imageCid = await files.upload(new File([file], "agent-image.png", { type: "image/png" }));
+            console.log("imageCid ==> ", imageCid);
           } else {
             throw 'missing image field (should be file path or cid)';
           }
@@ -483,7 +485,7 @@ const server = serve({
         }
 
         const transaction = db.transaction(() => {
-          const subdomain = agent.subdomain ?? `${agent.name.toLowerCase().replace(/[^a-z]+/g, '-')}-${randomUUIDForAgent()}`;
+          const subdomain = agent.subdomain ? agent.subdomain : `${agent.name.toLowerCase().replace(/[^a-z]+/g, '-')}-${randomUUIDForAgent()}`;
           console.log(requestId, "subdomain", subdomain);
 
           const agentEntry: Agent = {
@@ -512,7 +514,7 @@ const server = serve({
           } else {
             db.run(
               "INSERT INTO agents (subdomain, name, prompt, workflow) VALUES (?, ?, ?, ?)",
-              agentEntry.subdomain.toLowerCase(), agentEntry.name, agentEntry.prompt, agentEntry.workflow
+              agentEntry.subdomain, agentEntry.name, agentEntry.prompt, agentEntry.workflow
             );
 
             // Create wallet for the agent
@@ -522,7 +524,7 @@ const server = serve({
 
             db.run(
               "INSERT INTO wallets (subdomain, public_key, private_key) VALUES (?, ?, ?)",
-              agentEntry.subdomain.toLowerCase(), mintPublicKey, mintPrivateKey
+              agentEntry.subdomain, mintPublicKey, mintPrivateKey
             );
             console.log(requestId, "Wallet created", { publicKey: mintPublicKey });
           }
@@ -724,7 +726,7 @@ const server = serve({
       agentData = agentDataQuery.get({ $subdomain: subdomain });
     }
 
-    // console.log(requestId, "agentData", agentData);
+    console.log(requestId, "agentData", agentData);
 
     if (agentData) {
       appName = appName || 'askAgentApp';
@@ -748,6 +750,7 @@ const server = serve({
         const imageData = imageQuery.all({ $subdomain: agentData.subdomain });
         console.log("imageData ==> ", imageData);
         const agentImages = Object.fromEntries(await Promise.all(imageData.map(async (img) => [img.image_key, await files.getUrl(img.imageCid, 3600)])));
+        console.log("agentImages ==> ", agentImages);
 
         const linksData = links?.reduce((prev, it) => { return { ...prev, [it.type]: it.value } }, {})
         console.log("linksData ==> ", linksData);
@@ -807,17 +810,17 @@ const server = serve({
           const { default: workflowFn } = await import(`../workflows/${agentData.workflow || "basic-structured-workflow"}.tsx`);
 
           const result = await workflowFn
-          .from({
-            question: data.content,
-            situation: agentData.prompt,
-          })
-          .to({
-            success: 'TRUE or FALSE indicating if question is appropriate and answerable',
-            answer: 'twitter post, should not contain hash tags, nor double quotes or other special symbols'
-          })
-          .exec({
-            agentData
-          });
+            .from({
+              question: data.content,
+              situation: agentData.prompt,
+            })
+            .to({
+              success: 'TRUE or FALSE indicating if question is appropriate and answerable',
+              answer: 'twitter post, should not contain hash tags, nor double quotes or other special symbols'
+            })
+            .exec({
+              agentData
+            });
 
           console.log(requestId, "Workflow result", result);
 
@@ -872,6 +875,30 @@ const server = serve({
             const twitterBotData = twitterBotQuery.get({ $subdomain: agentData.subdomain });
 
             if (!twitterBotData) {
+              /*
+                todo: in this case when agent does not have a special account for himself, then we should look up whether any shared accounts available and take the one which been used the lowest number of times
+
+so, a new table for shared bots should be initialized, take a loot how current table is made and do similar in beginning of script
+
+try {
+  db.run(`
+    CREATE TABLE twitter_bots (
+      subdomain TEXT PRIMARY KEY,
+      oauth_token TEXT NOT NULL,
+      oauth_token_secret TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      screen_name TEXT NOT NULL,
+      FOREIGN KEY(subdomain) REFERENCES agents(subdomain) ON DELETE CASCADE
+    )
+  `);
+  console.log('Table "twitter_bots" initialized');
+} catch (error) {
+  console.error('Error initializing table "twitter_bots":', error);
+}
+
+and finally, third, in /createAgent API when there is agentData.twitterBot provided then we should insert it into the list of shared accounts
+              
+              */
               throw `No Twitter account associated with ${agentData.subdomain}, falling back to web post`;
             }
 

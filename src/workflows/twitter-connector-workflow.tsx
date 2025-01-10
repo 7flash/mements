@@ -6,6 +6,7 @@ import readline from 'readline';
 import { URL, URLSearchParams } from 'url';
 import path from 'path';
 import { parseArgs } from "util";
+import Query from "uai/src/query";
 
 export default {
     fromFields: {},
@@ -23,11 +24,11 @@ export default {
     },
 
     async exec(context: { subdomain: string, agentData: any }) {
-        const userMessage = this.fromFields.message || "";
+        const userMessage = this.fromFields.question || "";
         if (!userMessage.startsWith("/request") && !userMessage.startsWith("/approve")) {
             return {
                 success: false,
-                message: "Invalid command. Please use /request to initiate Twitter connection or /approve <pin> to complete authentication."
+                thinking: "Invalid command. Please use /request to initiate Twitter connection or /approve <pin> to complete authentication."
             };
         }
 
@@ -76,13 +77,13 @@ export default {
 
                 return {
                     success: true,
-                    message: `Please visit this URL to authorize the application: ${authorizeURL.href}\nThen use /approve <PIN> to complete the setup.`,
+                    thinking: `Please visit this URL to authorize the application: ${authorizeURL.href}\nThen use /approve <PIN> to complete the setup.`,
                     oauth_token: oAuthRequestToken.get('oauth_token')
                 };
             } catch (error) {
                 return {
                     success: false,
-                    message: `Failed to initiate Twitter authorization: ${error.message}`
+                    thinking: `Failed to initiate Twitter authorization: ${error.message}`
                 };
             }
         }
@@ -92,14 +93,21 @@ export default {
             if (!pin) {
                 return {
                     success: false,
-                    message: "Please provide the PIN code: /approve <PIN>"
+                    thinking: "Please provide the PIN code: /approve <PIN>"
                 };
             }
 
             try {
                 const storedToken = await Bun.file(tokenFilePath).json().catch(() => null);
                 const oauth_token = storedToken?.oauth_token;
-                
+
+                if (!oauth_token) {
+                    return {
+                        success: false,
+                        thinking: "No OAuth token found. Please start with /request command first."
+                    };
+                }
+
                 const authHeader = oauth.toHeader(oauth.authorize({
                     url: accessTokenURL,
                     method: 'POST',
@@ -119,14 +127,6 @@ export default {
                 const body = await response.text();
                 const oAuthAccessToken = new URLSearchParams(body);
 
-                // Store the access tokens
-                const tokenData = {
-                    oauth_token: oAuthAccessToken.get('oauth_token'),
-                    oauth_token_secret: oAuthAccessToken.get('oauth_token_secret'),
-                    user_id: oAuthAccessToken.get('user_id'),
-                    screen_name: oAuthAccessToken.get('screen_name')
-                };
-
                 const agentResponse = await fetch(`http://localhost:${process.env.BUN_PORT}/createAgent`, {
                     method: 'POST',
                     headers: {
@@ -137,62 +137,59 @@ export default {
                         agent: {
                             subdomain: context.agentData.subdomain,
                         },
-                        twitterBot: tokenData
+                        twitterBot: {
+                            oauth_token: oAuthAccessToken.get('oauth_token'),
+                            oauth_token_secret: oAuthAccessToken.get('oauth_token_secret'),
+                            user_id: oAuthAccessToken.get('user_id'),
+                            screen_name: oAuthAccessToken.get('screen_name')
+                        }
                     }),
                 });
 
-                // Generate announcement tweet using the agent's personality
-                const result = await executePrompt(<>
-                    <settings temperature={0.7} />
-                    <system>
-                        <instruction>
-                            Create a poetic announcement tweet that explains this Twitter account is now controlled by a memetic agent. 
-                            The tweet should mention that the account will echo thoughts from {subdomain}.mements.xyz.
-                            Keep it under 280 characters and make it engaging and mysterious.
-                            Include relevant hashtags.
-                        </instruction>
-                        <responseFormat>
-                            <thinking>THINK carefully before responding.</thinking>
-                            <requiredFields>
-                                <announcementMessage>The announcement tweet text</announcementMessage>
-                            </requiredFields>
-                        </responseFormat>
-                    </system>
-                    <user>
-                        <context>
-                            {context.agentData.prompt}
-                            Subdomain: {context.subdomain}
-                        </context>
-                    </user>
-                </>);
+                const result = await Query.from({
+                    subdomain: context.agentData.subdomain,
+                    personality: context.agentData.personality,
+                }, 'gpt-4o-mini').infer({
+                    announcementText: `Create a poetic and engaging announcement tweet that introduces a memetic agent taking control of this Twitter account. 
+                            The tweet should mention that the account will echo the agent's thoughts from their website.
+                            Keep it under 280 characters and include the agent's subdomain URL.
+                            Make it match the agent's personality from the context.`,
+                })
 
-                const announcementText = result.announcementMessage;
-                
-                // Post the announcement tweet
-                await fetch('https://api.twitter.com/2/tweets', {
-                    method: 'POST',
-                    headers: {
-                        Authorization: oauth.toHeader(oauth.authorize({
-                            url: 'https://api.twitter.com/2/tweets',
-                            method: 'POST'
-                        }, {
-                            key: tokenData.oauth_token,
-                            secret: tokenData.oauth_token_secret
-                        }))["Authorization"],
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ text: announcementText })
-                });
+                if (result.announcementMessage) {
+                    const announcementText = result.announcementMessage;
+
+                    try {
+                        await fetch('https://api.twitter.com/2/tweets', {
+                            method: 'POST',
+                            headers: {
+                                Authorization: oauth.toHeader(oauth.authorize({
+                                    url: 'https://api.twitter.com/2/tweets',
+                                    method: 'POST'
+                                }, {
+                                    key: oAuthAccessToken.get('oauth_token'),
+                                    secret: oAuthAccessToken.get('oauth_token_secret')
+                                }))["Authorization"],
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ text: announcementText })
+                        });
+                    } catch (err) {
+                        console.log('FAILED to broadcast announcement message', err);
+                    }
+                } else {
+                    console.log(`FAILED to generate announcement message`, result);
+                }
 
                 return {
                     success: true,
-                    message: "Twitter account successfully connected! I've posted an announcement tweet. Check your Twitter profile to see it!",
-                    agent: tokenData.screen_name
+                    thinking: "Twitter account successfully connected! I've posted an announcement tweet. Check your Twitter profile to see it!",
+                    agent: oAuthAccessToken.get('screen_name')
                 };
             } catch (error) {
                 return {
                     success: false,
-                    message: `Failed to complete Twitter authorization: ${error.message}`
+                    thinking: `Failed to complete Twitter authorization: ${error.message}`
                 };
             }
         }
