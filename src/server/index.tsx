@@ -926,7 +926,7 @@ const server = serve({
 
           result.answer = result.answer.trim();
 
-          if (result?.answer?.length > 280 && !result?.canBeLong) {
+          if (result?.answer?.length > 280 && !result?.isTerminal) {
               const shorterResult = await uai.from({
                 longerPost: result.answer
               }).to({
@@ -963,75 +963,77 @@ const server = serve({
           }
 
           let twitterPostLink = null;
-          try {
-            const twitterBotQuery = db.query<TwitterBot, { $subdomain: string }>(
-              "SELECT oauth_token, oauth_token_secret, user_id, screen_name FROM twitter_bots WHERE subdomain = $subdomain"
-            );
-            let twitterBotData = twitterBotQuery.get({ $subdomain: agentData.subdomain });
-          
-            if (!twitterBotData) {
-              const sharedBotQuery = db.query(`
-                SELECT * FROM shared_twitter_accounts 
-                ORDER BY usage_count ASC 
-                LIMIT 1
-              `);
-              const sharedBot = sharedBotQuery.get();
-          
-              if (!sharedBot) {
-                throw `No Twitter account available for ${agentData.subdomain}, falling back to web post`;
+          if (!result.isTerminal) {
+            try {
+              const twitterBotQuery = db.query<TwitterBot, { $subdomain: string }>(
+                "SELECT oauth_token, oauth_token_secret, user_id, screen_name FROM twitter_bots WHERE subdomain = $subdomain"
+              );
+              let twitterBotData = twitterBotQuery.get({ $subdomain: agentData.subdomain });
+            
+              if (!twitterBotData) {
+                const sharedBotQuery = db.query(`
+                  SELECT * FROM shared_twitter_accounts 
+                  ORDER BY usage_count ASC 
+                  LIMIT 1
+                `);
+                const sharedBot = sharedBotQuery.get();
+            
+                if (!sharedBot) {
+                  throw `No Twitter account available for ${agentData.subdomain}, falling back to web post`;
+                }
+            
+                twitterBotData = {
+                  subdomain: agentData.subdomain,
+                  oauth_token: sharedBot.oauth_token,
+                  oauth_token_secret: sharedBot.oauth_token_secret,
+                  user_id: sharedBot.user_id,
+                  screen_name: sharedBot.screen_name
+                };
+
+                db.run(
+                  "UPDATE shared_twitter_accounts SET usage_count = usage_count + 1 WHERE user_id = ?",
+                  sharedBot.user_id
+                );
               }
-          
-              twitterBotData = {
-                subdomain: agentData.subdomain,
-                oauth_token: sharedBot.oauth_token,
-                oauth_token_secret: sharedBot.oauth_token_secret,
-                user_id: sharedBot.user_id,
-                screen_name: sharedBot.screen_name
+            
+              const twitterEndpointURL = 'https://api.twitter.com/2/tweets';
+              const tweetData = { text: result.answer };
+
+              const token = {
+                key: twitterBotData.oauth_token,
+                secret: twitterBotData.oauth_token_secret
               };
 
-              db.run(
-                "UPDATE shared_twitter_accounts SET usage_count = usage_count + 1 WHERE id = ?",
-                sharedBot.id
-              );
+              const authHeader = twitterOauth.toHeader(twitterOauth.authorize({
+                url: twitterEndpointURL,
+                method: 'POST',
+              }, token));
+              console.log(requestId, "authHeader", authHeader);
+
+              const twitterResponse = await fetch(twitterEndpointURL, {
+                method: 'POST',
+                headers: {
+                  Authorization: authHeader["Authorization"],
+                  'user-agent': "v2CreateTweetJS",
+                  'Content-Type': "application/json",
+                  'Accept': "application/json"
+                },
+                body: JSON.stringify(tweetData)
+              });
+
+              const twitterResponseData = await twitterResponse.json();
+              console.log(requestId, "twitterResponseData", twitterResponseData);
+
+              if (!twitterResponseData.data) {
+                throw `Failed to post on Twitter, fallback to web post`;
+              }
+
+              const tweetId = twitterResponseData.data.id;
+              twitterPostLink = `https://twitter.com/${twitterBotData.screen_name}/status/${tweetId}`;
+              console.log(requestId, "Tweet posted successfully", twitterPostLink);
+            } catch (err) {
+              console.log(requestId, "Error posting to Twitter, continuing with web post", err);
             }
-          
-            const twitterEndpointURL = 'https://api.twitter.com/2/tweets';
-            const tweetData = { text: result.answer };
-
-            const token = {
-              key: twitterBotData.oauth_token,
-              secret: twitterBotData.oauth_token_secret
-            };
-
-            const authHeader = twitterOauth.toHeader(twitterOauth.authorize({
-              url: twitterEndpointURL,
-              method: 'POST',
-            }, token));
-            console.log(requestId, "authHeader", authHeader);
-
-            const twitterResponse = await fetch(twitterEndpointURL, {
-              method: 'POST',
-              headers: {
-                Authorization: authHeader["Authorization"],
-                'user-agent': "v2CreateTweetJS",
-                'Content-Type': "application/json",
-                'Accept': "application/json"
-              },
-              body: JSON.stringify(tweetData)
-            });
-
-            const twitterResponseData = await twitterResponse.json();
-            console.log(requestId, "twitterResponseData", twitterResponseData);
-
-            if (!twitterResponseData.data) {
-              throw `Failed to post on Twitter, fallback to web post`;
-            }
-
-            const tweetId = twitterResponseData.data.id;
-            twitterPostLink = `https://twitter.com/${twitterBotData.screen_name}/status/${tweetId}`;
-            console.log(requestId, "Tweet posted successfully", twitterPostLink);
-          } catch (err) {
-            console.log(requestId, "Error posting to Twitter, continuing with web post", err);
           }
 
           const responseData: Chat = {
@@ -1098,3 +1100,6 @@ const server = serve({
 });
 
 console.log(`🌐 Server is running on http://localhost:${server.port} 🚀`);
+
+process.env.PORT = `${server.port}`;
+process.env.VERBOSE = "true";

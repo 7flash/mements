@@ -67,7 +67,7 @@ export default {
                 return {
                     success: true,
                     answer: `Please visit this URL to authorize twitter account:\n${authorizeURL.href}\nThen use command /approve <PIN> to complete the setup.`,
-                    canBeLong: true,
+                    isTerminal: true,
                     cookies: {
                         'twitter_oauth_token': {
                             value: oAuthRequestToken.get('oauth_token'),
@@ -77,7 +77,7 @@ export default {
                             httpOnly: true,
                             sameSite: 'Strict'
                         }
-                    }
+                    },
                 };
             } catch (error) {
                 return {
@@ -125,7 +125,7 @@ export default {
                 const body = await response.text();
                 const oAuthAccessToken = new URLSearchParams(body);
 
-                const agentResponse = await fetch(`http://localhost:${process.env.BUN_PORT}/registerSharedAccount`, {
+                const agentResponse = await fetch(`http://localhost:${process.env.PORT}/registerSharedAccount`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -145,14 +145,11 @@ export default {
                 });
 
                 const result = await Query.from({
-                    subdomain: context.agentData.subdomain,
-                    personality: context.agentData.personality,
+                    user_name: oAuthAccessToken.get('screen_name'),
                 }, 'gpt-4o-mini').infer({
-                    announcementText: `Create a poetic and engaging announcement tweet that introduces a memetic agent taking control of this Twitter account. 
-                            The tweet should mention that the account will echo the agent's thoughts from their website.
-                            Keep it under 280 characters and include the agent's subdomain URL.
-                            Make it match the agent's personality from the context.`,
+                    announcementText: `Create a poetic and engaging announcement tweet that introduces a memetic AI agent taking control of this Twitter account. The tweet should mention that the account will echo the agent's thoughts from their website. Keep it under 280 characters and include user name and the only hashtag is #mements`,
                 })
+                console.log("result ==> ", result);
 
                 if (result.announcementMessage) {
                     const announcementText = result.announcementMessage;
@@ -181,7 +178,7 @@ export default {
 
                 return {
                     success: true,
-                    thinking: "Twitter account successfully connected! I've posted an announcement tweet. Check your Twitter profile to see it!",
+                    answer: "Twitter account successfully connected! I've posted an announcement tweet. Check your Twitter profile to see it!",
                     agent: oAuthAccessToken.get('screen_name'),
                     cookies: {
                         'twitter_oauth_token': {
@@ -192,7 +189,8 @@ export default {
                             httpOnly: true,
                             sameSite: 'Strict'
                         }
-                    }
+                    },
+                    isTerminal: true,
                 };
             } catch (error) {
                 console.log("error ==> ", error);
