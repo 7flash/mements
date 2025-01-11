@@ -1,0 +1,1 @@
+bgrun launch --name=mements-jan6 --directory=$HOME/mements --command="bun run ./src/server/index.tsx --config=.config.toml"

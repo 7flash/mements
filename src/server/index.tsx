@@ -10,8 +10,6 @@ import constants from './constants.ts';
 
 import { parseArgs } from 'util';
 
-// todo: write example of .config.toml based on all of config invocation in current file
-
 const args = parseArgs({
   args: Bun.argv,
   options: {
@@ -29,13 +27,14 @@ const configPath = path.join(process.cwd(), args.values.config!);
 let config;
 if (configPath.endsWith('.toml')) {
   config = (await import(configPath)).default;
-/*
-todo: setup these env variables from config like process.env.FOO = "hello";
 
-we need these
-
-'OPENAI_API_KEY', 'PINATA_JWT', 'PINATA_GATEWAY_URL', 'TWITTER_API_KEY', 'TWITTER_API_SECRET'
-*/
+  process.env.OPENAI_API_KEY = config.env.openai_api_key;
+  process.env.PINATA_JWT = config.env.pinata_jwt;
+  process.env.PINATA_GATEWAY_URL = config.env.pinata_gateway_url;
+  process.env.TWITTER_API_KEY = config.env.twitter_api_key;
+  process.env.TWITTER_API_SECRET = config.env.twitter_api_secret;
+  process.env.OPENAI_MODEL = config.env.openai_model;
+  process.env.MORALIS_API_KEY = config.env.moralis_api_key;
 } else {
   console.error('Unsupported config format. Please provide a .toml file.');
   process.exit(1);
@@ -462,7 +461,6 @@ const server = serve({
         const token = authHeader?.split(' ')[1];
         console.log(requestId, "token", token);
     
-        // todo: replace all occurences of reading from process.env - instead to reading from our config as config.server.secret_key
         if (token !== config.server.secret_key) {
           console.log(requestId, "Unauthorized access attempt");
           return new Response("Unauthorized", { status: 403 });
@@ -766,7 +764,6 @@ const server = serve({
           images: [{ key: 'default', value: imageCid }],
         };
 
-        // todo: replace this and other occurences of using legacy config.get into proper reading it from config like config.server.port
         const createAgentResponse = await fetch(`http://localhost:${config.server.port}/createAgent`, {
           method: "POST",
           headers: {
