@@ -109,10 +109,9 @@ try {
 try {
   db.run(`
     CREATE TABLE shared_twitter_accounts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT PRIMARY KEY,
       oauth_token TEXT NOT NULL,
       oauth_token_secret TEXT NOT NULL,
-      user_id TEXT NOT NULL,
       screen_name TEXT NOT NULL,
       usage_count INTEGER DEFAULT 0
     )

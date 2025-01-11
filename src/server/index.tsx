@@ -432,79 +432,67 @@ const server = serve({
       }
     }
 
-  if (req.method === "POST" && path === "/registerSharedAccount") {
-    try {
-      const authHeader = req.headers.get('Authorization');
-      const token = authHeader?.split(' ')[1];
-      console.log(requestId, "token", token);
+    if (req.method === "POST" && path === "/registerSharedAccount") {
+      try {
+        const authHeader = req.headers.get('Authorization');
+        const token = authHeader?.split(' ')[1];
+        console.log(requestId, "token", token);
+    
+        if (token !== process.env.CREATE_AGENT_SECRET) {
+          console.log(requestId, "Unauthorized access attempt");
+          return new Response("Unauthorized", { status: 403 });
+        }
+    
+        const { agent, twitterBot } = await req.json();
+        console.log(requestId, "Received shared account data", { agent, twitterBot });
+    
+        if (!agent?.subdomain || !twitterBot?.oauth_token || !twitterBot?.oauth_token_secret || !twitterBot?.user_id || !twitterBot?.screen_name) {
+          throw 'Missing required fields for shared account registration';
+        }
 
-      if (token !== process.env.CREATE_AGENT_SECRET) {
-        console.log(requestId, "Unauthorized access attempt");
-        return new Response("Unauthorized", { status: 403 });
-      }
-
-      const { agent, twitterBot } = await req.json();
-      console.log(requestId, "Received data", { agent, twitterBot });
-
-      if (!agent?.subdomain || !twitterBot?.oauth_token || !twitterBot?.oauth_token_secret || 
-          !twitterBot?.user_id || !twitterBot?.screen_name) {
-        console.log(requestId, "Missing required fields");
-        return new Response(JSON.stringify({ error: "Missing required fields" }), {
-          status: 400,
+        const transaction = db.transaction(() => {
+          const existingAccount = db.query("SELECT * FROM shared_twitter_accounts WHERE user_id = ?").get(twitterBot.user_id);
+    
+          if (existingAccount) {
+            db.run(
+              "UPDATE shared_twitter_accounts SET oauth_token = ?, oauth_token_secret = ?, screen_name = ? WHERE user_id = ?",
+              twitterBot.oauth_token,
+              twitterBot.oauth_token_secret,
+              twitterBot.screen_name,
+              twitterBot.user_id
+            );
+            console.log(requestId, "Updated existing shared account", twitterBot.screen_name);
+          } else {
+            db.run(
+              "INSERT INTO shared_twitter_accounts (user_id, oauth_token, oauth_token_secret, screen_name, usage_count) VALUES (?, ?, ?, ?, 0)",
+              twitterBot.user_id,
+              twitterBot.oauth_token,
+              twitterBot.oauth_token_secret,
+              twitterBot.screen_name
+            );
+            console.log(requestId, "Inserted new shared account", twitterBot.screen_name);
+          }
+        });
+    
+        transaction();
+    
+        return new Response(JSON.stringify({ 
+          success: true,
+          message: "Shared account registered successfully" 
+        }), {
           headers: { "Content-Type": "application/json" }
         });
-      }
-
-      // Verify agent exists
-      const existingAgent = db.query("SELECT * FROM agents WHERE subdomain = ?").get(agent.subdomain);
-      if (!existingAgent) {
-        console.log(requestId, "Agent not found");
-        return new Response(JSON.stringify({ error: "Agent not found" }), {
-          status: 404,
-          headers: { "Content-Type": "application/json" }
+    
+      } catch (err) {
+        console.log(requestId, "Error registering shared account", err);
+        return new Response(JSON.stringify({ 
+          error: `Failed to register shared account: ${err}` 
+        }), {
+          headers: { "Content-Type": "application/json" },
+          status: 500
         });
       }
-
-      // Check if Twitter account already exists
-      const existingTwitterAccount = db.query(
-        "SELECT * FROM shared_twitter_accounts WHERE user_id = ?"
-      ).get(twitterBot.user_id);
-
-      if (existingTwitterAccount) {
-        console.log(requestId, "Twitter account already registered");
-        return new Response(JSON.stringify({ error: "Twitter account already registered" }), {
-          status: 409,
-          headers: { "Content-Type": "application/json" }
-        });
-      }
-
-      // Insert new shared Twitter account
-      db.run(
-        "INSERT INTO shared_twitter_accounts (user_id, oauth_token, oauth_token_secret, screen_name, usage_count) VALUES (?, ?, ?, ?, ?)",
-        twitterBot.user_id,
-        twitterBot.oauth_token,
-        twitterBot.oauth_token_secret,
-        twitterBot.screen_name,
-        0
-      );
-
-      console.log(requestId, "Shared Twitter account registered successfully");
-
-      return new Response(JSON.stringify({ 
-        message: "Shared Twitter account registered successfully",
-        user_id: twitterBot.user_id
-      }), {
-        headers: { "Content-Type": "application/json" }
-      });
-
-    } catch (err) {
-      console.log(requestId, "Error registering shared account", err);
-      return new Response(JSON.stringify({ error: "Internal server error" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" }
-      });
     }
-  }
 
     if (req.method === "POST" && path === "/createAgent") {
       try {
