@@ -432,35 +432,79 @@ const server = serve({
       }
     }
 
-    /*
-todo: we should implement corresponding endpoint to this invocation
+  if (req.method === "POST" && path === "/registerSharedAccount") {
+    try {
+      const authHeader = req.headers.get('Authorization');
+      const token = authHeader?.split(' ')[1];
+      console.log(requestId, "token", token);
 
-                const agentResponse = await fetch(`http://localhost:${process.env.BUN_PORT}/registerSharedAccount`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${process.env.CREATE_AGENT_SECRET}`
-                    },
-                    body: JSON.stringify({
-                        agent: {
-                            subdomain: context.agentData.subdomain,
-                        },
-                        twitterBot: {
-                            oauth_token: oAuthAccessToken.get('oauth_token'),
-                            oauth_token_secret: oAuthAccessToken.get('oauth_token_secret'),
-                            user_id: oAuthAccessToken.get('user_id'),
-                            screen_name: oAuthAccessToken.get('screen_name')
-                        }
-                    }),
-                });
+      if (token !== process.env.CREATE_AGENT_SECRET) {
+        console.log(requestId, "Unauthorized access attempt");
+        return new Response("Unauthorized", { status: 403 });
+      }
 
-it should insert it into database like this
+      const { agent, twitterBot } = await req.json();
+      console.log(requestId, "Received data", { agent, twitterBot });
 
-          db.run(
-            "INSERT INTO shared_twitter_accounts (oauth_token, oauth_token_secret, user_id, screen_name) VALUES (?, ?, ?, ?)",
-            twitterBot.oauth_token, twitterBot.oauth_token_secret, twitterBot.user_id, twitterBot.screen_name
-          );
-    */
+      if (!agent?.subdomain || !twitterBot?.oauth_token || !twitterBot?.oauth_token_secret || 
+          !twitterBot?.user_id || !twitterBot?.screen_name) {
+        console.log(requestId, "Missing required fields");
+        return new Response(JSON.stringify({ error: "Missing required fields" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+
+      // Verify agent exists
+      const existingAgent = db.query("SELECT * FROM agents WHERE subdomain = ?").get(agent.subdomain);
+      if (!existingAgent) {
+        console.log(requestId, "Agent not found");
+        return new Response(JSON.stringify({ error: "Agent not found" }), {
+          status: 404,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+
+      // Check if Twitter account already exists
+      const existingTwitterAccount = db.query(
+        "SELECT * FROM shared_twitter_accounts WHERE user_id = ?"
+      ).get(twitterBot.user_id);
+
+      if (existingTwitterAccount) {
+        console.log(requestId, "Twitter account already registered");
+        return new Response(JSON.stringify({ error: "Twitter account already registered" }), {
+          status: 409,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+
+      // Insert new shared Twitter account
+      db.run(
+        "INSERT INTO shared_twitter_accounts (user_id, oauth_token, oauth_token_secret, screen_name, usage_count) VALUES (?, ?, ?, ?, ?)",
+        twitterBot.user_id,
+        twitterBot.oauth_token,
+        twitterBot.oauth_token_secret,
+        twitterBot.screen_name,
+        0
+      );
+
+      console.log(requestId, "Shared Twitter account registered successfully");
+
+      return new Response(JSON.stringify({ 
+        message: "Shared Twitter account registered successfully",
+        user_id: twitterBot.user_id
+      }), {
+        headers: { "Content-Type": "application/json" }
+      });
+
+    } catch (err) {
+      console.log(requestId, "Error registering shared account", err);
+      return new Response(JSON.stringify({ error: "Internal server error" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+  }
 
     if (req.method === "POST" && path === "/createAgent") {
       try {
