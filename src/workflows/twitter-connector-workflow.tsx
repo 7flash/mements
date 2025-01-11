@@ -69,12 +69,12 @@ export default {
                     answer: `Please visit this URL to authorize twitter account:\n${authorizeURL.href}\nThen use command /approve <PIN> to complete the setup.`,
                     canBeLong: true,
                     cookies: {
-                        'oauth_token': {
+                        'twitter_oauth_token': {
                             value: oAuthRequestToken.get('oauth_token'),
                             maxAge: 3600,
                             path: '/',
-                            httpOnly: true,
                             secure: true,
+                            httpOnly: true,
                             sameSite: 'Strict'
                         }
                     }
@@ -97,7 +97,7 @@ export default {
             }
 
             try {
-                const oauth_token = context.cookies?.oauth_token;
+                const oauth_token = context.cookies?.twitter_oauth_token;
 
                 if (!oauth_token) {
                     return {
@@ -184,12 +184,12 @@ export default {
                     thinking: "Twitter account successfully connected! I've posted an announcement tweet. Check your Twitter profile to see it!",
                     agent: oAuthAccessToken.get('screen_name'),
                     cookies: {
-                        'oauth_token': {
+                        'twitter_oauth_token': {
                             value: '',
                             maxAge: 0,
                             path: '/',
-                            httpOnly: true,
                             secure: true,
+                            httpOnly: true,
                             sameSite: 'Strict'
                         }
                     }
