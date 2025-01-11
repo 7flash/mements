@@ -828,8 +828,12 @@ const server = serve({
           customInfo: customInfoData?.info ? encodeURIComponent(customInfoData?.info) : '',
 
           /*
-            todo: we should add here and as well in our explore page fields:
+            todo:
+            
+            we should add here and as well in our explore page fields:
             twitterAccount, contractAddress, telegramAccount
+
+            it should simply be taken from config.get
           */
         };
 
@@ -887,7 +891,7 @@ const server = serve({
             })
             .exec({
               agentData
-            }); // todo: into exec we should also pass cookies
+            }); // todo: into exec we should also pass
 
           console.log(requestId, "Workflow result", result);
 
