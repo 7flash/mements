@@ -1,52 +1,40 @@
-import path, { dirname, join, resolve } from "path";
+import path from 'path';
 import { serve, type BunFile } from "bun";
 import ShortUniqueId from "short-unique-id";
 import { Database as BunDatabase } from "bun:sqlite";
 import OAuth from 'oauth-1.0a';
 import { Keypair } from "@solana/web3.js";
 
-/*
-implement config by reading it from a secret .toml file, also avoid using process.env instead always take those variables from config we derive from our toml we can read it just like this for example
+import Files from "./files";
+import constants from './constants.ts'; // those are public and available on frontend
 
-import path from 'path';
 import { parseArgs } from 'util';
 
-async function main() {
-  const args = parseArgs({
-    args: Bun.argv,
-    options: {
-      filePath: {
-        type: 'string',
-      },
+const args = parseArgs({
+  args: Bun.argv,
+  options: {
+    config: {
+      type: 'string', 
+      default: '.config.toml'
     },
-    strict: true,
-    allowPositionals: true,
-  });
+  },
+  strict: true,
+  allowPositionals: true,
+});
 
-  const filePath = path.join(process.cwd(), args.values.filePath!);
-  console.log("filePath ==> ", filePath);
+const configPath = path.join(process.cwd(), args.values.config!);
 
-  const fileContent = await Bun.file(filePath).text();
-
-  let parsedData;
-  if (filePath.endsWith('.toml')) {
-    parsedData = (await import(filePath)).default;
-  } else {
-    console.error('Unsupported file format. Please provide a .toml or .md file.');
-    process.exit(1);
-  }
-
-also, show an example of final .toml config that incorporates mock values for all used in here config.get values (ensure process.env are rewritten to config.get as well)
-
-*/
-import config from './config';
-
-import Files from "./files";
-import constants from './constants.ts';
+let config;
+if (configPath.endsWith('.toml')) {
+  config = (await import(configPath)).default;
+} else {
+  console.error('Unsupported config format. Please provide a .toml file.');
+  process.exit(1);
+}
 
 const files: IFiles = Files.init();
 
-const dbPath = path.join(process.cwd(), 'static/database', `${config.get('DB_NAME')}.sqlite`).trim();
+const dbPath = path.join(process.cwd(), 'static/database', `${config.database.name}.sqlite`).trim();
 
 try {
   await Bun.$`ls ${dbPath}`;
@@ -60,8 +48,8 @@ const db = new BunDatabase(dbPath);
 
 const twitterOauth = new OAuth({
   consumer: {
-    key: process.env.TWITTER_API_KEY!,
-    secret: process.env.TWITTER_API_SECRET!,
+    key: config.twitter.api_key,
+    secret: config.twitter.api_secret,
   },
   signature_method: 'HMAC-SHA1',
   hash_function: (baseString, key) => {
@@ -77,40 +65,40 @@ import buildAssets from './assets';
 
 const assets = await buildAssets({
   logo: {
-    href: "/assets/logo.png",
-    path: join(process.cwd(), "static/images", "logomark.png"),
+    href: "/assets/logo.png", 
+    path: path.join(process.cwd(), "static/images", "logomark.png"),
   },
   favicon: {
     href: "/assets/favicon.ico",
-    path: join(process.cwd(), "static/images", "favicon.ico"),
+    path: path.join(process.cwd(), "static/images", "favicon.ico"), 
   },
   style: {
     href: "/assets/main.css",
-    source: join(import.meta.dir, "../apps/App.css"),
+    source: path.join(import.meta.dir, "../apps/App.css"),
   },
   createAgentApp: {
     href: "/assets/create-agent.js",
-    source: join(import.meta.dir, "../apps/create-agent/index.tsx"),
+    source: path.join(import.meta.dir, "../apps/create-agent/index.tsx"),
   },
   askAgentApp: {
-    href: "/assets/ask-agent.js",
-    source: join(import.meta.dir, "../apps/ask-agent/index.tsx"),
+    href: "/assets/ask-agent.js", 
+    source: path.join(import.meta.dir, "../apps/ask-agent/index.tsx"),
   },
   exploreAgentsApp: {
     href: "/assets/explore-agents.js",
-    source: join(import.meta.dir, "../apps/explore-agents/index.tsx"),
-  },  
+    source: path.join(import.meta.dir, "../apps/explore-agents/index.tsx"),
+  },
   fontSans: {
     href: "/assets/Geist.ttf",
-    path: join(process.cwd(), "static/fonts", "Geist.ttf"),
+    path: path.join(process.cwd(), "static/fonts", "Geist.ttf"),
   },
   fontGeohumanistSans: {
-    href: "/assets/Sen.ttf",
-    path: join(process.cwd(), "static/fonts", "Sen.ttf"),
+    href: "/assets/Sen.ttf", 
+    path: path.join(process.cwd(), "static/fonts", "Sen.ttf"),
   },
   fontMono: {
     href: "/assets/JetBrainsMono.ttf",
-    path: join(process.cwd(), "static/fonts", "JetBrainsMono.ttf"),
+    path: path.join(process.cwd(), "static/fonts", "JetBrainsMono.ttf"),
   },
 });
 
@@ -164,7 +152,8 @@ function htmlTemplate(scriptLink: string, serverData: string = '{}'): string {
 
 let dalleApiKeys: string[] = [];
 try {
-  const keysPath = config.get('DALLE_API_KEYS_PATH');
+  // todo: instead read all the keys values list directly from config
+  const keysPath = config.storage.dalle_keys_path;
   
   const keysFile = Bun.file(path.join(process.cwd(), keysPath));
   const keysContent = await keysFile.text();
@@ -226,6 +215,7 @@ function measureQueryPerformance(requestId: string, queryName: string, queryFn: 
 }
 
 const server = serve({
+  port: config.server.port,
   async fetch(req) {
     const url = new URL(req.url);
     const path = url.pathname;
@@ -455,6 +445,7 @@ const server = serve({
             limit,
             pages: Math.ceil(count / limit)
           },
+          // todo: those three public variables should be read from Constants instead 
           twitterAccount: config.get('TWITTER_ACCOUNT'),
           contractAddress: config.get('CONTRACT_ADDRESS'),
           telegramAccount: config.get('TELEGRAM_ACCOUNT'),
@@ -476,6 +467,7 @@ const server = serve({
         const token = authHeader?.split(' ')[1];
         console.log(requestId, "token", token);
     
+        // todo: replace all occurences of reading from process.env - instead to reading from our config as config.server.secret_key
         if (token !== process.env.CREATE_AGENT_SECRET) {
           console.log(requestId, "Unauthorized access attempt");
           return new Response("Unauthorized", { status: 403 });
@@ -779,6 +771,7 @@ const server = serve({
           images: [{ key: 'default', value: imageCid }],
         };
 
+        // todo: replace this and other occurences of using legacy config.get into proper reading it from config like config.server.port
         const createAgentResponse = await fetch(`http://localhost:${config.get('BUN_PORT')}/createAgent`, {
           method: "POST",
           headers: {
