@@ -1,9 +1,6 @@
 // @ts-nocheck
 import OAuth from 'oauth-1.0a';
-import readline from 'readline';
 import { URL, URLSearchParams } from 'url';
-import path from 'path';
-import { parseArgs } from "util";
 import Query from "uai/src/query";
 
 export default {
@@ -21,7 +18,7 @@ export default {
         return this;
     },
 
-    async exec(context: { subdomain: string, agentData: any }) {
+    async exec(context: { subdomain: string, agentData: any, cookies?: Record<string, string> }) {
         const userMessage = this.fromFields.question || "";
         if (!userMessage.startsWith("/request") && !userMessage.startsWith("/approve")) {
             return {
@@ -35,9 +32,6 @@ export default {
         const requestTokenURL = 'https://api.twitter.com/oauth/request_token?oauth_callback=oob&x_auth_access_type=write';
         const authorizeURL = new URL('https://api.twitter.com/oauth/authorize');
         const accessTokenURL = 'https://api.twitter.com/oauth/access_token';
-        
-        // todo: instead of persisting auth in file, we should persist it in cookies
-        const tokenFilePath = path.join(process.cwd(), 'static', 'tokens/oAuthAccessToken.json');
 
         const oauth = new OAuth({
             consumer: {
@@ -70,37 +64,20 @@ export default {
                 const oAuthRequestToken = new URLSearchParams(body);
                 authorizeURL.searchParams.append('oauth_token', oAuthRequestToken.get('oauth_token'));
 
-                /*
-                
-                todo: do not write to file, instead return our result object that includes cookies, considering its being parsed on invoker side like this and then passed in header to the client:
-
-          if (result?.cookies && typeof result.cookies === 'object') {
-            cookieHeaders = Object.entries(result.cookies).map(([key, value]) => {
-              const options = typeof value === 'object' ? value : { value };
-              const { value: cookieValue, ...cookieOptions } = options;
-              
-              let cookie = `${key}=${cookieValue}`;
-              if (cookieOptions.maxAge) cookie += `; Max-Age=${cookieOptions.maxAge}`;
-              if (cookieOptions.domain) cookie += `; Domain=${cookieOptions.domain}`;
-              if (cookieOptions.path) cookie += `; Path=${cookieOptions.path}`;
-              if (cookieOptions.secure) cookie += '; Secure';
-              if (cookieOptions.httpOnly) cookie += '; HttpOnly';
-              if (cookieOptions.sameSite) cookie += `; SameSite=${cookieOptions.sameSite}`;
-              
-              return cookie;
-            });
-          }  
-                
-                
-                */ 
-                await Bun.write(tokenFilePath, JSON.stringify({
-                    oauth_token: oAuthRequestToken.get('oauth_token')
-                }));
-
                 return {
                     success: true,
                     answer: `Please visit this URL to authorize twitter account:\n${authorizeURL.href}\nThen use command /approve <PIN> to complete the setup.`,
                     canBeLong: true,
+                    cookies: {
+                        'oauth_token': {
+                            value: oAuthRequestToken.get('oauth_token'),
+                            maxAge: 3600,
+                            path: '/',
+                            httpOnly: true,
+                            secure: true,
+                            sameSite: 'Strict'
+                        }
+                    }
                 };
             } catch (error) {
                 return {
@@ -120,25 +97,7 @@ export default {
             }
 
             try {
-/*
-todo: do not read from, instead from cookies object that is passed along in the context along with agentData, its passed like this:
-
-          const cookies = req.headers.get('cookie')?.split(';')
-          .reduce((acc: Record<string, string>, cookie) => {
-            const [key, value] = cookie.trim().split('=');
-            acc[key] = value;
-            return acc;
-          }, {}) || {};          
-// ...
-            .exec({
-              agentData,
-              cookies
-            }); 
-
-*/
-
-                const storedToken = await Bun.file(tokenFilePath).json().catch(() => null);
-                const oauth_token = storedToken?.oauth_token;
+                const oauth_token = context.cookies?.oauth_token;
 
                 if (!oauth_token) {
                     return {
@@ -223,10 +182,20 @@ todo: do not read from, instead from cookies object that is passed along in the 
                 return {
                     success: true,
                     thinking: "Twitter account successfully connected! I've posted an announcement tweet. Check your Twitter profile to see it!",
-                    agent: oAuthAccessToken.get('screen_name')
+                    agent: oAuthAccessToken.get('screen_name'),
+                    cookies: {
+                        'oauth_token': {
+                            value: '',
+                            maxAge: 0,
+                            path: '/',
+                            httpOnly: true,
+                            secure: true,
+                            sameSite: 'Strict'
+                        }
+                    }
                 };
             } catch (error) {
-            console.log("error ==> ", error);
+                console.log("error ==> ", error);
                 return {
                     success: false,
                     thinking: `Failed to complete Twitter authorization: ${error.message}`
