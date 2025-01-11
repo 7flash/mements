@@ -27,6 +27,7 @@ const configPath = path.join(process.cwd(), args.values.config!);
 let config;
 if (configPath.endsWith('.toml')) {
   config = (await import(configPath)).default;
+  console.log("config ==> ", config);
 
   process.env.OPENAI_API_KEY = config.env.openai_api_key;
   process.env.PINATA_JWT = config.env.pinata_jwt;
@@ -56,8 +57,8 @@ const db = new BunDatabase(dbPath);
 
 const twitterOauth = new OAuth({
   consumer: {
-    key: config.twitter.api_key,
-    secret: config.twitter.api_secret,
+    key: config.env.twitter_api_key,
+    secret: config.env.twitter_api_secret,
   },
   signature_method: 'HMAC-SHA1',
   hash_function: (baseString, key) => {
@@ -660,6 +661,9 @@ const server = serve({
             });
           }
 
+          /*
+todo: sometimes it does have a twitterBot and so it means we want to connect this agent to be posting into its own twitter account, and even though here we can override it, now we need to implement a new POST endpoint that invokes this endpoint, but first it checks that agent does not have twitter bot attached yet, and only then proceeds. that endpoint should only accept a shared account id and then unless that shared account id connected to any of agents through twitter_bots, then it should copy auth from that shared account and invoke this endpoint to insert it into twitter_bots aka agent always posting to that account, and it deletes him from shared accounts so its not being used anymore in rotation. 
+          */
           if (twitterBot) {
             const existingTwitterBot = db.query("SELECT * FROM twitter_bots WHERE subdomain = ?").get(agentEntry.subdomain);
             if (existingTwitterBot) {
