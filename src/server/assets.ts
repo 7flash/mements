@@ -1,3 +1,5 @@
+console.log('XXXXXXXXXX')
+
 import { $ } from "bun";
 import type { BunFile } from "bun";
 import { dirname, join, basename, extname } from "path";

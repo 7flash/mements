@@ -1,1 +1,1 @@
-bgrun launch --name=mements-jan11 --directory=$HOME/askuai --command="bun run ./src/server/index.tsx --config=.config.toml"
+bgrun launch --name=mements-jan11 --directory=$HOME/mements --command="bun run ./src/server/index.tsx --config=.config.toml"
