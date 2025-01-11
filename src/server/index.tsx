@@ -5,7 +5,42 @@ import { Database as BunDatabase } from "bun:sqlite";
 import OAuth from 'oauth-1.0a';
 import { Keypair } from "@solana/web3.js";
 
+/*
+implement config by reading it from a secret .toml file, also avoid using process.env instead always take those variables from config we derive from our toml we can read it just like this for example
+
+import path from 'path';
+import { parseArgs } from 'util';
+
+async function main() {
+  const args = parseArgs({
+    args: Bun.argv,
+    options: {
+      filePath: {
+        type: 'string',
+      },
+    },
+    strict: true,
+    allowPositionals: true,
+  });
+
+  const filePath = path.join(process.cwd(), args.values.filePath!);
+  console.log("filePath ==> ", filePath);
+
+  const fileContent = await Bun.file(filePath).text();
+
+  let parsedData;
+  if (filePath.endsWith('.toml')) {
+    parsedData = (await import(filePath)).default;
+  } else {
+    console.error('Unsupported file format. Please provide a .toml or .md file.');
+    process.exit(1);
+  }
+
+also, show an example of final .toml config that incorporates mock values for all used in here config.get values (ensure process.env are rewritten to config.get as well)
+
+*/
 import config from './config';
+
 import Files from "./files";
 import constants from './constants.ts';
 
