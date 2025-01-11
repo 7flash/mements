@@ -6,9 +6,11 @@ import OAuth from 'oauth-1.0a';
 import { Keypair } from "@solana/web3.js";
 
 import Files from "./files";
-import constants from './constants.ts'; // those are public and available on frontend
+import constants from './constants.ts';
 
 import { parseArgs } from 'util';
+
+// todo: write example of .config.toml based on all of config invocation in current file
 
 const args = parseArgs({
   args: Bun.argv,
@@ -27,6 +29,13 @@ const configPath = path.join(process.cwd(), args.values.config!);
 let config;
 if (configPath.endsWith('.toml')) {
   config = (await import(configPath)).default;
+/*
+todo: setup these env variables from config like process.env.FOO = "hello";
+
+we need these
+
+'OPENAI_API_KEY', 'PINATA_JWT', 'PINATA_GATEWAY_URL', 'TWITTER_API_KEY', 'TWITTER_API_SECRET'
+*/
 } else {
   console.error('Unsupported config format. Please provide a .toml file.');
   process.exit(1);
@@ -152,19 +161,10 @@ function htmlTemplate(scriptLink: string, serverData: string = '{}'): string {
 
 let dalleApiKeys: string[] = [];
 try {
-  // todo: instead read all the keys values list directly from config
-  const keysPath = config.storage.dalle_keys_path;
-  
-  const keysFile = Bun.file(path.join(process.cwd(), keysPath));
-  const keysContent = await keysFile.text();
-  
-  dalleApiKeys = keysContent
-    .split('\n')
-    .map(line => line.trim())
-    .filter(line => line && !line.startsWith('#'));
+  dalleApiKeys = config.storage.dalle_api_keys;
 
-  if (!dalleApiKeys.length) {
-    throw new Error('No valid API keys found in keys file');
+  if (!dalleApiKeys?.length) {
+    throw new Error('No valid API keys found in config');
   }
   
   console.log(`Loaded ${dalleApiKeys.length} DALL-E API keys`);
@@ -172,7 +172,6 @@ try {
   console.error('Failed to load DALL-E API keys:', err);
   throw new Error('No DALL-E API keys configured');
 }
-console.log("dalleApiKeys ==> ", dalleApiKeys);
 
 async function tryGenerateImageWithKeys(prompt: string): Promise<string> {
   for (const key of dalleApiKeys) {
@@ -445,10 +444,6 @@ const server = serve({
             limit,
             pages: Math.ceil(count / limit)
           },
-          // todo: those three public variables should be read from Constants instead 
-          twitterAccount: config.get('TWITTER_ACCOUNT'),
-          contractAddress: config.get('CONTRACT_ADDRESS'),
-          telegramAccount: config.get('TELEGRAM_ACCOUNT'),
         };
 
         return new Response(htmlTemplate(assets.getLink('exploreAgentsApp'), JSON.stringify(serverData)), {
@@ -468,7 +463,7 @@ const server = serve({
         console.log(requestId, "token", token);
     
         // todo: replace all occurences of reading from process.env - instead to reading from our config as config.server.secret_key
-        if (token !== process.env.CREATE_AGENT_SECRET) {
+        if (token !== config.server.secret_key) {
           console.log(requestId, "Unauthorized access attempt");
           return new Response("Unauthorized", { status: 403 });
         }
@@ -531,7 +526,7 @@ const server = serve({
         const token = authHeader?.split(' ')[1];
         console.log(requestId, "token", token);
 
-        if (token !== process.env.CREATE_AGENT_SECRET) {
+        if (token !== config.server.secret_key) {
           console.log(requestId, "Unauthorized access attempt");
           return new Response("Unauthorized", { status: 403 });
         }
@@ -772,11 +767,11 @@ const server = serve({
         };
 
         // todo: replace this and other occurences of using legacy config.get into proper reading it from config like config.server.port
-        const createAgentResponse = await fetch(`http://localhost:${config.get('BUN_PORT')}/createAgent`, {
+        const createAgentResponse = await fetch(`http://localhost:${config.server.port}/createAgent`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${process.env.CREATE_AGENT_SECRET}`,
+            "Authorization": `Bearer ${config.server.secret_key}`,
           },
           body: JSON.stringify(agentPayload),
         });
@@ -857,9 +852,6 @@ const server = serve({
           links: linksData,
           agentImages,
           customInfo: customInfoData?.info ? encodeURIComponent(customInfoData?.info) : '',
-          twitterAccount: config.get('TWITTER_ACCOUNT'),
-          contractAddress: config.get('CONTRACT_ADDRESS'),
-          telegramAccount: config.get('TELEGRAM_ACCOUNT'),
         };
 
         if (path == "/") {
@@ -1098,11 +1090,7 @@ const server = serve({
     }
 
     if (path === "/" || path === "/create" || path === "/success") {
-      return new Response(htmlTemplate(assets.getLink('createAgentApp'), JSON.stringify({
-        twitterAccount: config.get('TWITTER_ACCOUNT'),
-        contractAddress: config.get('CONTRACT_ADDRESS'),
-        telegramAccount: config.get('TELEGRAM_ACCOUNT')
-    })), {
+      return new Response(htmlTemplate(assets.getLink('createAgentApp')), {
         headers: { "content-type": "text/html" }
       });
     }

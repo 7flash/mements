@@ -28,13 +28,7 @@ interface IAssets {
 
 type AssetName = keyof typeof assets;
 
-type IConstants = { BASE_URL: string };
-
-interface IConfig {
-  get(key: ConfigKeys): string;
-}
-
-type ConfigKeys = 'DB_NAME' | 'BUN_PORT' | 'OPENAI_API_KEY' | 'PINATA_JWT' | 'PINATA_GATEWAY_URL' | 'TWITTER_API_KEY' | 'TWITTER_API_SECRET' | 'BASE_URL' | 'CREATE_AGENT_SECRET' | 'DALLE_API_KEYS_PATH';
+type IConstants = { BASE_URL: string, TWITTER_ACCOUNT: string, CONTRACT_ADDRESS: string, TELEGRAM_ACCOUNT: string };
 
 type Wallet = {
   subdomain: string;
