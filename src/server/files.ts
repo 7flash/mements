@@ -1,5 +1,4 @@
 import { PinataSDK } from "pinata";
-import Config from "./config";
 
 import ShortUniqueId from "short-unique-id";
 const { randomUUID } = new ShortUniqueId({ length: 10 });
@@ -10,8 +9,8 @@ export default class Files implements IFiles {
 
   private constructor() {
     this.pinata = new PinataSDK({
-      pinataJwt: Config.get('PINATA_JWT'),
-      pinataGateway: Config.get('PINATA_GATEWAY_URL'),
+      pinataJwt: process.env.PINATA_JWT,
+      pinataGateway: process.env.PINATA_GATEWAY_URL,
     });
     this.urlCache = new Map();
   }
