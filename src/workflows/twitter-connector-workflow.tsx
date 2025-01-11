@@ -39,6 +39,11 @@ export default {
         const accessTokenURL = 'https://api.twitter.com/oauth/access_token';
         const tokenFilePath = path.join(process.cwd(), 'static', 'tokens/oAuthAccessToken.json');
 
+        /*
+todo: we should consider whether its fine to reinit OAuth here every time or we should take out of this function scope
+
+keep in mind this file is invoked with dynamic import
+        */
         const oauth = new OAuth({
             consumer: {
                 key: consumer_key,
