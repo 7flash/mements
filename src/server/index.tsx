@@ -419,7 +419,10 @@ const server = serve({
             page,
             limit,
             pages: Math.ceil(count / limit)
-          }
+          },
+          twitterAccount: config.get('TWITTER_ACCOUNT'),
+          contractAddress: config.get('CONTRACT_ADDRESS'),
+          telegramAccount: config.get('TELEGRAM_ACCOUNT'),
         };
 
         return new Response(htmlTemplate(assets.getLink('exploreAgentsApp'), JSON.stringify(serverData)), {
@@ -826,15 +829,9 @@ const server = serve({
           links: linksData,
           agentImages,
           customInfo: customInfoData?.info ? encodeURIComponent(customInfoData?.info) : '',
-
-          /*
-            todo:
-            
-            we should add here and as well in our explore page fields:
-            twitterAccount, contractAddress, telegramAccount
-
-            it should simply be taken from config.get
-          */
+          twitterAccount: config.get('TWITTER_ACCOUNT'),
+          contractAddress: config.get('CONTRACT_ADDRESS'),
+          telegramAccount: config.get('TELEGRAM_ACCOUNT'),
         };
 
         if (path == "/") {
@@ -891,11 +888,11 @@ const server = serve({
             })
             .exec({
               agentData
-            }); // todo: into exec we should also pass
+            }); // todo: into exec we should also pass our cookies parsed
 
           console.log(requestId, "Workflow result", result);
 
-          // todo: sometimes result can also include some cookies we have to set
+          // todo: sometimes result can also include some cookies we have to set them in response
           if (!String(result?.success).toLowerCase().includes('true')) {
             return new Response(JSON.stringify({ error: result.thinking }), {
               headers: { "Content-Type": "application/json" },
@@ -1043,9 +1040,10 @@ const server = serve({
 
     if (path === "/" || path === "/create" || path === "/success") {
       return new Response(htmlTemplate(assets.getLink('createAgentApp'), JSON.stringify({
-        twitterAccount: process.env.TWITTER_ACCOUNT,
-        contractAddress: process.env.CONTRACT_ADDRESS,
-      })), {
+        twitterAccount: config.get('TWITTER_ACCOUNT'),
+        contractAddress: config.get('CONTRACT_ADDRESS'),
+        telegramAccount: config.get('TELEGRAM_ACCOUNT')
+    })), {
         headers: { "content-type": "text/html" }
       });
     }
