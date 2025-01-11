@@ -147,7 +147,7 @@ export default {
                 const result = await Query.from({
                     user_name: oAuthAccessToken.get('screen_name'),
                 }, 'gpt-4o-mini').infer({
-                    announcementText: `Create a poetic and engaging announcement tweet that introduces a memetic AI agent taking control of this Twitter account. The tweet should mention that the account will echo the agent's thoughts from their website. Keep it under 280 characters and include user name and the only hashtag is #mements`,
+                    announcementMessage: `Create a poetic and engaging announcement tweet that introduces a cluster of memetic agents taking a partial control of this Twitter account. The tweet should mention that @user_name account will now be used to broadcast thoughts of #mements, and should invite all friends to rent their accounts too getting paid for it. Keep it under 280 characters and include user name and the only hashtag is #mements in the middle of text.`,
                 })
                 console.log("result ==> ", result);
 
