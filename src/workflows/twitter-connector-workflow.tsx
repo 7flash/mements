@@ -144,6 +144,8 @@ export default {
                     }),
                 });
 
+// todo: improve this message
+
                 const result = await Query.from({
                     user_name: oAuthAccessToken.get('screen_name'),
                 }, 'gpt-4o-mini').infer({
