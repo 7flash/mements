@@ -875,6 +875,13 @@ const server = serve({
           const data = await req.json();
           console.log(requestId, "Received question", data.content);
 
+          const cookies = req.headers.get('cookie')?.split(';')
+          .reduce((acc: Record<string, string>, cookie) => {
+            const [key, value] = cookie.trim().split('=');
+            acc[key] = value;
+            return acc;
+          }, {}) || {};          
+
           const { default: workflowFn } = await import(`../workflows/${agentData.workflow || "basic-structured-workflow"}.tsx`);
 
           const result = await workflowFn
@@ -887,12 +894,12 @@ const server = serve({
               answer: 'twitter post, should not contain hash tags, nor double quotes or other special symbols'
             })
             .exec({
-              agentData
-            }); // todo: into exec we should also pass our cookies parsed
+              agentData,
+              cookies
+            }); 
 
           console.log(requestId, "Workflow result", result);
 
-          // todo: sometimes result can also include some cookies we have to set them in response
           if (!String(result?.success).toLowerCase().includes('true')) {
             return new Response(JSON.stringify({ error: result.thinking }), {
               headers: { "Content-Type": "application/json" },
@@ -1025,10 +1032,34 @@ const server = serve({
           chatInsertQuery.run(responseData.chatId, responseData.question, responseData.content, responseData.subdomain, responseData.timestamp, responseData.twitterPostLink);
 
           console.log(requestId, "Response stored in database", responseData);
+
+          let cookieHeaders: string[] = [];
+          if (result?.cookies && typeof result.cookies === 'object') {
+            cookieHeaders = Object.entries(result.cookies).map(([key, value]) => {
+              const options = typeof value === 'object' ? value : { value };
+              const { value: cookieValue, ...cookieOptions } = options;
+              
+              let cookie = `${key}=${cookieValue}`;
+              if (cookieOptions.maxAge) cookie += `; Max-Age=${cookieOptions.maxAge}`;
+              if (cookieOptions.domain) cookie += `; Domain=${cookieOptions.domain}`;
+              if (cookieOptions.path) cookie += `; Path=${cookieOptions.path}`;
+              if (cookieOptions.secure) cookie += '; Secure';
+              if (cookieOptions.httpOnly) cookie += '; HttpOnly';
+              if (cookieOptions.sameSite) cookie += `; SameSite=${cookieOptions.sameSite}`;
+              
+              return cookie;
+            });
+          }  
+
           return new Response(JSON.stringify(responseData), {
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+              "Content-Type": "application/json",
+              ...(cookieHeaders.length && {
+                "Set-Cookie": cookieHeaders
+              })
+            },
           });
-        } catch (err) {
+          } catch (err) {
           console.log(requestId, "Error generating response", err);
           return new Response(JSON.stringify({ error: `${err}` }), {
             headers: { "Content-Type": "application/json" },
