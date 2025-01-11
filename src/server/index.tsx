@@ -13,6 +13,8 @@ const files: IFiles = Files.init();
 
 const dbPath = path.join(process.cwd(), 'static/database', `${config.get('DB_NAME')}.sqlite`).trim();
 
+// todo: since we are going to support round-robin load balancing across two cpus of our server, if that makes sense right, therefore we should check environment if this one is mastere instance and only then init database, build assets, etc and actually unless it is a master instance then we should not even expose any endpoints writing to database, because only one process can have writer sqlite connection, and others are read-only serving assets and api endpoints which are not writing to databaes only reading 
+
 try {
   await Bun.$`ls ${dbPath}`;
 } catch (err) {
@@ -826,6 +828,11 @@ const server = serve({
           links: linksData,
           agentImages,
           customInfo: customInfoData?.info ? encodeURIComponent(customInfoData?.info) : '',
+
+          /*
+            todo: we should add here and as well in our explore page fields:
+            twitterAccount, contractAddress, telegramAccount
+          */
         };
 
         if (path == "/") {
