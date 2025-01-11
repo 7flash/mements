@@ -925,7 +925,23 @@ it should insert it into database like this
                 user_id: sharedBot.user_id,
                 screen_name: sharedBot.screen_name
               };
-          
+
+/*
+todo: fix our table initialization
+
+  db.run(`
+    CREATE TABLE shared_twitter_accounts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      oauth_token TEXT NOT NULL,
+      oauth_token_secret TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      screen_name TEXT NOT NULL,
+      usage_count INTEGER DEFAULT 0
+    )
+  `);
+
+it should have its user_id as primary key
+*/
               db.run(
                 "UPDATE shared_twitter_accounts SET usage_count = usage_count + 1 WHERE id = ?",
                 sharedBot.id

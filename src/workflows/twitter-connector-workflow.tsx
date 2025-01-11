@@ -77,8 +77,7 @@ export default {
 
                 return {
                     success: true,
-                    thinking: `Please visit this URL to authorize the application: ${authorizeURL.href}\nThen use /approve <PIN> to complete the setup.`,
-                    oauth_token: oAuthRequestToken.get('oauth_token')
+                    answer: `Please visit this URL to authorize the application: ${authorizeURL.href}\nThen use /approve <PIN> to complete the setup.`,
                 };
             } catch (error) {
                 return {
