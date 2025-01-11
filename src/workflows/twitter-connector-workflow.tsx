@@ -1,6 +1,4 @@
 // @ts-nocheck
-import React from "react";
-import executePrompt from "uai/src/uai.ts";
 import OAuth from 'oauth-1.0a';
 import readline from 'readline';
 import { URL, URLSearchParams } from 'url';
@@ -39,11 +37,6 @@ export default {
         const accessTokenURL = 'https://api.twitter.com/oauth/access_token';
         const tokenFilePath = path.join(process.cwd(), 'static', 'tokens/oAuthAccessToken.json');
 
-        /*
-todo: we should consider whether its fine to reinit OAuth here every time or we should take out of this function scope
-
-keep in mind this file is invoked with dynamic import
-        */
         const oauth = new OAuth({
             consumer: {
                 key: consumer_key,
@@ -75,14 +68,14 @@ keep in mind this file is invoked with dynamic import
                 const oAuthRequestToken = new URLSearchParams(body);
                 authorizeURL.searchParams.append('oauth_token', oAuthRequestToken.get('oauth_token'));
 
-                // todo: we probably dont need to persist it in file just in variable
                 await Bun.write(tokenFilePath, JSON.stringify({
                     oauth_token: oAuthRequestToken.get('oauth_token')
                 }));
 
                 return {
                     success: true,
-                    answer: `Please visit this URL to authorize the application: ${authorizeURL.href}\nThen use /approve <PIN> to complete the setup.`,
+                    answer: `Please visit this URL to authorize twitter account:\n${authorizeURL.href}\nThen use command /approve <PIN> to complete the setup.`,
+                    canBeLong: true,
                 };
             } catch (error) {
                 return {
@@ -191,6 +184,7 @@ keep in mind this file is invoked with dynamic import
                     agent: oAuthAccessToken.get('screen_name')
                 };
             } catch (error) {
+            console.log("error ==> ", error);
                 return {
                     success: false,
                     thinking: `Failed to complete Twitter authorization: ${error.message}`

@@ -887,10 +887,11 @@ const server = serve({
             })
             .exec({
               agentData
-            });
+            }); // todo: into exec we should also pass cookies
 
           console.log(requestId, "Workflow result", result);
 
+          // todo: sometimes result can also include some cookies we have to set
           if (!String(result?.success).toLowerCase().includes('true')) {
             return new Response(JSON.stringify({ error: result.thinking }), {
               headers: { "Content-Type": "application/json" },
@@ -898,9 +899,9 @@ const server = serve({
             });
           }
 
-          result.answer = result.answer.replaceAll('\n', '').trim();
+          result.answer = result.answer.trim();
 
-          if (result?.answer?.length > 280) {
+          if (result?.answer?.length > 280 && !result?.canBeLong) {
               const shorterResult = await uai.from({
                 longerPost: result.answer
               }).to({
@@ -963,22 +964,6 @@ const server = serve({
                 screen_name: sharedBot.screen_name
               };
 
-/*
-todo: fix our table initialization
-
-  db.run(`
-    CREATE TABLE shared_twitter_accounts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      oauth_token TEXT NOT NULL,
-      oauth_token_secret TEXT NOT NULL,
-      user_id TEXT NOT NULL,
-      screen_name TEXT NOT NULL,
-      usage_count INTEGER DEFAULT 0
-    )
-  `);
-
-it should have its user_id as primary key
-*/
               db.run(
                 "UPDATE shared_twitter_accounts SET usage_count = usage_count + 1 WHERE id = ?",
                 sharedBot.id
