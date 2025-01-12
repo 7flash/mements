@@ -79,7 +79,11 @@ type ApprovedUser = {
                   chat_id: telegramBot.group_id,
                   photo: imageUrl,
                   caption: verificationMessage,
-                  reply_to_message_id: data.messageId // todo: ensure its not a message from user but its that notification that someone joined a chat
+                  reply_to_message_id: data.messageId, // todo: ensure its not a message from user but its that notification that someone joined a chat
+                  reply_markup: {
+                    force_reply: true,
+                    selective: true
+                  }    
                 })
               });
   
@@ -139,3 +143,19 @@ type ApprovedUser = {
           } else {
             throw "Incorrect answer - please try again in 15 minutes";
           }
+
+// todo: ensure tables initialized synced with structure we actually use
+```sql
+CREATE TABLE IF NOT EXISTS user_approvals (
+  user_id TEXT PRIMARY KEY,
+  approved INTEGER DEFAULT 0,
+  last_attempt TEXT
+);
+
+CREATE TABLE IF NOT EXISTS user_verifications (
+  user_id TEXT PRIMARY KEY,
+  agent_subdomain TEXT,
+  timestamp TEXT,
+  FOREIGN KEY(agent_subdomain) REFERENCES agents(subdomain)
+);
+```
