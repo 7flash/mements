@@ -711,15 +711,19 @@ const server = serve({
         async function notifyBotCreation() {
           if (config.telegram?.bot_token && config.telegram?.group_id) {
             const imageQuery = db.query<Image, { $subdomain: string }>("SELECT imageCid FROM images WHERE subdomain = $subdomain AND image_key = 'default'");
-            const imageData = imageQuery.get({ $subdomain: agentData.subdomain });
+            const imageData = imageQuery.get({ $subdomain: agentEntry.subdomain });
+            console.log("imageData ==> ", imageData);
             
             let imageUrl = '';
             if (imageData?.imageCid) {
               imageUrl = await files.getUrl(imageData.imageCid, 3600);
+              console.log("imageUrl ==> ", imageUrl);
             }
           
-            const agentLink = `https://${agentData.subdomain}.${constants.BASE_URL}`;
-            const telegramMessage = `🤖 New Agent Created!\n\nName: ${agentData.name}\nLink: ${agentLink}\n${imageUrl ? `\nAvatar: ${imageUrl}` : ''}`;
+            // TODO: MOST IMPORTANT TASK: make it to send actual image not just url
+            const agentLink = `https://${agentEntry.subdomain}.${constants.BASE_URL}`;
+            const telegramMessage = `🤖 New Agent Created!\n\nName: ${agentEntry.name}\nLink: ${agentLink}\n${imageUrl ? `\nAvatar: ${imageUrl}` : ''}`;
+            console.log("telegramMessage ==> ", telegramMessage);
           
             const telegramApiUrl = `https://api.telegram.org/bot${config.telegram.bot_token}/sendMessage`;
             const messageBody = {
@@ -728,14 +732,14 @@ const server = serve({
               parse_mode: 'HTML'
             };
           
-            fetch(telegramApiUrl, {
+            await fetch(telegramApiUrl, {
               method: "POST", 
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(messageBody)
-            }).catch(console.error);
+            })
           }
         }
-        notifyBotCreation();
+        notifyBotCreation().catch(err => console.log("Error notifying bot creation", err));
 
         return new Response(JSON.stringify(agentEntry), {
           headers: { "Content-Type": "application/json" },
