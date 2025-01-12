@@ -174,6 +174,37 @@ Reply with the name of the AI agent shown in the image to get verified.
   }
 
   private async sendSuccessMessage(userId: string, originalMessageId: number) {
+/*
+todo: original message must actually be restored, it can be done through actual Telegram API MtProto, here is the method to use:
+
+messages.restoreMessages
+Restores recently deleted messages.
+
+{scheme}
+
+Params
+id	Vector<int>	Message ID list
+Result
+The method returns the list of successfully restored messages in Vector<int>.
+
+also, we still should actually show original message here in the message:
+
+      const successMessage = `✅ Verification successful! You can now interact with our agents.${
+        approvedUser.original_message ? 
+        '\n\nYour original message was:\n' + approvedUser.original_message :
+        ''
+      }`;
+
+therefore message itself should be stored along with its id
+
+  public async storeOriginalMessage(userId: string, message: string) {
+    this.db.prepare(`
+      UPDATE approved_users
+      SET original_message = ?
+      WHERE telegram_user_id = ?
+    `).run(message, userId);
+  }
+*/
     const message = `✅ Verification successful! Your original message has been restored.`;
     await this.sendMessage(message);
   }
@@ -189,6 +220,7 @@ Reply with the name of the AI agent shown in the image to get verified.
     `).get(userId);
   }
 
+  // todo: throw "Incorrect answer - please try again in 15 minutes";
   private getLastVerificationAttempt(userId: string): string | null {
     const result = this.db.prepare(`
       SELECT last_verification_attempt FROM approved_users WHERE telegram_user_id = ?
