@@ -1021,7 +1021,7 @@ now please make it the way its always posting to agent's own account, and THEN i
               const twitterResponseData = await twitterResponse.json();
               console.log(requestId, "Original tweet response", twitterResponseData);
           
-              if (!twitterResponseData.data) {
+              if (!twitterResponseData.data?.id) {
                 throw `Failed to post original tweet: ${JSON.stringify(twitterResponseData)}`;
               }
           
