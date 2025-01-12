@@ -456,23 +456,6 @@ const server = serve({
       }
     }
 
-    /*
-
-    todo: shared accounts only do retweets of existing posts or rather doing a quote which is like a retweet but also adding its own "#mements #lmxai" text as a comment
-
-so it should use retweets endpoint instead
-
-const id = "your-user-id";
-const data = {
-  "tweet_id": "1412865600439738368"
-}
-const endpointURL = `https://api.twitter.com/2/users/${id}/retweets`;
-
-so again, currently when agent does not have its own account, its posting to one from pool of shared accounts, which is wrong.
-
-now please make it the way its always posting to agent's own account, and THEN its making a retweet to one of those accounts available in a pool
-
-    */
     if (req.method === "POST" && path === "/registerSharedAccount") {
       try {
         const authHeader = req.headers.get('Authorization');
