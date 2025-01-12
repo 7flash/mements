@@ -708,6 +708,35 @@ const server = serve({
         const agentEntry = transaction();
         console.log(requestId, "Agent created", agentEntry);
 
+        async function notifyBotCreation() {
+          if (config.telegram?.bot_token && config.telegram?.group_id) {
+            const imageQuery = db.query<Image, { $subdomain: string }>("SELECT imageCid FROM images WHERE subdomain = $subdomain AND image_key = 'default'");
+            const imageData = imageQuery.get({ $subdomain: agentData.subdomain });
+            
+            let imageUrl = '';
+            if (imageData?.imageCid) {
+              imageUrl = await files.getUrl(imageData.imageCid, 3600);
+            }
+          
+            const agentLink = `https://${agentData.subdomain}.${constants.BASE_URL}`;
+            const telegramMessage = `🤖 New Agent Created!\n\nName: ${agentData.name}\nLink: ${agentLink}\n${imageUrl ? `\nAvatar: ${imageUrl}` : ''}`;
+          
+            const telegramApiUrl = `https://api.telegram.org/bot${config.telegram.bot_token}/sendMessage`;
+            const messageBody = {
+              chat_id: config.telegram.group_id,
+              text: telegramMessage,
+              parse_mode: 'HTML'
+            };
+          
+            fetch(telegramApiUrl, {
+              method: "POST", 
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(messageBody)
+            }).catch(console.error);
+          }
+        }
+        notifyBotCreation();
+
         return new Response(JSON.stringify(agentEntry), {
           headers: { "Content-Type": "application/json" },
         });
