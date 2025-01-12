@@ -1134,3 +1134,4 @@ console.log(`🌐 Server is running on http://localhost:${server.port} 🚀`);
 
 process.env.PORT = `${server.port}`;
 process.env.VERBOSE = "true";
+process.env.CREATE_AGENT_SECRET = `${config.server.secret_key}`;

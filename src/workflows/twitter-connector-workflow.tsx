@@ -149,7 +149,7 @@ export default {
                 }, 'gpt-4o-mini').infer({
                     announcementMessage: `Create a poetic and engaging announcement tweet that introduces a cluster of memetic agents taking a partial control of this Twitter account. The tweet should mention that @user_name account will now be used to broadcast thoughts of #mements, and should invite all friends to rent their accounts too getting paid for it. Keep it under 280 characters and include user name and the only hashtag is #mements in the middle of text.`,
                 })
-                console.log("result ==> ", result);
+                console.log("twitter-connector ==> ", result);
 
                 if (result.announcementMessage) {
                     const announcementText = result.announcementMessage;
@@ -193,7 +193,7 @@ export default {
                     isTerminal: true,
                 };
             } catch (error) {
-                console.log("error ==> ", error);
+                console.log("twitter-connector ==> ", error);
                 return {
                     success: false,
                     thinking: `Failed to complete Twitter authorization: ${error.message}`
