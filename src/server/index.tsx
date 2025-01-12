@@ -458,7 +458,7 @@ const server = serve({
 
     /*
 
-todo: shared accounts only do retweets of existing posts or rather doing a quote which is like a retweet but also adding its own "#mements #lmxai" text as a comment
+    todo: shared accounts only do retweets of existing posts or rather doing a quote which is like a retweet but also adding its own "#mements #lmxai" text as a comment
 
 so it should use retweets endpoint instead
 
@@ -983,51 +983,30 @@ now please make it the way its always posting to agent's own account, and THEN i
           let twitterPostLink = null;
           if (!result.isTerminal) {
             try {
+              // Get agent's own Twitter account
               const twitterBotQuery = db.query<TwitterBot, { $subdomain: string }>(
                 "SELECT oauth_token, oauth_token_secret, user_id, screen_name FROM twitter_bots WHERE subdomain = $subdomain"
               );
-              let twitterBotData = twitterBotQuery.get({ $subdomain: agentData.subdomain });
-            
-              if (!twitterBotData) {
-                const sharedBotQuery = db.query(`
-                  SELECT * FROM shared_twitter_accounts 
-                  ORDER BY usage_count ASC 
-                  LIMIT 1
-                `);
-                const sharedBot = sharedBotQuery.get();
-            
-                if (!sharedBot) {
-                  throw `No Twitter account available for ${agentData.subdomain}, falling back to web post`;
-                }
-            
-                twitterBotData = {
-                  subdomain: agentData.subdomain,
-                  oauth_token: sharedBot.oauth_token,
-                  oauth_token_secret: sharedBot.oauth_token_secret,
-                  user_id: sharedBot.user_id,
-                  screen_name: sharedBot.screen_name
-                };
-
-                db.run(
-                  "UPDATE shared_twitter_accounts SET usage_count = usage_count + 1 WHERE user_id = ?",
-                  sharedBot.user_id
-                );
+              const agentTwitterBot = twitterBotQuery.get({ $subdomain: agentData.subdomain });
+          
+              if (!agentTwitterBot) {
+                throw `No Twitter account configured for ${agentData.subdomain}, falling back to web post`;
               }
-            
+          
+              // Post tweet from agent's account
               const twitterEndpointURL = 'https://api.twitter.com/2/tweets';
               const tweetData = { text: result.answer };
-
+          
               const token = {
-                key: twitterBotData.oauth_token,
-                secret: twitterBotData.oauth_token_secret
+                key: agentTwitterBot.oauth_token,
+                secret: agentTwitterBot.oauth_token_secret
               };
-
+          
               const authHeader = twitterOauth.toHeader(twitterOauth.authorize({
                 url: twitterEndpointURL,
                 method: 'POST',
               }, token));
-              console.log(requestId, "authHeader", authHeader);
-
+          
               const twitterResponse = await fetch(twitterEndpointURL, {
                 method: 'POST',
                 headers: {
@@ -1038,21 +1017,72 @@ now please make it the way its always posting to agent's own account, and THEN i
                 },
                 body: JSON.stringify(tweetData)
               });
-
+          
               const twitterResponseData = await twitterResponse.json();
-              console.log(requestId, "twitterResponseData", twitterResponseData);
-
+              console.log(requestId, "Original tweet response", twitterResponseData);
+          
               if (!twitterResponseData.data) {
-                throw `Failed to post on Twitter, fallback to web post`;
+                throw `Failed to post original tweet: ${JSON.stringify(twitterResponseData)}`;
               }
-
+          
               const tweetId = twitterResponseData.data.id;
-              twitterPostLink = `https://twitter.com/${twitterBotData.screen_name}/status/${tweetId}`;
-              console.log(requestId, "Tweet posted successfully", twitterPostLink);
+              twitterPostLink = `https://twitter.com/${agentTwitterBot.screen_name}/status/${tweetId}`;
+              console.log(requestId, "Original tweet posted successfully", twitterPostLink);
+          
+              // Get a shared account to retweet
+              const sharedBotQuery = db.query(`
+                SELECT * FROM shared_twitter_accounts 
+                ORDER BY usage_count ASC 
+                LIMIT 1
+              `);
+              const sharedBot = sharedBotQuery.get();
+          
+              if (sharedBot) {
+                // Retweet from shared account
+                const retweetEndpointURL = `https://api.twitter.com/2/users/${sharedBot.user_id}/retweets`;
+                const retweetData = { tweet_id: tweetId };
+          
+                const retweetToken = {
+                  key: sharedBot.oauth_token,
+                  secret: sharedBot.oauth_token_secret
+                };
+          
+                const retweetAuthHeader = twitterOauth.toHeader(twitterOauth.authorize({
+                  url: retweetEndpointURL,
+                  method: 'POST',
+                }, retweetToken));
+          
+                const retweetResponse = await fetch(retweetEndpointURL, {
+                  method: 'POST',
+                  headers: {
+                    Authorization: retweetAuthHeader["Authorization"],
+                    'user-agent': "v2RetweetJS",
+                    'Content-Type': "application/json",
+                    'Accept': "application/json"
+                  },
+                  body: JSON.stringify(retweetData)
+                });
+          
+                const retweetResponseData = await retweetResponse.json();
+                console.log(requestId, "Retweet response", retweetResponseData);
+          
+                if (retweetResponseData.data) {
+                  db.run(
+                    "UPDATE shared_twitter_accounts SET usage_count = usage_count + 1 WHERE user_id = ?",
+                    sharedBot.user_id
+                  );
+                  console.log(requestId, "Retweeted successfully from shared account", sharedBot.screen_name);
+                } else {
+                  console.log(requestId, "Failed to retweet from shared account", retweetResponseData);
+                }
+              } else {
+                console.log(requestId, "No shared accounts available for retweeting");
+              }
+          
             } catch (err) {
-              console.log(requestId, "Error posting to Twitter, continuing with web post", err);
+              console.log(requestId, "Error in Twitter workflow", err);
             }
-          }
+          }          
 
           const responseData: Chat = {
             chatId: randomUUIDForChat(),
