@@ -456,6 +456,23 @@ const server = serve({
       }
     }
 
+    /*
+
+todo: shared accounts only do retweets of existing posts or rather doing a quote which is like a retweet but also adding its own "#mements #lmxai" text as a comment
+
+so it should use retweets endpoint instead
+
+const id = "your-user-id";
+const data = {
+  "tweet_id": "1412865600439738368"
+}
+const endpointURL = `https://api.twitter.com/2/users/${id}/retweets`;
+
+so again, currently when agent does not have its own account, its posting to one from pool of shared accounts, which is wrong.
+
+now please make it the way its always posting to agent's own account, and THEN its making a retweet to one of those accounts available in a pool
+
+    */
     if (req.method === "POST" && path === "/registerSharedAccount") {
       try {
         const authHeader = req.headers.get('Authorization');
@@ -661,9 +678,6 @@ const server = serve({
             });
           }
 
-          /*
-todo: sometimes it does have a twitterBot and so it means we want to connect this agent to be posting into its own twitter account, and even though here we can override it, now we need to implement a new POST endpoint that invokes this endpoint, but first it checks that agent does not have twitter bot attached yet, and only then proceeds. that endpoint should only accept a shared account id and then unless that shared account id connected to any of agents through twitter_bots, then it should copy auth from that shared account and invoke this endpoint to insert it into twitter_bots aka agent always posting to that account, and it deletes him from shared accounts so its not being used anymore in rotation. 
-          */
           if (twitterBot) {
             const existingTwitterBot = db.query("SELECT * FROM twitter_bots WHERE subdomain = ?").get(agentEntry.subdomain);
             if (existingTwitterBot) {
