@@ -155,20 +155,20 @@ export default {
                     const announcementText = result.announcementMessage;
 
                     try {
-                        await fetch('https://api.twitter.com/2/tweets', {
-                            method: 'POST',
-                            headers: {
-                                Authorization: oauth.toHeader(oauth.authorize({
-                                    url: 'https://api.twitter.com/2/tweets',
-                                    method: 'POST'
-                                }, {
-                                    key: oAuthAccessToken.get('oauth_token'),
-                                    secret: oAuthAccessToken.get('oauth_token_secret')
-                                }))["Authorization"],
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({ text: announcementText })
-                        });
+                        // await fetch('https://api.twitter.com/2/tweets', {
+                        //     method: 'POST',
+                        //     headers: {
+                        //         Authorization: oauth.toHeader(oauth.authorize({
+                        //             url: 'https://api.twitter.com/2/tweets',
+                        //             method: 'POST'
+                        //         }, {
+                        //             key: oAuthAccessToken.get('oauth_token'),
+                        //             secret: oAuthAccessToken.get('oauth_token_secret')
+                        //         }))["Authorization"],
+                        //         'Content-Type': 'application/json',
+                        //     },
+                        //     body: JSON.stringify({ text: announcementText })
+                        // });
                     } catch (err) {
                         console.log('FAILED to broadcast announcement message', err);
                     }

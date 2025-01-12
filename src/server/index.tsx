@@ -455,6 +455,7 @@ const server = serve({
       }
     }
 
+    // todo: should avoid reposting from the same shared account more often than once per day per same agent
     if (req.method === "POST" && path === "/registerSharedAccount") {
       try {
         const authHeader = req.headers.get('Authorization');
@@ -939,7 +940,9 @@ const server = serve({
               result.answer = `${shorterResult?.shorterPost}`.replaceAll('\n', '').trim();
             }
           }
+          
 
+          // todo: if agent does not have his own bot, then it should use a specific sahred bot token from config and include both question and answer in the message and link to the chat. also every time a new agent is created, it should send message to telegram group including its name, link, and image.
           const telegramBotData = measureQueryPerformance(requestId, "fetch-telegram-bot", () => {
             const telegramBotQuery = db.query<TelegramBot, { $subdomain: string }>(
               "SELECT bot_token, group_id FROM telegram_bots WHERE subdomain = $subdomain"
