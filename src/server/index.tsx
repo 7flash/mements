@@ -722,21 +722,16 @@ const server = serve({
           
             // TODO: MOST IMPORTANT TASK: make it to send actual image not just url
             const agentLink = `https://${agentEntry.subdomain}.${constants.BASE_URL}`;
-            const telegramMessage = `🤖 New Agent Created!\n\nName: ${agentEntry.name}\nLink: ${agentLink}\n${imageUrl ? `\nAvatar: ${imageUrl}` : ''}`;
-            console.log("telegramMessage ==> ", telegramMessage);
           
-            const telegramApiUrl = `https://api.telegram.org/bot${config.telegram.bot_token}/sendMessage`;
-            const messageBody = {
-              chat_id: config.telegram.group_id,
-              text: telegramMessage,
-              parse_mode: 'HTML'
-            };
-          
-            await fetch(telegramApiUrl, {
-              method: "POST", 
+            fetch(`https://api.telegram.org/bot${config.telegram.bot_token}/sendPhoto`, {
+              method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(messageBody)
-            })
+              body: JSON.stringify({
+                chat_id: config.telegram.group_id,
+                photo: imageUrl,
+                caption: `🤖 New Agent Created!\n\nName: ${agentEntry.name}\nLink: ${agentLink}`
+              })
+            }).catch(console.error);
           }
         }
         notifyBotCreation().catch(err => console.log("Error notifying bot creation", err));
