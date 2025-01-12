@@ -1,8 +1,11 @@
 import path from 'path';
 import { Database } from "bun:sqlite";
-import Files from "../server/files";
 
-// Database setup
+const pinata = new PinataSDK({
+    pinataJwt: process.env.PINATA_JWT,
+    pinataGateway: process.env.PINATA_GATEWAY_URL,
+  });
+
 const agentsDb = new Database(
     path.join(process.cwd(), 'static/database', `${process.env.DATABASE_NAME}.sqlite`).trim(), 
     { readonly: true }
@@ -24,7 +27,6 @@ usersDb.exec(`
   );
 `);
 
-// Types
 type ApprovedUser = {
   telegram_user_id: string;
   is_approved: boolean;
@@ -53,14 +55,12 @@ type TelegramUpdate = {
   };
 };
 
-// Constants
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const GROUP_ID = process.env.TELEGRAM_GROUP_ID;
 const POLL_INTERVAL = 1000;
 const COOLDOWN_MINUTES = 15;
 let lastUpdateId = 0;
 
-// Utility function for performance measurement
 async function measureTime<T>(fn: () => Promise<T>, label: string): Promise<T> {
   const start = performance.now();
   try {
@@ -74,12 +74,10 @@ async function measureTime<T>(fn: () => Promise<T>, label: string): Promise<T> {
   }
 }
 
-// Main polling loop
 console.log('Starting Telegram moderator bot...');
 while (true) {
   try {
     await measureTime(async () => {
-      // Get updates
       const response = await fetch(
         `https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=${lastUpdateId + 1}`
       );
@@ -92,7 +90,6 @@ while (true) {
 
       for (const update of updates) {
         if (update.new_chat_member || update.message) {
-          // Get user info
           const userId = update.new_chat_member?.id || update.message.from.id;
           const username = update.new_chat_member?.username || update.message.from.username;
           const user = usersDb.prepare(`
@@ -100,7 +97,6 @@ while (true) {
           `).get(userId) as ApprovedUser | undefined;
 
           if (update.message && !user?.is_approved) {
-            // Delete unapproved user message
             await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -111,7 +107,6 @@ while (true) {
             });
 
             if (!user) {
-              // Start verification for new user
               const agent = agentsDb.prepare(`
                 SELECT a.*, i.imageCid 
                 FROM agents a
@@ -124,8 +119,7 @@ while (true) {
                 throw new Error('Unable to start verification process');
               }
 
-              const files = new Files();
-              const imageUrl = agent.imageCid ? await files.getUrl(agent.imageCid, 3600) : '';
+              const imageUrl = agent.imageCid ? await pinata.gateways.createSignedURL({ cid: agent.imageCid, expires: 3600 }).optimizeImage() : '';
 
               const verificationMessage = `
 🔒 User Verification Required
@@ -152,7 +146,6 @@ Reply with the name of the AI agent shown in the image to get verified.
                 })
               });
 
-              // Save verification attempt
               usersDb.prepare(`
                 INSERT INTO approved_users (
                   telegram_user_id,
@@ -173,8 +166,7 @@ Reply with the name of the AI agent shown in the image to get verified.
                 update.message.text
               );
             } else {
-              // Check answer
-              const isCorrect = update.message.text.toLowerCase() === user.verification_agent.toLowerCase();
+=              const isCorrect = update.message.text.toLowerCase() === user.verification_agent.toLowerCase();
               
               if (isCorrect) {
                 usersDb.prepare(`
