@@ -218,7 +218,6 @@ const server = serve({
   async fetch(req) {
     const url = new URL(req.url);
     const path = url.pathname;
-    console.log("path ==> ", path);
 
     if (assets.hasAssetByPath(path)) {
       return new Response(assets.getAssetByPath(path));
