@@ -2,7 +2,6 @@ import path from 'path';
 import { Database } from "bun:sqlite";
 import Files from "../server/files";
 
-// Database setup
 const agentsDb = new Database(
     path.join(process.cwd(), 'static/database', `${process.env.DATABASE_NAME}.sqlite`).trim(), 
     { readonly: true }
@@ -12,7 +11,6 @@ const usersDb = new Database(
     path.join(process.cwd(), 'static/database', `telegram.sqlite`).trim()
 );
 
-// Initialize users database table
 usersDb.exec(`
   CREATE TABLE IF NOT EXISTS approved_users (
     telegram_user_id TEXT PRIMARY KEY,
@@ -25,7 +23,6 @@ usersDb.exec(`
   );
 `);
 
-// Types
 type ApprovedUser = {
   telegram_user_id: string;
   is_approved: boolean;
@@ -54,13 +51,11 @@ type TelegramUpdate = {
   };
 };
 
-// Configuration
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const GROUP_ID = process.env.TELEGRAM_GROUP_ID;
 const POLL_INTERVAL = 1000;
 const COOLDOWN_MINUTES = 15;
 
-// Utility functions
 async function measureTime<T>(fn: () => Promise<T>, label: string): Promise<T> {
   const start = performance.now();
   try {
@@ -73,6 +68,8 @@ async function measureTime<T>(fn: () => Promise<T>, label: string): Promise<T> {
     throw error;
   }
 }
+
+// todo: rewrite our full program to be more of Procedural Programming with Minimal Abstraction, ie never define a function if its only being used in one place, instead just inline it, for example we dont need sendTelegramRequest function we can just call fetch every time
 
 async function sendTelegramRequest(method: string, body: any) {
   const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
@@ -212,7 +209,6 @@ async function checkAnswer(userId: string, answer: string): Promise<boolean> {
   return isCorrect;
 }
 
-// Main polling loop
 let lastUpdateId = 0;
 
 async function startPolling() {
@@ -277,6 +273,5 @@ async function getUpdates(): Promise<TelegramUpdate[]> {
   return [];
 }
 
-// Start the bot
 console.log('Starting Telegram moderator bot...');
 startPolling();
