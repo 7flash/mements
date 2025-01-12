@@ -455,7 +455,6 @@ const server = serve({
       }
     }
 
-    // todo: should avoid reposting from the same shared account more often than once per day per same agent
     if (req.method === "POST" && path === "/registerSharedAccount") {
       try {
         const authHeader = req.headers.get('Authorization');
@@ -708,6 +707,9 @@ const server = serve({
         const agentEntry = transaction();
         console.log(requestId, "Agent created", agentEntry);
 
+        /*
+todo: every time somebody sends a message to the chat, we should check in the database if he has been approved to be allowed for sending message. otherwise, an approval process should be triggered, where our same telegram bot sends a question message to the group specifically mentioning handle of user who tried to send message while not being approved and then it instructs user to answer mentioned question addressed to the user, and then awaiting for user to send his next message which is answering the question, and if its not a valid answer then user failed verification and can try it again in 15 minutes. question and answer we take from a random agent in our database, where question is the prompt of agent, and in the answer user should write a name of the agent. and it should also send image of agent along the question.
+        */
         async function notifyBotCreation() {
           if (config.telegram?.bot_token && config.telegram?.group_id) {
             const imageQuery = db.query<Image, { $subdomain: string }>("SELECT imageCid FROM images WHERE subdomain = $subdomain AND image_key = 'default'");
@@ -720,7 +722,6 @@ const server = serve({
               console.log("imageUrl ==> ", imageUrl);
             }
           
-            // TODO: MOST IMPORTANT TASK: make it to send actual image not just url
             const agentLink = `https://${agentEntry.subdomain}.${constants.BASE_URL}`;
           
             fetch(`https://api.telegram.org/bot${config.telegram.bot_token}/sendPhoto`, {
@@ -970,7 +971,6 @@ const server = serve({
           }
           
 
-          // todo: if agent does not have his own bot, then it should use a specific sahred bot token from config and include both question and answer in the message and link to the chat. also every time a new agent is created, it should send message to telegram group including its name, link, and image.
           const telegramBotData = measureQueryPerformance(requestId, "fetch-telegram-bot", () => {
             const telegramBotQuery = db.query<TelegramBot, { $subdomain: string }>(
               "SELECT bot_token, group_id FROM telegram_bots WHERE subdomain = $subdomain"
