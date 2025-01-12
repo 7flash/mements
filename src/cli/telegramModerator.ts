@@ -2,18 +2,30 @@ import path from 'path';
 import { Database } from "bun:sqlite";
 import Files from "../server/files";
 
-const dbPath = ;
-
-// todo: use separate database instance here for read-only of agents table
+// Database setup
 const agentsDb = new Database(
-    path.join(process.cwd(), 'static/database', `${process.env.DATABASE_NAME}.sqlite`).trim()
+    path.join(process.cwd(), 'static/database', `${process.env.DATABASE_NAME}.sqlite`).trim(), 
+    { readonly: true }
 );
 
-// todo: and in this database we can read/write to approved_users table
 const usersDb = new Database(
     path.join(process.cwd(), 'static/database', `telegram.sqlite`).trim()
 );
 
+// Initialize users database table
+usersDb.exec(`
+  CREATE TABLE IF NOT EXISTS approved_users (
+    telegram_user_id TEXT PRIMARY KEY,
+    is_approved INTEGER DEFAULT 0,
+    last_verification_attempt TEXT,
+    verification_count INTEGER DEFAULT 0,
+    verification_agent TEXT,
+    original_message_id INTEGER,
+    original_message TEXT
+  );
+`);
+
+// Types
 type ApprovedUser = {
   telegram_user_id: string;
   is_approved: boolean;
@@ -21,6 +33,7 @@ type ApprovedUser = {
   verification_count: number;
   verification_agent: string;
   original_message_id?: number;
+  original_message?: string;
 };
 
 type TelegramUpdate = {
@@ -41,269 +54,229 @@ type TelegramUpdate = {
   };
 };
 
-export class TelegramModerator {
-  private db: Database;
-  private files: Files;
-  private botToken: string;
-  private groupId: string;
-  private lastUpdateId = 0;
-  private pollInterval = 1000;
+// Configuration
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const GROUP_ID = process.env.TELEGRAM_GROUP_ID;
+const POLL_INTERVAL = 1000;
+const COOLDOWN_MINUTES = 15;
 
-  constructor(db: Database, files: Files) {
-    this.db = db;
-    this.files = files;
-    this.botToken = process.env.TELEGRAM_BOT_TOKEN;
-    this.groupId = process.env.TELEGRAM_GROUP_ID;
+// Utility functions
+async function measureTime<T>(fn: () => Promise<T>, label: string): Promise<T> {
+  const start = performance.now();
+  try {
+    const result = await fn();
+    const duration = performance.now() - start;
+    console.log(`${label} took ${duration.toFixed(2)}ms`);
+    return result;
+  } catch (error) {
+    console.error(`${label} failed after ${(performance.now() - start).toFixed(2)}ms:`, error);
+    throw error;
+  }
+}
+
+async function sendTelegramRequest(method: string, body: any) {
+  const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  return response.json();
+}
+
+// Database operations
+function getApprovedUser(userId: string): ApprovedUser | undefined {
+  return usersDb.prepare(`
+    SELECT * FROM approved_users WHERE telegram_user_id = ?
+  `).get(userId) as ApprovedUser | undefined;
+}
+
+function saveVerificationAttempt(userId: string, agentName: string, originalMessageId?: number, originalMessage?: string) {
+  usersDb.prepare(`
+    INSERT INTO approved_users (
+      telegram_user_id,
+      is_approved,
+      last_verification_attempt,
+      verification_count,
+      verification_agent,
+      original_message_id,
+      original_message
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(telegram_user_id) DO UPDATE SET
+      last_verification_attempt = excluded.last_verification_attempt,
+      verification_count = verification_count + 1,
+      verification_agent = excluded.verification_agent,
+      original_message_id = excluded.original_message_id,
+      original_message = excluded.original_message
+  `).run(
+    userId,
+    false,
+    new Date().toISOString(),
+    1,
+    agentName,
+    originalMessageId,
+    originalMessage
+  );
+}
+
+function getRandomAgent() {
+  return agentsDb.prepare(`
+    SELECT a.*, i.imageCid 
+    FROM agents a
+    LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
+    ORDER BY RANDOM()
+    LIMIT 1
+  `).get();
+}
+
+// Core verification logic
+async function handleVerification(userId: string, username: string, messageId?: number, messageText?: string) {
+  const user = getApprovedUser(userId);
+  
+  if (user && user.last_verification_attempt) {
+    const cooldownMs = COOLDOWN_MINUTES * 60 * 1000;
+    const timeSinceLastAttempt = new Date().getTime() - new Date(user.last_verification_attempt).getTime();
     
-    this.initializeTables();
-    this.startPolling();
-  }
-
-  private initializeTables() {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS approved_users (
-        telegram_user_id TEXT PRIMARY KEY,
-        is_approved INTEGER DEFAULT 0,
-        last_verification_attempt TEXT,
-        verification_count INTEGER DEFAULT 0,
-        verification_agent TEXT,
-        original_message_id INTEGER
-      );
-    `);
-  }
-
-  // todo: rewrite this script in more of a procedural style aka avoiding classes and avoiding functions unless necessary to encapsulate repeating logic, ensure detailed logging with benchmarking how long it took to answer question to every user etc
-  private async startPolling() {
-    while (true) {
-      try {
-        const updates = await this.getUpdates();
-        for (const update of updates) {
-          await this.handleUpdate(update);
-        }
-      } catch (error) {
-        console.error('Polling error:', error);
-      }
-      await new Promise(resolve => setTimeout(resolve, this.pollInterval));
+    if (timeSinceLastAttempt < cooldownMs) {
+      throw new Error(`Please wait ${COOLDOWN_MINUTES} minutes before trying verification again`);
     }
   }
 
-  private async getUpdates(): Promise<TelegramUpdate[]> {
-    const response = await fetch(
-      `https://api.telegram.org/bot${this.botToken}/getUpdates?offset=${this.lastUpdateId + 1}`
-    );
-    const data = await response.json();
-    if (data.ok && data.result.length > 0) {
-      this.lastUpdateId = data.result[data.result.length - 1].update_id;
-      return data.result;
-    }
-    return [];
+  const agent = getRandomAgent();
+  if (!agent) {
+    throw new Error('Unable to start verification process');
   }
 
-  private async handleUpdate(update: TelegramUpdate) {
-    if (update.new_chat_member) {
-      await this.handleNewMember(update);
-    } else if (update.message) {
-      await this.handleMessage(update.message);
-    }
-  }
+  const files = new Files();
+  const imageUrl = agent.imageCid ? await files.getUrl(agent.imageCid, 3600) : '';
 
-  private async handleNewMember(update: TelegramUpdate) {
-    const userId = update.new_chat_member.id;
-    await this.startVerification(userId, update.new_chat_member.username);
-  }
-
-  private async handleMessage(message: TelegramUpdate['message']) {
-    const userId = message.from.id;
-    const approvedUser = this.getApprovedUser(userId);
-
-    if (!approvedUser?.is_approved) {
-      await this.deleteMessage(message.message_id);
-      
-      if (!approvedUser) {
-        await this.startVerification(userId, message.from.username, message.message_id);
-      } else {
-        const isCorrectAnswer = message.text.toLowerCase() === approvedUser.verification_agent.toLowerCase();
-        if (isCorrectAnswer) {
-          await this.approveUser(userId);
-          if (approvedUser.original_message_id) {
-            await this.sendSuccessMessage(userId, approvedUser.original_message_id);
-          }
-        } else {
-          await this.handleFailedVerification(userId);
-        }
-      }
-    }
-  }
-
-  private async startVerification(userId: string, username: string, originalMessageId?: number) {
-    const lastAttempt = this.getLastVerificationAttempt(userId);
-    if (lastAttempt && this.isOnCooldown(lastAttempt)) {
-      throw new Error('Please wait 15 minutes before trying verification again');
-    }
-
-    const verificationAgent = this.getRandomAgent();
-    if (!verificationAgent) {
-      throw new Error('Unable to start verification process');
-    }
-
-    const imageUrl = verificationAgent.imageCid ? 
-      await this.files.getUrl(verificationAgent.imageCid, 3600) : 
-      '';
-
-    const verificationMessage = `
+  const verificationMessage = `
 🔒 User Verification Required
 @${username}
 
 To interact with our agents, please answer this question:
 
-${verificationAgent.prompt}
+${agent.prompt}
 
 Reply with the name of the AI agent shown in the image to get verified.
-    `;
+  `;
 
-    await this.sendVerificationMessage(imageUrl, verificationMessage);
-    await this.saveVerificationAttempt(userId, verificationAgent.name, originalMessageId);
-  }
+  await sendTelegramRequest('sendPhoto', {
+    chat_id: GROUP_ID,
+    photo: imageUrl,
+    caption: verificationMessage,
+    reply_markup: {
+      force_reply: true,
+      selective: true
+    }
+  });
 
-  private async approveUser(userId: string) {
-    this.db.run(`
+  await saveVerificationAttempt(userId, agent.name, messageId, messageText);
+}
+
+async function checkAnswer(userId: string, answer: string): Promise<boolean> {
+  const user = getApprovedUser(userId);
+  if (!user) return false;
+
+  const isCorrect = answer.toLowerCase() === user.verification_agent.toLowerCase();
+  
+  if (isCorrect) {
+    usersDb.prepare(`
       UPDATE approved_users 
       SET is_approved = TRUE
       WHERE telegram_user_id = ?
-    `, userId);
+    `).run(userId);
+
+    // Restore original message using MTProto API
+    if (user.original_message_id) {
+      try {
+        await sendTelegramRequest('messages.restoreMessages', {
+          id: [user.original_message_id]
+        });
+      } catch (error) {
+        console.error('Failed to restore message:', error);
+      }
+    }
+
+    const successMessage = `✅ Verification successful! You can now interact with our agents.${
+      user.original_message ? 
+      '\n\nYour original message was:\n' + user.original_message :
+      ''
+    }`;
+    
+    await sendTelegramRequest('sendMessage', {
+      chat_id: GROUP_ID,
+      text: successMessage
+    });
   }
 
-  private async sendSuccessMessage(userId: string, originalMessageId: number) {
-/*
-todo: original message must actually be restored, it can be done through actual Telegram API MtProto, here is the method to use:
+  return isCorrect;
+}
 
-messages.restoreMessages
-Restores recently deleted messages.
+// Main polling loop
+let lastUpdateId = 0;
 
-{scheme}
+async function startPolling() {
+  while (true) {
+    try {
+      await measureTime(async () => {
+        const updates = await getUpdates();
+        
+        for (const update of updates) {
+          if (update.new_chat_member) {
+            await handleVerification(
+              update.new_chat_member.id,
+              update.new_chat_member.username
+            );
+          } else if (update.message) {
+            const user = getApprovedUser(update.message.from.id);
+            
+            if (!user?.is_approved) {
+              await sendTelegramRequest('deleteMessage', {
+                chat_id: GROUP_ID,
+                message_id: update.message.message_id
+              });
 
-Params
-id	Vector<int>	Message ID list
-Result
-The method returns the list of successfully restored messages in Vector<int>.
-
-also, we still should actually show original message here in the message:
-
-      const successMessage = `✅ Verification successful! You can now interact with our agents.${
-        approvedUser.original_message ? 
-        '\n\nYour original message was:\n' + approvedUser.original_message :
-        ''
-      }`;
-
-therefore message itself should be stored along with its id
-
-  public async storeOriginalMessage(userId: string, message: string) {
-    this.db.prepare(`
-      UPDATE approved_users
-      SET original_message = ?
-      WHERE telegram_user_id = ?
-    `).run(message, userId);
-  }
-*/
-    const message = `✅ Verification successful! Your original message has been restored.`;
-    await this.sendMessage(message);
-  }
-
-  private async handleFailedVerification(userId: string) {
-    const message = `❌ Incorrect answer - please try again in 15 minutes`;
-    await this.sendMessage(message);
-  }
-
-  private getApprovedUser(userId: string): ApprovedUser | undefined {
-    return this.db.prepare(`
-      SELECT * FROM approved_users WHERE telegram_user_id = ?
-    `).get(userId);
-  }
-
-  // todo: throw "Incorrect answer - please try again in 15 minutes";
-  private getLastVerificationAttempt(userId: string): string | null {
-    const result = this.db.prepare(`
-      SELECT last_verification_attempt FROM approved_users WHERE telegram_user_id = ?
-    `).get(userId);
-    return result?.last_verification_attempt || null;
-  }
-
-  private isOnCooldown(lastAttempt: string): boolean {
-    const cooldownMinutes = 15;
-    const cooldownMs = cooldownMinutes * 60 * 1000;
-    return (new Date().getTime() - new Date(lastAttempt).getTime()) < cooldownMs;
-  }
-
-  private getRandomAgent() {
-    return this.db.prepare(`
-      SELECT a.*, i.imageCid 
-      FROM agents a
-      LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
-      ORDER BY RANDOM()
-      LIMIT 1
-    `).get();
-  }
-
-  private async sendVerificationMessage(imageUrl: string, message: string) {
-    await fetch(`https://api.telegram.org/bot${this.botToken}/sendPhoto`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: this.groupId,
-        photo: imageUrl,
-        caption: message,
-        reply_markup: {
-          force_reply: true,
-          selective: true
+              if (!user) {
+                await handleVerification(
+                  update.message.from.id,
+                  update.message.from.username,
+                  update.message.message_id,
+                  update.message.text
+                );
+              } else {
+                const isCorrect = await checkAnswer(update.message.from.id, update.message.text);
+                if (!isCorrect) {
+                  await sendTelegramRequest('sendMessage', {
+                    chat_id: GROUP_ID,
+                    text: '❌ Incorrect answer - please try again in 15 minutes'
+                  });
+                }
+              }
+            }
+          }
         }
-      })
-    });
-  }
+      }, 'Update processing');
 
-  private async deleteMessage(messageId: number) {
-    await fetch(`https://api.telegram.org/bot${this.botToken}/deleteMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: this.groupId,
-        message_id: messageId
-      })
-    });
-  }
-
-  private async sendMessage(text: string) {
-    await fetch(`https://api.telegram.org/bot${this.botToken}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: this.groupId,
-        text
-      })
-    });
-  }
-
-  private saveVerificationAttempt(userId: string, agentName: string, originalMessageId?: number) {
-    this.db.prepare(`
-      INSERT INTO approved_users (
-        telegram_user_id,
-        is_approved,
-        last_verification_attempt,
-        verification_count,
-        verification_agent,
-        original_message_id
-      ) VALUES (?, ?, ?, ?, ?, ?)
-      ON CONFLICT(telegram_user_id) DO UPDATE SET
-        last_verification_attempt = excluded.last_verification_attempt,
-        verification_count = verification_count + 1,
-        verification_agent = excluded.verification_agent,
-        original_message_id = excluded.original_message_id
-    `).run(
-      userId,
-      false,
-      new Date().toISOString(),
-      1,
-      agentName,
-      originalMessageId
-    );
+    } catch (error) {
+      console.error('Polling error:', error);
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
   }
 }
+
+async function getUpdates(): Promise<TelegramUpdate[]> {
+  const response = await fetch(
+    `https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=${lastUpdateId + 1}`
+  );
+  const data = await response.json();
+  if (data.ok && data.result.length > 0) {
+    lastUpdateId = data.result[data.result.length - 1].update_id;
+    return data.result;
+  }
+  return [];
+}
+
+// Start the bot
+console.log('Starting Telegram moderator bot...');
+startPolling();
