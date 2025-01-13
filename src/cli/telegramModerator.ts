@@ -100,6 +100,8 @@ while (true) {
 			}
 
 			for (const update of updates) {
+				if (update?.message?.from?.is_bot == true) continue;
+
 				if (update?.message?.text || update?.message?.new_chat_member) {
 					const userId = update.message.from.id;
 					const username = update.message.from.username;
@@ -151,6 +153,8 @@ while (true) {
 								height: 512,
 								format: 'webp',
 							});
+
+// todo: all of question, answer, and verification message itself should be aligned in same casual degen writing style, and question/answer can be really short its fine, also we should fix to use proper markdown here in verification message, and also success welcoming message should include users answer because its been deleted from chat anyway
 
 							const verificationData = await Query.from({
 								agentName: agent.name,
@@ -301,7 +305,7 @@ ${validation.thinking}
 									})
 								});
 
-								// todo: actually we should have restricted user from send any messages for these 15 minutes immediately after joining group or sending spontaneous message to prevent him from sending many messages in a row; and then here we restrict him again based on score; but if he answered successfully then we immediately remove restrictions.
+								// todo: fix cooldown here in the beginning when we get message must check if its been 15 minutes since last verification attempt, if not we should delete message and ask user to wait, if its been 15 minutes we should ask user a new question
 								await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/restrictChatMember`, {
 									method: 'POST',
 									headers: { 'Content-Type': 'application/json' },
