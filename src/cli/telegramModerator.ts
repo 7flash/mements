@@ -108,6 +108,8 @@ while (true) {
           `).get(userId) as ApprovedUser | undefined;
 					console.log("user ==> ", user);
 
+					// todo: fix it seems we are missing to check cooldown has passed
+
 					if (!user?.is_approved) {
 						await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage`, {
 							method: 'POST',
@@ -170,7 +172,7 @@ while (true) {
 ⚠️ *Instructions:*
 • Reply directly to this message with your answer
 • Be genuine and thoughtful
-• You have one attempt before a 15-minute cooldown
+• You have one attempt before a ${COOLDOWN_MINUTES}-minute cooldown
 
 Good luck! 🍀
 `.trim();
@@ -224,23 +226,15 @@ Good luck! 🍀
 								agentPersonality: agent.prompt,
 							};
 
-							const validation = await Query.from(input, 'gpt-4o-mini').infer({
+							const validation = await Query.from(validationInput, 'gpt-4o-mini').infer({
 								correctness: 'Rate from 1-10 how well the answer addresses the question (5+ is passing)',
 								feedback: 'Provide constructive feedback on the answer, including what was good and how it could be improved',
 								exampleAnswer: 'Provide a brief example of a strong answer to this question'
 							});
 
 							const score = parseInt(validation.correctness);
-							const passed = score >= 5;
 
-							const validationResult = {
-								passed,
-								score,
-								feedback: validation.feedback,
-								exampleAnswer: validation.exampleAnswer
-							};
-
-							if (validationResult.passed) {
+							if (validation.passed || score >= 5) {
 								usersDb.prepare(`
 										UPDATE approved_users 
 										SET is_approved = TRUE
@@ -264,7 +258,7 @@ Good luck! 🍀
 								const successMessage = `
 ✅ *Welcome to the community!*
 
-${validationResult.score > 7 ? "Excellent response! " : "Good answer! "}${validationResult.feedback}
+${validation.score > 7 ? "Excellent response! " : "Good answer! "}${validation.feedback}
 
 ${user.original_message ? '\n📝 Your original message was:\n' + user.original_message : ''}
 `.trim();
@@ -282,12 +276,15 @@ ${user.original_message ? '\n📝 Your original message was:\n' + user.original_
 								const failureMessage = `
 ❌ *Verification Failed*
 
-${validationResult.feedback}
+${validation.feedback}
 
-💡 *Example of a good answer:*
-${validationResult.exampleAnswer}
+@${username}, your answer needs improvement:
+${validation.feedback}
 
-⏳ Please try again in 15 minutes.
+Here's an example of a better response:
+"${validation.improvedAnswer}"
+
+⏳ Please wait ${COOLDOWN_MINUTES} minutes before trying again.
 `.trim();
 
 								await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
