@@ -108,7 +108,7 @@ while (true) {
           `).get(userId) as ApprovedUser | undefined;
 					console.log("user ==> ", user);
 
-					// todo: fix it seems we are missing to check cooldown has passed
+					// todo: fix it seems we are missing to check cooldown has passed otherwise we just delete message, but if cooldown has passed and user sends a new message, so in this case we ask user a new question
 
 					if (!user?.is_approved) {
 						await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage`, {
@@ -225,40 +225,28 @@ Good luck! 🍀
 								answer: update.message.text,
 								agentPersonality: agent.prompt,
 							};
+							console.log("validationInput ==> ", validationInput);
 
 							const validation = await Query.from(validationInput, 'gpt-4o-mini').infer({
-								correctness: 'Rate from 1-10 how well the answer addresses the question (5+ is passing)',
-								feedback: 'Provide constructive feedback on the answer, including what was good and how it could be improved',
-								exampleAnswer: 'Provide a brief example of a strong answer to this question'
+								correctness: 'Rate from 1-10 how well the answer addresses the question (1-3 means answer is totally unrelated to the given context of question, 4-6 means answer is relevant but might be incomplete or incorrect, 7-10 means answer resonates to the questioners own opinion)',
+								exampleAnswer: 'Provide a brief example of a better answer to this question'
 							});
+							console.log("validation ==> ", validation);
 
 							const score = parseInt(validation.correctness);
 
-							if (validation.passed || score >= 5) {
+							if (validation.passed || score > 3) {
 								usersDb.prepare(`
 										UPDATE approved_users 
 										SET is_approved = TRUE
 										WHERE telegram_user_id = ?
 									`).run(userId);
 
-								// if (user.original_message_id) {
-								// 	try {
-								// 		await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/messages.restoreMessages`, {
-								// 			method: 'POST',
-								// 			headers: { 'Content-Type': 'application/json' },
-								// 			body: JSON.stringify({
-								// 				id: [user.original_message_id]
-								// 			})
-								// 		});
-								// 	} catch (error) {
-								// 		console.error('Failed to restore message:', error);
-								// 	}
-								// }
-
+// todo: should improve this message based on the score
 								const successMessage = `
 ✅ *Welcome to the community!*
 
-${validation.score > 7 ? "Excellent response! " : "Good answer! "}${validation.feedback}
+${validation.score > 7 ? "Excellent response! " : "Good answer! "}*${validation.thinking}*
 
 ${user.original_message ? '\n📝 Your original message was:\n' + user.original_message : ''}
 `.trim();
@@ -272,17 +260,18 @@ ${user.original_message ? '\n📝 Your original message was:\n' + user.original_
 										parse_mode: 'Markdown'
 									})
 								});
-							} else {
+							} else  {
+// todo: should respond properly based on the score where 1-3 kinda means perhaps user is spammer and thats why we are here verification is failed because sus,
+
+// todo: also messages should be less formal using simple casual language of degen crypto community culture
 								const failureMessage = `
 ❌ *Verification Failed*
-
-${validation.feedback}
 
 @${username}, your answer needs improvement:
 ${validation.feedback}
 
 Here's an example of a better response:
-"${validation.improvedAnswer}"
+"${validation.exampleAnswer}"
 
 ⏳ Please wait ${COOLDOWN_MINUTES} minutes before trying again.
 `.trim();
