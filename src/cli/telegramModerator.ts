@@ -235,20 +235,20 @@ Good luck! 🍀
 
 							const score = parseInt(validation.correctness);
 
-							if (validation.passed || score > 3) {
+							if (validation.passed || score > 4) {
 								usersDb.prepare(`
 										UPDATE approved_users 
 										SET is_approved = TRUE
 										WHERE telegram_user_id = ?
 									`).run(userId);
 
-// todo: should improve this message based on the score
 								const successMessage = `
-✅ *Welcome to the community!*
+✅ *Based answer fren!* (${validation.score}/10)
 
-${validation.score > 7 ? "Excellent response! " : "Good answer! "}*${validation.thinking}*
+${validation.thinking}
 
-${user.original_message ? '\n📝 Your original message was:\n' + user.original_message : ''}
+*Welcome to the squad* 🤝
+
 `.trim();
 
 								await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
@@ -260,21 +260,36 @@ ${user.original_message ? '\n📝 Your original message was:\n' + user.original_
 										parse_mode: 'Markdown'
 									})
 								});
-							} else  {
-// todo: should respond properly based on the score where 1-3 kinda means perhaps user is spammer and thats why we are here verification is failed because sus,
+							} else {
+								usersDb.prepare(`
+									UPDATE approved_users 
+									SET last_verification_attempt = ?,
+											verification_count = verification_count + 1
+									WHERE telegram_user_id = ?
+								`).run(new Date().toISOString(), userId);
 
-// todo: also messages should be less formal using simple casual language of degen crypto community culture
-								const failureMessage = `
-❌ *Verification Failed*
 
-@${username}, your answer needs improvement:
-${validation.feedback}
+								const failureMessage = score <= 3 ? `
+									❌ *Ser, that's kinda sus...*
 
-Here's an example of a better response:
-"${validation.exampleAnswer}"
+									@${username}, ngl that was pretty off:
+									${validation.thinking}
 
-⏳ Please wait ${COOLDOWN_MINUTES} minutes before trying again.
-`.trim();
+									Try something more like:
+									"${validation.exampleAnswer}"
+
+									⏳ Touch grass for ${COOLDOWN_MINUTES*2}mins and try again
+									`.trim() : `
+									😅 *Almost there anon!*
+
+									@${username}, your answer needs a lil work:
+									${validation.thinking}
+
+									Here's the vibe we're looking for:
+									"${validation.exampleAnswer}"
+
+									⏳ HODL for ${COOLDOWN_MINUTES}mins and give it another shot
+									`.trim();
 
 								await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
 									method: 'POST',
@@ -283,6 +298,20 @@ Here's an example of a better response:
 										chat_id: GROUP_ID,
 										text: failureMessage,
 										parse_mode: 'Markdown'
+									})
+								});
+
+								// todo: actually we should have restricted user from send any messages for these 15 minutes immediately after joining group or sending spontaneous message to prevent him from sending many messages in a row; and then here we restrict him again based on score; but if he answered successfully then we immediately remove restrictions.
+								await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/restrictChatMember`, {
+									method: 'POST',
+									headers: { 'Content-Type': 'application/json' },
+									body: JSON.stringify({
+										chat_id: GROUP_ID,
+										user_id: userId,
+										permissions: {
+											can_send_messages: false
+										},
+										until_date: Math.floor(Date.now() / 1000) + ((score <= 3 ? COOLDOWN_MINUTES*2 : COOLDOWN_MINUTES) * 2 * 60)
 									})
 								});
 							}
