@@ -15,6 +15,31 @@ const usersDb = new Database(
     path.join(process.cwd(), 'static/database', `telegram.sqlite`).trim()
 );
 
+/*
+
+todo: it should not just ask about agent, but instead use Query to generate a question from agent but his topic and then let agent decide if thats a valid opinion and actually respond to it as well.
+
+example of query is like this:
+
+const result = await Query.from({
+    // here we define input fields like agent name etc
+}, 'gpt-4o-mini').infer({
+    finalQuestion: `here we instruct llm to produce a question for user`,
+})
+
+and then we send this result.finalQuestion to the chat
+
+then we similarly construct our validation
+
+const result = await Query.from({
+    question, answer
+}, 'gpt-4o-mini').infer({
+    correctness: 'level from 1 to 10, where 1 the answer is not related to the question at all, and 5 it responds wrong, and 10 is actually correct answer',
+    commentOnTheAnswer: 'in the style of the agent...',
+})
+
+*/
+
 usersDb.exec(`
   CREATE TABLE IF NOT EXISTS approved_users (
     telegram_user_id TEXT PRIMARY KEY,
