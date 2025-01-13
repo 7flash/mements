@@ -119,25 +119,36 @@ while (true) {
 						});
 
 						if (!user) {
-							// todo: if invited by special link should invoke a corresponding agent
-							const agent = agentsDb.prepare(`
-                SELECT a.*, i.imageCid 
-                FROM agents a
-                LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
-                ORDER BY RANDOM()
-                LIMIT 1
-              `).get();
+							const inviteLinkName = update?.new_chat_member ? update?.invite_link?.name : null;
+
+							let query = `
+									SELECT a.*, i.imageCid 
+									FROM agents a
+									LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
+								`;
+
+							if (inviteLinkName) {
+								query += ` WHERE a.subdomain = ? LIMIT 1`;
+								return agentsDb.prepare(query).get(inviteLinkName);
+							}
+
+							query += ` ORDER BY RANDOM() LIMIT 1`;
+
+							const agent = agentsDb.prepare(query).get();
 							console.log("agent ==> ", agent);
 
 							if (!agent) {
 								throw new Error('Unable to start verification process');
 							}
 
-							const imageUrl = agent.imageCid ? await pinata.gateways.createSignedURL({ cid: agent.imageCid, expires: 3600 }).optimizeImage({
+							const imageUrl = await pinata.gateways.createSignedURL({
+								cid: agent.imageCid,
+								expires: 3600
+							}).optimizeImage({
 								width: 512,
 								height: 512,
 								format: 'webp',
-							}) : '';
+							});
 
 							const verificationData = await Query.from({
 								agentName: agent.name,
@@ -147,17 +158,22 @@ while (true) {
 								expectedAnswer: 'Generate a sample correct answer to this question',
 							});
 
-// todo: improve this message to be more consise as we have emoji for title and then emoji and subtitle like Interviewer: ${agent.name}.mements.xyz then question itself focused like in a quote and then warning what to do and explanation should be clear
 							const verificationMessage = `
-🔒 Proof of Humanity is Required
-@${username}
+🤖 *Verification Required*
 
-Meet our agent "${agent.name}" for interview, and here is his question for you:
+👋 Hey @${username}!
 
-${verificationData.finalQuestion}
+*Interviewer:* ${agent.name} (${agent.subdomain}.mements.xyz)
 
-Your next message should be answering to this question. Otherwise you'll be blocked.
-              `;
+> "${verificationData.finalQuestion}"
+
+⚠️ *Instructions:*
+• Reply directly to this message with your answer
+• Be genuine and thoughtful
+• You have one attempt before a 15-minute cooldown
+
+Good luck! 🍀
+`.trim();
 
 							await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
 								method: 'POST',
@@ -201,20 +217,6 @@ Your next message should be answering to this question. Otherwise you'll be bloc
 								SELECT * FROM agents WHERE name = ?
 							`).get(user.verification_agent);
 
-/*
-todo: improve validation here, for example
-
-currently we get this
-
-validation ==>  {
-  thinking: "\nThe response given is quite vague and lacks detail. While it does mention using humor by making a remark about the weather, it does not provide a clear example of how this connected with someone or the context in which it happened. This makes it difficult to gauge the person's approach to humor and roasting in social settings. I would rate this answer a 4 for being somewhat related but ultimately lacking depth and clarity. \n",
-  correctness: "\n4\n",
-  commentOnTheAnswer: "\nxxx would likely respond with a nod, acknowledging the attempt at humor but might express the need for a more engaging example. \"I appreciate your answer about the weather remark, but could you share a specific instance where your humor really helped you connect with someone? That would give me a better insight into your approach!\"",
-}
-
-it seems like thinking is already enough and it should be used in the message where we indicate why attempt has failed, so i mean it looks like something we can just send in chat, because commentOnTheAnswer is opposite its wrong, its speaking from a third person which is wrong
-*/
-
 							const validationInput = {
 								agentName: agent.name,
 								question: user.verification_question,
@@ -222,15 +224,23 @@ it seems like thinking is already enough and it should be used in the message wh
 								agentPersonality: agent.prompt,
 							};
 
-							const validation = await Query.from(validationInput, 'gpt-4o-mini').infer({
-								correctness: 'a single number value, from 1 to 10, where 1 the answer is not related to the question at all, and 5 it responds wrong, and 10 is actually correct answer',
-								commentOnTheAnswer: `Respond as ${agent.name} would to this answer completing the interviewing and making conclusion on whether user accepted based on his answer or not. (correctness of 5 and higher is enough to be accepted)`,
+							const validation = await Query.from(input, 'gpt-4o-mini').infer({
+								correctness: 'Rate from 1-10 how well the answer addresses the question (5+ is passing)',
+								feedback: 'Provide constructive feedback on the answer, including what was good and how it could be improved',
+								exampleAnswer: 'Provide a brief example of a strong answer to this question'
 							});
-							console.log("validation ==> ", validation);
 
-							const isCorrect = parseInt(validation.correctness) >= 5;
+							const score = parseInt(validation.correctness);
+							const passed = score >= 5;
 
-							if (isCorrect) {
+							const validationResult = {
+								passed,
+								score,
+								feedback: validation.feedback,
+								exampleAnswer: validation.exampleAnswer
+							};
+
+							if (validationResult.passed) {
 								usersDb.prepare(`
 										UPDATE approved_users 
 										SET is_approved = TRUE
@@ -251,26 +261,42 @@ it seems like thinking is already enough and it should be used in the message wh
 								// 	}
 								// }
 
-								const successMessage = `✅ Verification successful! Welcome to our community. ${user.original_message ?
-										'\n\nYour original message was:\n' + user.original_message :
-										''
-									}`;
+								const successMessage = `
+✅ *Welcome to the community!*
+
+${validationResult.score > 7 ? "Excellent response! " : "Good answer! "}${validationResult.feedback}
+
+${user.original_message ? '\n📝 Your original message was:\n' + user.original_message : ''}
+`.trim();
 
 								await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
 									method: 'POST',
 									headers: { 'Content-Type': 'application/json' },
 									body: JSON.stringify({
 										chat_id: GROUP_ID,
-										text: successMessage
+										text: successMessage,
+										parse_mode: 'Markdown'
 									})
 								});
 							} else {
+								const failureMessage = `
+❌ *Verification Failed*
+
+${validationResult.feedback}
+
+💡 *Example of a good answer:*
+${validationResult.exampleAnswer}
+
+⏳ Please try again in 15 minutes.
+`.trim();
+
 								await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
 									method: 'POST',
 									headers: { 'Content-Type': 'application/json' },
 									body: JSON.stringify({
 										chat_id: GROUP_ID,
-										text: '❌ Incorrect answer - please try again in 15 minutes'
+										text: failureMessage,
+										parse_mode: 'Markdown'
 									})
 								});
 							}
