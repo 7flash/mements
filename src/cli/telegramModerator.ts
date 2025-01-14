@@ -138,6 +138,34 @@ async function updateUserPermissions(userId: string, canMessage: boolean, durati
   }
 }
 
+// Add constants for timeouts
+const VALIDATION_TIMEOUT = 60; // 1 minute for validation
+const BASE_COOLDOWN = 15; // Base cooldown in minutes
+
+// Helper for exponential cooldown calculation
+function calculateCooldown(attempts: number): number {
+  return Math.min(BASE_COOLDOWN * Math.pow(2, attempts - 1), 24 * 60); // Max 24 hours
+}
+
+// Helper to schedule message deletion
+async function scheduleMessageDeletion(messageId: number, userId: string, delay: number) {
+  await new Promise(resolve => setTimeout(resolve, delay * 1000));
+  try {
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: GROUP_ID,
+        message_id: messageId
+      })
+    });
+    logAction(userId, 'MessageDeleted', { messageId });
+  } catch (error) {
+    logAction(userId, 'MessageDeletionFailed', { messageId, error });
+  }
+}
+
+
 console.log('Starting Telegram moderator bot...');
 while (true) {
   try {
@@ -170,17 +198,19 @@ while (true) {
 
         let action: 'askQuestion' | 'validateAnswer' = 'askQuestion';
         
-				/* todo: improve logginm in our program, everything happening should be following with statement like this
+				/* todo: improve logging in our program, everything happens in the program, it should be following with statement  for example like this:
 
-				console.log(user_id, "ActionNameWhatHappen", relevantDataObject)
+            console.log(userId, ":validationInput ==> ", validationInput);
 				*/
 				if (user) {
           const lastAttempt = new Date(user.last_verification_attempt);
-          const cooldownPassed = (Date.now() - lastAttempt.getTime()) > (COOLDOWN_MINUTES * 60 * 1000);
+          const cooldown = calculateCooldown(user.verification_count);
+          const cooldownPassed = (Date.now() - lastAttempt.getTime()) > (cooldown * 60 * 1000);
           
+					// todo: this should probably never happen, how could have user sent a message until cooldown passed if we restricted him for that period, we should indicate an error here 
           if (!cooldownPassed) {
             const remainingMinutes = Math.ceil(
-              (COOLDOWN_MINUTES * 60 * 1000 - (Date.now() - lastAttempt.getTime())) / (60 * 1000)
+              (cooldown * 60 * 1000 - (Date.now() - lastAttempt.getTime())) / (60 * 1000)
             );
             
             console.log(`⏳ User ${userId} in cooldown, ${remainingMinutes}m remaining`);
@@ -223,7 +253,7 @@ while (true) {
               const successMessage = `
 🎉 *Welcome to the community @${username}\\!*
 
-Your answer showed you understand the vibe\\. You're now free to participate\\!
+Your answer showed you understand the vibe\\ (${score} out of 10). You're now free to participate\\!
 
 Remember to keep it real and have fun\\! 🌟
               `.trim();
@@ -231,6 +261,7 @@ Remember to keep it real and have fun\\! 🌟
               await sendTelegramMessage(successMessage);
               await updateUserPermissions(userId, true);
             } else {
+              const newCooldown = calculateCooldown(user.verification_count + 1);
               console.log(`❌ User ${userId} failed verification with score ${score}`);
               usersDb.prepare(`
                 UPDATE approved_users 
@@ -247,7 +278,7 @@ Try again in ${COOLDOWN_MINUTES} minutes with a fresh perspective\\!
               `.trim();
 
               await sendTelegramMessage(failureMessage);
-              await updateUserPermissions(userId, false, COOLDOWN_MINUTES * 2);
+              await updateUserPermissions(userId, false, newCooldown);
             }
             continue;
           }          
@@ -257,22 +288,34 @@ Try again in ${COOLDOWN_MINUTES} minutes with a fresh perspective\\!
           action = 'askQuestion';
         }
 
-				// todo: we should not delete message immediately, but instead give a user one minute period to pass validation and it should be indicated in question that he only has one minute and then we delete his message and block him from posting and every time he fails we increase his cooldown interval exponentially 
-				await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: GROUP_ID,
-            message_id: update.message.message_id
-          })
-        });
+        setTimeout(async () => {
+          const userStatus = usersDb.prepare(`
+            SELECT is_approved FROM approved_users WHERE telegram_user_id = ?
+          `).get(userId);
+
+          if (!userStatus?.is_approved) {
+            await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: GROUP_ID,
+                message_id: update.message.message_id
+              })
+            });
+            
+            const cooldown = calculateCooldown(user?.verification_count || 1);
+            await updateUserPermissions(userId, false, cooldown);
+            await sendTelegramMessage(
+              `⚠️ *Time's up @${username}* \\- verification failed\\. Try again in ${cooldown}m\\!`
+            );
+          }
+        }, VALIDATION_TIMEOUT * 1000);
 
         if (action === 'askQuestion') {
           let agents = [];
           const inviteLinkName = update?.new_chat_member && update?.invite_link?.name;
 
           if (inviteLinkName) {
-            // Try to get the main agent based on invite link
             const mainAgent = agentsDb.prepare(`
               SELECT a.*, i.imageCid 
               FROM agents a
@@ -282,7 +325,6 @@ Try again in ${COOLDOWN_MINUTES} minutes with a fresh perspective\\!
             `).get(inviteLinkName);
 
             if (mainAgent) {
-              // Get a random support agent excluding the main agent
               const supportAgent = agentsDb.prepare(`
                 SELECT a.*, i.imageCid 
                 FROM agents a
@@ -332,6 +374,33 @@ Try again in ${COOLDOWN_MINUTES} minutes with a fresh perspective\\!
             })
           ]);
 
+/*
+currently the message looks like this:
+
+🌟 New Fren Vibe Check 🌟
+          
+          
+santagga: Hey ghost, check out @mementsxyz! They just joined our community. I wonder what they're all about.  
+ghost: Oh, nice! I’m always curious about new members. Do you think they’ll fit in with our vibe?  
+santagga: I hope so! I love how diverse our group is. It could be great to see what they bring to the table.  
+ghost: Totally agree! Maybe we should ask them something to get a feel for their vibe?  
+
+          
+          santagga: "
+What’s your favorite way to blend tradition with modern creativity?  
+"
+          
+          > @mementsxyz - time to prove ur vibe! 
+          > one shot to answer | 15min timeout ⏳
+          > make it count fren ✨
+
+todo: we should improve it, first of all we should separate into two messages. first message with two images as its now only have a short conversation between main and helper agent, it should consist exactly of two lines:
+
+> main agent is asking his helper to welcome new user and ask him a validation question in regards to our shared values
+> helper agent is tagging the user inside of his question addressing to him
+
+then, we send additional message in reply to this one tagging user again and explaining the rules why its necessary for verification to fight off spam and check the vibe, all in very casual degen language
+*/
           const verificationData = await Query.from({
             mainAgentName: mainAgent.name,
             supportAgentName: supportAgent.name,
@@ -372,7 +441,8 @@ Try again in ${COOLDOWN_MINUTES} minutes with a fresh perspective\\!
           *${escapeMarkdown(mainAgent.name)}:* "${escapeMarkdown(verificationData.finalQuestion)}"
           
           \\> @${username} \\- time to prove ur vibe\\! 
-          \\> one shot to answer \\| ${COOLDOWN_MINUTES}min timeout ⏳
+          \\> ⚠️ You have ${VALIDATION_TIMEOUT} seconds to answer\\!
+          \\> one shot to answer \\| exponential cooldown on fails
           \\> make it count fren ✨
           `.trim();
 
