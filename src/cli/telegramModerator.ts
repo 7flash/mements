@@ -315,7 +315,7 @@ Try again in ${COOLDOWN_MINUTES} minutes with a fresh perspective\\!
             
 
 /*
-todo: fix all across we dont have updateUserPermissions and sendTelegramMessage anymore, instead we should have a single function "tg" and pass method name and body into it always.
+todo: fix all across we dont have updateUserPermissions and sendTelegramMessage anymore, and wee should remove "msg" and "restrictUser" as well, instead we should have a single function "tg" and pass method name and body into it always.
 */
             const cooldown = calculateCooldown(user?.verification_count || 1);
             await updateUserPermissions(userId, false, cooldown);
