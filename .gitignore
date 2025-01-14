@@ -1,5 +1,4 @@
-.config.toml
-.tg-config.toml
+*.toml
 *.txt
 
 static

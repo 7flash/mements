@@ -3,13 +3,11 @@ import { Database } from "bun:sqlite";
 import Query from "uai/src/query";
 import { PinataSDK } from 'pinata';
 
-// Initialize Pinata SDK for handling images
 const pinata = new PinataSDK({
   pinataJwt: process.env.PINATA_JWT,
   pinataGateway: process.env.PINATA_GATEWAY_URL,
 });
 
-// Database paths and initialization
 const agentsDbPath = path.join(process.cwd(), 'static/database', `${process.env.DATABASE_AGENTS}.sqlite`);
 const agentsDb = new Database(path.join(agentsDbPath).trim(), { readonly: true });
 console.log("agentsDb ==> ", agentsDb.filename);
@@ -33,7 +31,6 @@ usersDb.exec(`
   );
 `);
 
-// Type definitions
 type ApprovedUser = {
   telegram_user_id: string;
   is_approved: boolean;
@@ -67,14 +64,12 @@ type TelegramUpdate = {
   };
 };
 
-// Environment variables
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const GROUP_ID = process.env.TELEGRAM_GROUP_ID;
 const POLL_INTERVAL = 1000;
 const COOLDOWN_MINUTES = 15;
 let lastUpdateId = 0;
 
-// Utility functions
 const escapeMarkdown = (text: string) => {
   return text.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
 };
@@ -114,57 +109,6 @@ async function tg(method: string, body: any) {
   }
 }
 
-async function updateUserPermissions(userId: string, canMessage: boolean, duration?: number) {
-  const permissions = {
-    can_send_messages: canMessage,
-    can_send_media_messages: canMessage,
-    can_send_other_messages: canMessage,
-    can_send_polls: canMessage,
-    can_send_web_page_previews: canMessage,
-    can_add_web_page_previews: canMessage
-  };
-
-  return tg('restrictChatMember', {
-    chat_id: GROUP_ID,
-    user_id: userId,
-    permissions,
-    until_date: duration ? Math.floor(Date.now() / 1000) + (duration * 60) : undefined
-  });
-}
-
-async function sendTelegramMessage(text: string, options: any = {}) {
-  return tg('sendMessage', {
-    chat_id: GROUP_ID,
-    text: text,
-    parse_mode: 'MarkdownV2',
-    ...options
-  });
-}
-
-const VALIDATION_TIMEOUT = 60;
-const BASE_COOLDOWN = 15;
-
-function calculateCooldown(attempts: number): number {
-  return Math.min(BASE_COOLDOWN * Math.pow(2, attempts - 1), 24 * 60);
-}
-
-async function scheduleMessageDeletion(messageId: number, userId: string, delay: number) {
-  await new Promise(resolve => setTimeout(resolve, delay * 1000));
-  try {
-    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: GROUP_ID,
-        message_id: messageId
-      })
-    });
-    logAction(userId, 'MessageDeleted', { messageId });
-  } catch (error) {
-    logAction(userId, 'MessageDeletionFailed', { messageId, error });
-  }
-}
-
 function logAction(userId: string, action: string, details?: any) {
   console.log(`${userId}:${action} ==> `, details || '');
 }
@@ -185,6 +129,8 @@ while (true) {
 
       for (const update of updates) {
         console.log("update ==> ", update);
+
+        if (!update?.message?.chat?.id || update.message.chat.id !== GROUP_ID) continue;        
         if (update?.message?.from?.is_bot) continue;
         if (!update?.message?.text && !update?.message?.new_chat_member) continue;
 
