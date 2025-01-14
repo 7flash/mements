@@ -135,7 +135,6 @@ while (true) {
           action = 'askQuestion';
         }
 
-        // Delete any message from unapproved user
         await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -146,7 +145,23 @@ while (true) {
         });
 
         if (action === 'askQuestion') {
-          // Fetch two random agents for roleplay
+/*
+todo: if we have invite link we should try to take main agent based on it
+
+								const inviteLinkName = update?.new_chat_member ? update?.invite_link?.name : null;
+
+								let query = `
+										SELECT a.*, i.imageCid 
+										FROM agents a
+										LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
+									`;
+	
+								if (inviteLinkName) {
+									query += ` WHERE a.subdomain = ? LIMIT 1`;
+									return agentsDb.prepare(query).get(inviteLinkName);
+								}
+*/
+					
           const agents = agentsDb.prepare(`
             SELECT a.*, i.imageCid 
             FROM agents a
@@ -180,36 +195,50 @@ while (true) {
             })
           ]);
 
-
-/*
-todo: should improve this message, its always a dialogue between two agents, and they thinking whether allow @userhandle to join, and direct a question to him.
-
-            roleplayDialog: `Generate a brief friendly roleplay dialog between ${mainAgent.name} and ${supportAgent.name} welcoming @${username}`,
-            finalQuestion: `Generate a short, casual question (max 15 words) that ${mainAgent.name} would ask a new fren`,
-
-improve this prompt and improve verification message
-*/
 					const verificationData = await Query.from({
-            mainAgentName: mainAgent.name,
-            supportAgentName: supportAgent.name,
-            agentCommunity: mainAgent.prompt,
-          }, 'gpt-4o-mini').infer({
-            roleplayDialog: `Generate a brief friendly roleplay dialog between ${mainAgent.name} and ${supportAgent.name} welcoming @${username}`,
-            finalQuestion: `Generate a short, casual question (max 15 words) that ${mainAgent.name} would ask a new fren`,
-            expectedAnswer: 'Generate a brief, casual answer example',
-          });
+						mainAgentName: mainAgent.name,
+						supportAgentName: supportAgent.name,
+						username: username,
+						agentCommunity: mainAgent.prompt,
+						mainAgentPersonality: mainAgent.personality || 'friendly and welcoming',
+						supportAgentPersonality: supportAgent.personality || 'supportive and curious'
+					}, 'gpt-4o-mini').infer({
+						roleplayDialog: `
+							Create a natural, casual dialogue where ${mainAgent.name} and ${supportAgent.name} are 
+							discussing whether to welcome @${username} to their community. Include:
+							- ${mainAgent.name} notices the new user first
+							- ${supportAgent.name} shares their thoughts
+							- Both agents show their unique personalities
+							- Keep it friendly but make it feel like they're genuinely evaluating @${username}
+							- Max 3-4 lines of dialogue total
+							- End with ${mainAgent.name} deciding to ask a question
+						`,
+						finalQuestion: `
+							Create a clever but casual question (max 12 words) that:
+							- Fits naturally with ${mainAgent.name}'s personality
+							- Tests if @${username} vibes with the community
+							- Encourages a creative or thoughtful response
+							- Feels like a natural continuation of the dialogue
+						`,
+						expectedAnswer: 'Generate a brief example answer that would show good community fit'
+					});
+					
+					const escapeMarkdown = (text: string) => {
+						return text.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
+					};
+					
+					const verificationMessage = `
+					🌟 *New Fren Vibe Check* 🌟
+					
+					${escapeMarkdown(verificationData.roleplayDialog)}
+					
+					*${escapeMarkdown(mainAgent.name)}:* "${escapeMarkdown(verificationData.finalQuestion)}"
+					
+					\\> @${username} \\- time to prove ur vibe\\! 
+					\\> one shot to answer \\| ${COOLDOWN_MINUTES}min timeout ⏳
+					\\> make it count fren ✨
+					`.trim();			
 
-          const verificationMessage = `
-🤖 *Welcome Vibe Check*
-
-${verificationData.roleplayDialog}
-
-*${mainAgent.name}:* "${verificationData.finalQuestion}"
-
-@${username} \\- reply to this msg w/ ur answer\\! one shot or ${COOLDOWN_MINUTES}min timeout ⏳
-`.trim();
-
-          // Send media group with both agents
           await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMediaGroup`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
