@@ -48,7 +48,8 @@ type TelegramUpdate = {
     message_id: number;
     from: {
       id: string;
-      username: string;
+      username?: string;
+      first_name?: string;
     };
     text: string;
     chat: {
@@ -67,8 +68,7 @@ type TelegramUpdate = {
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const GROUP_ID = process.env.TELEGRAM_GROUP_ID;
 console.log("GROUP_ID ==> ", GROUP_ID);
-const POLL_INTERVAL = 1000;
-const COOLDOWN_MINUTES = 15;
+const POLL_INTERVAL = 1000; // todo: we should probably increase polling interval here all the way up to allow first moderators to deal with message maybe like a minute or so, and only if message is not deleted, then in our handler we should actually check that message is not deleted and only then proceed
 let lastUpdateId = 0;
 
 const escapeMarkdown = (text: string) => {
@@ -155,17 +155,11 @@ while (true) {
           }
 
           const userId = update.message.from.id;
-          const username = update.message.from.username;
+          const username = update.message?.from?.username;
 
-          // Handle missing username
+          // todo: in case if user missing account handle, we can reference him in the message by [inline mention of a user](tg://user?id=123456789) and mentinoing him by from.first_name instead of username
+
           if (!username) {
-            await measureTime(async () => {
-              await tg('sendMessage', {
-                chat_id: GROUP_ID,
-                text: `Hey <click>@${userId}</click>! Please set up a username in your Telegram settings before joining our community. This helps us create a better experience for everyone!`,
-                parse_mode: 'HTML'
-              });
-            }, `Send username request for user ${userId}`);
             return;
           }
 
@@ -185,7 +179,6 @@ while (true) {
               return;
             }
 
-            // Agent selection logic wrapped in measureTime
             const agents = await measureTime(async () => {
               let selectedAgents = [];
               const inviteLinkName = update?.new_chat_member && update?.invite_link?.name;
@@ -232,7 +225,6 @@ while (true) {
 
             const [mainAgent, supportAgent] = agents;
 
-            // Image URL generation wrapped in measureTime
             const [mainImageUrl, supportImageUrl] = await measureTime(async () => {
               return Promise.all([
                 pinata.gateways.createSignedURL({
@@ -254,7 +246,6 @@ while (true) {
               ]);
             }, `Generate image URLs for user ${userId}`);
 
-            // Enhanced personality-driven verification data
             const verificationData = await measureTime(async () => {
               return Query.from({
                 mainAgentName: mainAgent.name,
@@ -273,7 +264,6 @@ while (true) {
 
             logAction(userId, 'verificationData', verificationData);
 
-            // Send welcome message
             await measureTime(async () => {
               const welcomeMessage = `
 👤 *${escapeMarkdown(mainAgent.name)}* \\(on the left\\) says:
@@ -299,7 +289,6 @@ ${escapeMarkdown(verificationData.supportAgentReplica)}
               });
             }, `Send welcome message for user ${userId}`);
 
-            // Update database
             await measureTime(async () => {
               const stmt = user ?
                 usersDb.prepare(`
