@@ -96,7 +96,23 @@ async function msg(method: string, body: any) {
     });
 
     const data = await response.json();
-    
+
+/*
+todo:
+
+fix currently have error
+
+Failed to execute sendMessage:  97 | 
+ 98 |     const data = await response.json();
+ 99 | 
+100 |     if (!response.ok) {
+101 |       console.error(`Telegram API error (${method}):`, data);
+102 |       throw new Error(`${method} failed: ${response.status} - ${data.description || 'Unknown error'}`);
+                      ^
+error: sendMessage failed: 400 - Bad Request: can't parse entities: Character '=' is reserved and must be escaped with the preceding '\'
+      at /home/galaxy/askuai/src/cli/telegramModerator.ts:102:17
+
+*/
     if (!response.ok) {
       console.error(`Telegram API error (${method}):`, data);
       throw new Error(`${method} failed: ${response.status} - ${data.description || 'Unknown error'}`);
@@ -297,6 +313,10 @@ Try again in ${COOLDOWN_MINUTES} minutes with a fresh perspective\\!
               })
             });
             
+
+/*
+todo: fix all across we dont have updateUserPermissions and sendTelegramMessage anymore, instead we should have a single function "tg" and pass method name and body into it always.
+*/
             const cooldown = calculateCooldown(user?.verification_count || 1);
             await updateUserPermissions(userId, false, cooldown);
             await sendTelegramMessage(
@@ -392,6 +412,27 @@ Try again in ${COOLDOWN_MINUTES} minutes with a fresh perspective\\!
 				
 					logAction(userId, 'verificationData', verificationData);
 				
+/*
+currently msg looks like this
+
+👤 larp:
+      
+
+      👥 ggg:
+      larp: "Hey ggg, can you help welcome @mementsxyz and check their vibe?"
+
+todo: please fix it, it should be like this (without doublequotes for larp and it seems ggg message is missing please fix it all)
+
+👤 larp: ...
+
+👥 ggg: ...
+
+because our verificationData.welcomeDialog looks like this
+
+  welcomeDialog: "\nlarp: \"Hey ggg, can you help welcome @mementsxyz and check their vibe?\"\nggg: \"Sure! @mementsxyz, what do you think makes our community special?\"\n",
+
+todo: maybe alternatively we should add these fields in our verificationData when passing object to infer we can specify mainAgent replica and his helper response replica specifically
+*/
 					const welcomeMessage = `
 						👤 *${escapeMarkdown(mainAgent.name)}*:
 						${escapeMarkdown(verificationData.welcomeDialog.split('\n')[0])}
