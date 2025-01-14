@@ -168,9 +168,13 @@ while (true) {
           continue;
         }
 
-        let action: 'askQuestion' | 'validateAnswer' | 'deleteMessage' = 'deleteMessage';
+        let action: 'askQuestion' | 'validateAnswer' = 'askQuestion';
         
-        if (user) {
+				/* todo: improve logginm in our program, everything happening should be following with statement like this
+
+				console.log(user_id, "ActionNameWhatHappen", relevantDataObject)
+				*/
+				if (user) {
           const lastAttempt = new Date(user.last_verification_attempt);
           const cooldownPassed = (Date.now() - lastAttempt.getTime()) > (COOLDOWN_MINUTES * 60 * 1000);
           
@@ -253,6 +257,7 @@ Try again in ${COOLDOWN_MINUTES} minutes with a fresh perspective\\!
           action = 'askQuestion';
         }
 
+				// todo: we should not delete message immediately, but instead give a user one minute period to pass validation and it should be indicated in question that he only has one minute and then we delete his message and block him from posting and every time he fails we increase his cooldown interval exponentially 
 				await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
