@@ -3,11 +3,13 @@ import { Database } from "bun:sqlite";
 import Query from "uai/src/query";
 import { PinataSDK } from 'pinata';
 
+// Initialize Pinata SDK for handling images
 const pinata = new PinataSDK({
   pinataJwt: process.env.PINATA_JWT,
   pinataGateway: process.env.PINATA_GATEWAY_URL,
 });
 
+// Database paths and initialization
 const agentsDbPath = path.join(process.cwd(), 'static/database', `${process.env.DATABASE_AGENTS}.sqlite`);
 const agentsDb = new Database(path.join(agentsDbPath).trim(), { readonly: true });
 console.log("agentsDb ==> ", agentsDb.filename);
@@ -31,6 +33,7 @@ usersDb.exec(`
   );
 `);
 
+// Type definitions
 type ApprovedUser = {
   telegram_user_id: string;
   is_approved: boolean;
@@ -64,12 +67,14 @@ type TelegramUpdate = {
   };
 };
 
+// Environment variables
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const GROUP_ID = process.env.TELEGRAM_GROUP_ID;
 const POLL_INTERVAL = 1000;
 const COOLDOWN_MINUTES = 15;
 let lastUpdateId = 0;
 
+// Utility functions
 const escapeMarkdown = (text: string) => {
   return text.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
 };
@@ -164,152 +169,29 @@ function logAction(userId: string, action: string, details?: any) {
   console.log(`${userId}:${action} ==> `, details || '');
 }
 
-// todo: we should simplify, separate this bot into two separate bots. current bot should only send welcome message from the agents exactly the way it currently does. then second bot should listen for messages of first bot and explain to user the rules, and manage permissions and cooldowns.
-console.log('Starting Telegram moderator bot...');
-while (true) {
-  try {
-    await measureTime(async () => {
-      const response = await fetch(
-        `https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=${lastUpdateId + 1}`
-      );
-      const data = await response.json();
-      const updates: TelegramUpdate[] = data.ok && data.result.length > 0 ? data.result : [];
-      
-      if (updates.length > 0) {
-        lastUpdateId = data.result[data.result.length - 1].update_id;
-      }
-
-      for (const update of updates) {
-        if (update?.message?.from?.is_bot) continue;
-        if (!update?.message?.text && !update?.message?.new_chat_member) continue;
-
-        const userId = update.message.from.id;
-        const username = update.message.from.username;
-        const user = usersDb.prepare(`
-          SELECT * FROM approved_users WHERE telegram_user_id = ?
-        `).get(userId) as ApprovedUser | undefined;
-        console.log(`👤 Processing update for user ${userId} (@${username})`);
-
-        if (user?.is_approved) {
-          console.log(`✅ User ${userId} is already approved`);
-          continue;
-        }
-
-        let action: 'askQuestion' | 'validateAnswer' = 'askQuestion';
+// Bot 1: Welcome Bot
+async function welcomeBot() {
+  console.log('Starting Welcome Bot...');
+  while (true) {
+    try {
+      await measureTime(async () => {
+        const response = await fetch(
+          `https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=${lastUpdateId + 1}`
+        );
+        const data = await response.json();
+        const updates: TelegramUpdate[] = data.ok && data.result.length > 0 ? data.result : [];
         
-				if (user) {
-					const lastAttempt = new Date(user.last_verification_attempt);
-					const cooldown = calculateCooldown(user.verification_count);
-					const cooldownPassed = (Date.now() - lastAttempt.getTime()) > (cooldown * 60 * 1000);
-					
-					logAction(userId, 'cooldownCheck', { cooldownPassed, lastAttempt, cooldown });
-					
-					if (!cooldownPassed) {
-						const remainingMinutes = Math.ceil(
-							(cooldown * 60 * 1000 - (Date.now() - lastAttempt.getTime())) / (60 * 1000)
-						);
-						
-						logAction(userId, 'anomalyCooldownMessage', { remainingMinutes });
-						console.error(`⚠️ Security anomaly: User ${userId} somehow posted during cooldown period`);
-						
-						await updateUserPermissions(userId, false, remainingMinutes);
-						await sendTelegramMessage(
-							`⚠️ *Whoa @${username}* \\- you shouldn't be able to send messages yet\\. ${remainingMinutes}m remaining on cooldown\\!`
-						);
-						continue;
-					}
-				
-					if (user.verification_question) {
-						logAction(userId, 'validatingAnswer');
-						const agent = agentsDb.prepare(`
-							SELECT * FROM agents WHERE name = ?
-						`).get(user.verification_agent);
-				
-						const validationInput = {
-							agentName: agent.name,
-							question: user.verification_question,
-							answer: update.message.text,
-							agentPersonality: agent.prompt,
-						};
-						logAction(userId, 'validationInput', validationInput);
-				
-						const validation = await Query.from(validationInput, 'gpt-4o-mini').infer({
-							correctness: 'Rate from 1-10 how well the answer addresses the question'
-						});
-						logAction(userId, 'validationResult', validation);
-				
-            const score = parseInt(validation.correctness);
-
-            if (score >= 4) {
-              console.log(`🎉 User ${userId} passed verification with score ${score}`);
-              usersDb.prepare(`
-                UPDATE approved_users 
-                SET is_approved = 1
-                WHERE telegram_user_id = ?
-              `).run(userId);
-              
-              const successMessage = `
-🎉 *Welcome to the community @${username}\\!*
-
-Your answer showed you understand the vibe\\ (${score} out of 10). You're now free to participate\\!
-
-Remember to keep it real and have fun\\! 🌟
-              `.trim();
-
-              await sendTelegramMessage(successMessage);
-              await updateUserPermissions(userId, true);
-            } else {
-              const newCooldown = calculateCooldown(user.verification_count + 1);
-              console.log(`❌ User ${userId} failed verification with score ${score}`);
-              usersDb.prepare(`
-                UPDATE approved_users 
-                SET last_verification_attempt = ?,
-                    verification_count = verification_count + 1
-                WHERE telegram_user_id = ?
-              `).run(new Date().toISOString(), userId);
-
-              const failureMessage = `
-❌ *Not quite there @${username}*
-
-Your answer didn't quite match the vibe we're looking for\\. 
-Try again in ${COOLDOWN_MINUTES} minutes with a fresh perspective\\!
-              `.trim();
-
-              await sendTelegramMessage(failureMessage);
-              await updateUserPermissions(userId, false, newCooldown);
-            }
-            continue;
-          }          
-          
-          action = user.verification_question ? 'validateAnswer' : 'askQuestion';
-        } else {
-          action = 'askQuestion';
+        if (updates.length > 0) {
+          lastUpdateId = data.result[data.result.length - 1].update_id;
         }
 
-        setTimeout(async () => {
-          const userStatus = usersDb.prepare(`
-            SELECT is_approved FROM approved_users WHERE telegram_user_id = ?
-          `).get(userId);
+        for (const update of updates) {
+          if (update?.message?.from?.is_bot) continue;
+          if (!update?.message?.text && !update?.message?.new_chat_member) continue;
 
-          if (!userStatus?.is_approved) {
-            await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                chat_id: GROUP_ID,
-                message_id: update.message.message_id
-              })
-            });
-            
-            const cooldown = calculateCooldown(user?.verification_count || 1);
-            await updateUserPermissions(userId, false, cooldown);
-            await sendTelegramMessage(
-              `⚠️ *Time's up @${username}* \\- verification failed\\. Try again in ${cooldown}m\\!`
-            );
-          }
-        }, VALIDATION_TIMEOUT * 1000);
+          const userId = update.message.from.id;
+          const username = update.message.from.username;
 
-        if (action === 'askQuestion') {
           let agents = [];
           const inviteLinkName = update?.new_chat_member && update?.invite_link?.name;
 
@@ -336,7 +218,7 @@ Try again in ${COOLDOWN_MINUTES} minutes with a fresh perspective\\!
             }
           }
 
-					if (agents.length < 2) {
+          if (agents.length < 2) {
             agents = agentsDb.prepare(`
               SELECT a.*, i.imageCid 
               FROM agents a
@@ -371,22 +253,22 @@ Try again in ${COOLDOWN_MINUTES} minutes with a fresh perspective\\!
             })
           ]);
 
-					const verificationData = await Query.from({
-						mainAgentName: mainAgent.name,
-						supportAgentName: supportAgent.name,
-						username: username,
-						agentCommunity: mainAgent.prompt,
-						mainAgentPersonality: mainAgent.personality || 'friendly and welcoming',
-						supportAgentPersonality: supportAgent.personality || 'supportive and curious'
-					}, 'gpt-4o-mini').infer({
+          const verificationData = await Query.from({
+            mainAgentName: mainAgent.name,
+            supportAgentName: supportAgent.name,
+            username: username,
+            agentCommunity: mainAgent.prompt,
+            mainAgentPersonality: mainAgent.personality || 'friendly and welcoming',
+            supportAgentPersonality: supportAgent.personality || 'supportive and curious'
+          }, 'gpt-4o-mini').infer({
             mainAgentReplica: `Create a casual greeting where ${mainAgent.name} asks ${supportAgent.name} to help welcome @${username}`,
             supportAgentReplica: `Create a friendly response where ${supportAgent.name} addresses @${username} with a verification question`,
             verificationQuestion: `Create a casual but meaningful question that tests community values (max 15 words)`,
-						expectedAnswer: 'Brief example of a good answer showing community understanding'
-					});
-				
-					logAction(userId, 'verificationData', verificationData);
-				
+            expectedAnswer: 'Brief example of a good answer showing community understanding'
+          });
+
+          logAction(userId, 'verificationData', verificationData);
+
           const welcomeMessage = `
 👤 *${escapeMarkdown(mainAgent.name)}* (on the left): ${escapeMarkdown(verificationData.mainAgentReplica)}
 
@@ -409,80 +291,176 @@ Try again in ${COOLDOWN_MINUTES} minutes with a fresh perspective\\!
             ]
           });
 
-					await Bun.sleep(1000);
+          await Bun.sleep(1000);
 
-					const rulesMessage = `
+          const rulesMessage = `
 yo @${escapeMarkdown(username)}\\! 🔥
-				
-				we gotta make sure ur not a bot & check ur vibe\\. here's the deal:
-				
-				\\> ⏰ *${VALIDATION_TIMEOUT} seconds* to answer the question
-				\\> 🎯 one shot only \\- make it count
-				\\> ⚠️ fail = exponential timeout \\(${BASE_COOLDOWN}m \\-> ${BASE_COOLDOWN*2}m \\-> ${BASE_COOLDOWN*4}m\\)
-				\\> 🤝 be real, show ur personality
-				
-				*ready\\? let's go\\!* 💫
-					`.trim();
+          
+          we gotta make sure ur not a bot & check ur vibe\\. here's the deal:
+          
+          \\> ⏰ *${VALIDATION_TIMEOUT} seconds* to answer the question
+          \\> 🎯 one shot only \\- make it count
+          \\> ⚠️ fail = exponential timeout \\(${BASE_COOLDOWN}m \\-> ${BASE_COOLDOWN*2}m \\-> ${BASE_COOLDOWN*4}m\\)
+          \\> 🤝 be real, show ur personality
+          
+          *ready\\? let's go\\!* 💫
+          `.trim();
 
-					await tg('sendMessage', {
-						chat_id: GROUP_ID,
-						text: escapeMarkdown(rulesMessage),
-						parse_mode: 'MarkdownV2'
-					});
-									
-          const stmt = user ? 
-            usersDb.prepare(`
-              UPDATE approved_users 
-              SET last_verification_attempt = ?, verification_count = verification_count + 1,
-                  verification_agent = ?, original_message_id = ?, original_message = ?,
-                  verification_question = ?, expected_answer = ?
-              WHERE telegram_user_id = ?
-            `) :
-            usersDb.prepare(`
-              INSERT INTO approved_users (
-                telegram_user_id, is_approved, last_verification_attempt, verification_count,
-                verification_agent, original_message_id, original_message, verification_question,
-                expected_answer
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `);
+          await tg('sendMessage', {
+            chat_id: GROUP_ID,
+            text: escapeMarkdown(rulesMessage),
+            parse_mode: 'MarkdownV2'
+          });
 
-          const params = user ? 
-            [new Date().toISOString(), mainAgent.name, update.message.message_id,
-             update.message.text, verificationData.finalQuestion,
-             verificationData.expectedAnswer, userId] :
-            [userId, false, new Date().toISOString(), 1, mainAgent.name,
-             update.message.message_id, update.message.text,
-             verificationData.finalQuestion, verificationData.expectedAnswer];
+          const stmt = usersDb.prepare(`
+            INSERT INTO approved_users (
+              telegram_user_id, is_approved, last_verification_attempt, verification_count,
+              verification_agent, original_message_id, original_message, verification_question,
+              expected_answer
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `);
 
-          stmt.run(...params);
+          stmt.run(userId, false, new Date().toISOString(), 1, mainAgent.name,
+            update.message.message_id, update.message.text,
+            verificationData.verificationQuestion, verificationData.expectedAnswer);
 
           await updateUserPermissions(userId, false, VALIDATION_TIMEOUT);
-				}
+        }
+      }, 'Welcome processing');
+    } catch (error) {
+      console.error('Welcome Bot error:', error);
+    }
 
-        setTimeout(async () => {
-          const userStatus = usersDb.prepare(`
-            SELECT is_approved FROM approved_users WHERE telegram_user_id = ?
-          `).get(userId);
-
-          if (!userStatus?.is_approved) {
-            await tg('deleteMessage', {
-              chat_id: GROUP_ID,
-              message_id: update.message.message_id
-            });
-            
-            const cooldown = calculateCooldown(user?.verification_count || 1);
-            await updateUserPermissions(userId, false, cooldown);
-            
-            await sendTelegramMessage(
-              `⚠️ *Time's up @${escapeMarkdown(username)}* \\- verification failed\\. Try again in ${cooldown}m\\!`
-            );
-          }
-        }, VALIDATION_TIMEOUT * 1000);
-      }
-    }, 'Update processing');
-  } catch (error) {
-    console.error('Polling error:', error);
+    await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
   }
-
-  await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
 }
+
+// Bot 2: Verification and Management Bot
+async function verificationBot() {
+  console.log('Starting Verification Bot...');
+  while (true) {
+    try {
+      await measureTime(async () => {
+        const response = await fetch(
+          `https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=${lastUpdateId + 1}`
+        );
+        const data = await response.json();
+        const updates: TelegramUpdate[] = data.ok && data.result.length > 0 ? data.result : [];
+        
+        if (updates.length > 0) {
+          lastUpdateId = data.result[data.result.length - 1].update_id;
+        }
+
+        for (const update of updates) {
+          if (update?.message?.from?.is_bot) continue;
+          if (!update?.message?.text) continue;
+
+          const userId = update.message.from.id;
+          const username = update.message.from.username;
+          const user = usersDb.prepare(`
+            SELECT * FROM approved_users WHERE telegram_user_id = ?
+          `).get(userId) as ApprovedUser | undefined;
+          console.log(`👤 Processing update for user ${userId} (@${username})`);
+
+          if (user?.is_approved) {
+            console.log(`✅ User ${userId} is already approved`);
+            continue;
+          }
+
+          if (user) {
+            const lastAttempt = new Date(user.last_verification_attempt);
+            const cooldown = calculateCooldown(user.verification_count);
+            const cooldownPassed = (Date.now() - lastAttempt.getTime()) > (cooldown * 60 * 1000);
+            
+            logAction(userId, 'cooldownCheck', { cooldownPassed, lastAttempt, cooldown });
+            
+            if (!cooldownPassed) {
+              const remainingMinutes = Math.ceil(
+                (cooldown * 60 * 1000 - (Date.now() - lastAttempt.getTime())) / (60 * 1000)
+              );
+              
+              logAction(userId, 'anomalyCooldownMessage', { remainingMinutes });
+              console.error(`⚠️ Security anomaly: User ${userId} somehow posted during cooldown period`);
+              
+              await updateUserPermissions(userId, false, remainingMinutes);
+              await sendTelegramMessage(
+                `⚠️ *Whoa @${username}* \\- you shouldn't be able to send messages yet\\. ${remainingMinutes}m remaining on cooldown\\!`
+              );
+              continue;
+            }
+          
+            if (user.verification_question) {
+              logAction(userId, 'validatingAnswer');
+              const agent = agentsDb.prepare(`
+                SELECT * FROM agents WHERE name = ?
+              `).get(user.verification_agent);
+          
+              const validationInput = {
+                agentName: agent.name,
+                question: user.verification_question,
+                answer: update.message.text,
+                agentPersonality: agent.prompt,
+              };
+              logAction(userId, 'validationInput', validationInput);
+          
+              const validation = await Query.from(validationInput, 'gpt-4o-mini').infer({
+                correctness: 'Rate from 1-10 how well the answer addresses the question'
+              });
+              logAction(userId, 'validationResult', validation);
+          
+              const score = parseInt(validation.correctness);
+
+              if (score >= 4) {
+                console.log(`🎉 User ${userId} passed verification with score ${score}`);
+                usersDb.prepare(`
+                  UPDATE approved_users 
+                  SET is_approved = 1
+                  WHERE telegram_user_id = ?
+                `).run(userId);
+                
+                const successMessage = `
+🎉 *Welcome to the community @${username}\\!*
+
+Your answer showed you understand the vibe\\ (${score} out of 10). You're now free to participate\\!
+
+Remember to keep it real and have fun\\! 🌟
+                `.trim();
+
+                await sendTelegramMessage(successMessage);
+                await updateUserPermissions(userId, true);
+              } else {
+                const newCooldown = calculateCooldown(user.verification_count + 1);
+                console.log(`❌ User ${userId} failed verification with score ${score}`);
+                usersDb.prepare(`
+                  UPDATE approved_users 
+                  SET last_verification_attempt = ?,
+                      verification_count = verification_count + 1
+                  WHERE telegram_user_id = ?
+                `).run(new Date().toISOString(), userId);
+
+                const failureMessage = `
+❌ *Not quite there @${username}*
+
+Your answer didn't quite match the vibe we're looking for\\. 
+Try again in ${COOLDOWN_MINUTES} minutes with a fresh perspective\\!
+                `.trim();
+
+                await sendTelegramMessage(failureMessage);
+                await updateUserPermissions(userId, false, newCooldown);
+              }
+              continue;
+            }
+          }
+        }
+      }, 'Verification processing');
+    } catch (error) {
+      console.error('Verification Bot error:', error);
+    }
+
+    await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+  }
+}
+
+// Start both bots
+welcomeBot();
+verificationBot();
