@@ -83,6 +83,28 @@ async function measureTime<T>(fn: () => Promise<T>, label: string): Promise<T> {
   }
 }
 
+async function restrictUser(userId: string, duration: number) {
+  console.log(`🔒 Restricting user ${userId} for ${duration} minutes`);
+  try {
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/restrictChatMember`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: GROUP_ID,
+        user_id: userId,
+        permissions: {
+          can_send_messages: false,
+          can_send_media_messages: false,
+          can_send_other_messages: false,
+        },
+        until_date: Math.floor(Date.now() / 1000) + (duration * 60)
+      })
+    });
+  } catch (error) {
+    console.error(`Failed to restrict user ${userId}:`, error);
+  }
+}
+
 console.log('Starting Telegram moderator bot...');
 while (true) {
   try {
@@ -106,28 +128,15 @@ while (true) {
         const user = usersDb.prepare(`
           SELECT * FROM approved_users WHERE telegram_user_id = ?
         `).get(userId) as ApprovedUser | undefined;
+        console.log(`👤 Processing message from user ${userId} (@${username})`, user);
 
-        if (user?.is_approved) continue;
+        if (user?.is_approved) {
+          console.log(`✅ User ${userId} is already approved`);
+          continue;
+        }
 
-        let action: 'askQuestion' | 'validateAnswer' | 'deleteMessage' = 'deleteMessage';
+        let action: 'askQuestion' | 'validateAnswer' = user?.verification_question ? 'validateAnswer' : 'askQuestion';
         
-				/* todo: should implement a detailed logging indicating user id every time and whats happening, and should fix an error currently i send message to chat and its just deleted, nothing else happens, it should always have some reaction, and it should never be deleting messages, intead it should be restricting user from sending further messages IF user haven't answered correctly within given period of time like this
-
-+								await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/restrictChatMember`, {
-+									method: 'POST',
-+									headers: { 'Content-Type': 'application/json' },
-+									body: JSON.stringify({
-+										chat_id: GROUP_ID,
-+										user_id: userId,
-+										permissions: {
-+											can_send_messages: false
-+										},
-+										until_date: Math.floor(Date.now() / 1000) + ((score <= 3 ? COOLDOWN_MINUTES*2 : COOLDOWN_MINUTES) * 2 * 60)
-+									})
-+								});
-				
-
-				*/
         if (user) {
           const lastAttempt = new Date(user.last_verification_attempt);
           const cooldownPassed = (Date.now() - lastAttempt.getTime()) > (COOLDOWN_MINUTES * 60 * 1000);
@@ -136,6 +145,9 @@ while (true) {
             const remainingMinutes = Math.ceil(
               (COOLDOWN_MINUTES * 60 * 1000 - (Date.now() - lastAttempt.getTime())) / (60 * 1000)
             );
+
+            console.log(`⏳ User ${userId} in cooldown for ${remainingMinutes} minutes`);
+            await restrictUser(userId, remainingMinutes);
             
             await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
               method: 'POST',
@@ -154,16 +166,44 @@ while (true) {
           action = 'askQuestion';
         }
 
-        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: GROUP_ID,
-            message_id: update.message.message_id
-          })
-        });
-
-        if (action === 'askQuestion') {
+        if (action === 'validateAnswer' && user?.verification_question) {
+          console.log(`🤔 Validating answer from user ${userId}`);
+          const score = await validateAnswer(update.message.text, user.expected_answer || '');
+          
+          if (score > 5) {
+            console.log(`🎉 User ${userId} passed verification`);
+            usersDb.prepare(`
+              UPDATE approved_users 
+              SET is_approved = 1
+              WHERE telegram_user_id = ?
+            `).run(userId);
+            
+            await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: GROUP_ID,
+                text: `✨ *Welcome @${username}!* You've proven your vibe\\!`,
+                parse_mode: 'MarkdownV2'
+              })
+            });
+          } else {
+            console.log(`❌ User ${userId} failed verification`);
+            const restrictDuration = score <= 3 ? COOLDOWN_MINUTES * 2 : COOLDOWN_MINUTES;
+            await restrictUser(userId, restrictDuration);
+            
+            await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: GROUP_ID,
+                text: `😅 *Not quite @${username}* - try again in ${restrictDuration}m`,
+                parse_mode: 'MarkdownV2'
+              })
+            });
+          }
+          continue;
+        } else if (action === 'askQuestion') {
           let agents = [];
           const inviteLinkName = update?.new_chat_member && update?.invite_link?.name;
 
