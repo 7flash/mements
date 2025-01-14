@@ -87,69 +87,46 @@ async function measureTime<T>(fn: () => Promise<T>, label: string): Promise<T> {
   }
 }
 
-async function sendTelegramMessage(text: string, parseMode: 'Markdown' | 'MarkdownV2' = 'MarkdownV2') {
+async function msg(method: string, body: any) {
   try {
-    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: GROUP_ID,
-        text,
-        parse_mode: parseMode
-      })
-    });
-    if (!response.ok) throw new Error(`Telegram API error: ${response.status}`);
-    return await response.json();
-  } catch (error) {
-    console.error('Failed to send message:', error);
-    throw error;
-  }
-}
-
-async function updateUserPermissions(userId: string, canMessage: boolean, duration?: number) {
-  try {
-    const permissions = {
-      can_send_messages: canMessage,
-      can_send_media_messages: canMessage,
-      can_send_other_messages: canMessage,
-    };
-
-    const body: any = {
-      chat_id: GROUP_ID,
-      user_id: userId,
-      permissions
-    };
-
-    if (duration) {
-      body.until_date = Math.floor(Date.now() / 1000) + (duration * 60);
-    }
-
-    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/restrictChatMember`, {
+    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
-/*
-todo: fix it, also leverage our new generic function "msg" for it and remove "updateUserPermissions" function
 
-error: Failed to update permissions: 400
-      at /home/galaxy/askuai/src/cli/telegramModerator.ts:133:33
-      at processTicksAndRejections (native:7:39)
-
-128 |       method: 'POST',
-129 |       headers: { 'Content-Type': 'application/json' },
-130 |       body: JSON.stringify(body)
-131 |     });
-132 | 
-133 |     if (!response.ok) throw new Error(`Failed to update permissions: ${response.status}`);
-*/
-
-    if (!response.ok) throw new Error(`Failed to update permissions: ${response.status}`);
-    return await response.json();
+    const data = await response.json();
+    
+    if (!response.ok) {
+      console.error(`Telegram API error (${method}):`, data);
+      throw new Error(`${method} failed: ${response.status} - ${data.description || 'Unknown error'}`);
+    }
+    
+    return data;
   } catch (error) {
-    console.error(`Failed to update permissions for user ${userId}:`, error);
+    console.error(`Failed to execute ${method}:`, error);
     throw error;
   }
+}
+
+async function restrictUser(userId: string, canMessage: boolean, duration?: number) {
+  const permissions = {
+    can_send_messages: canMessage,
+    can_send_media_messages: canMessage,
+    can_send_other_messages: canMessage,
+    can_send_polls: canMessage,
+    can_send_web_page_previews: canMessage,
+    can_add_web_page_previews: canMessage
+  };
+
+  const body = {
+    chat_id: GROUP_ID,
+    user_id: userId,
+    permissions,
+    until_date: duration ? Math.floor(Date.now() / 1000) + (duration * 60) : undefined
+  };
+
+  return msg('restrictChatMember', body);
 }
 
 // Add constants for timeouts
@@ -415,44 +392,31 @@ Try again in ${COOLDOWN_MINUTES} minutes with a fresh perspective\\!
 				
 					logAction(userId, 'verificationData', verificationData);
 				
-/*
-currently it looks like this, which is not very readable
-
-🌟 New Fren Alert 🌟    
-    
-Ricky: "Hey Onoku-san, can you help me welcome @mementsxyz and check their vibe?"  
-Onoku-san: "Sure thing! @mementsxyz, what do you think makes a community thrive?"
-
-we dont need to say "new fren" and we should indicate it as a dialogue more clearly with proper spacing emoji or whatever
-*/
 					const welcomeMessage = `
-				🌟 *New Fren Alert* 🌟
-				
-				${escapeMarkdown(verificationData.welcomeDialog)}
+						👤 *${escapeMarkdown(mainAgent.name)}*:
+						${escapeMarkdown(verificationData.welcomeDialog.split('\n')[0])}
+
+						👥 *${escapeMarkdown(supportAgent.name)}*:
+						${escapeMarkdown(verificationData.welcomeDialog.split('\n')[1])}
 					`.trim();
-				
-					const mediaResponse = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMediaGroup`, {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({
-							chat_id: GROUP_ID,
-							media: [
-								{
-									type: 'photo',
-									media: mainImageUrl,
-								},
-								{
-									type: 'photo',
-									media: supportImageUrl,
-									caption: welcomeMessage,
-									parse_mode: 'MarkdownV2'
-								}
-							]
-						})
-					});
-					logAction(userId, 'welcomeMessageSent', await mediaResponse.json());
-				
-// todo: fix it something went wrong and we dont see this second message, also never use sendTelegramMessage function instead define more generic function "msg" which can be used for above request as well in which case we just pass "sendMediaGroup" as method and then body as an object
+
+          await msg('sendMediaGroup', {
+            chat_id: GROUP_ID,
+            media: [
+              {
+                type: 'photo',
+                media: mainImageUrl,
+              },
+              {
+                type: 'photo',
+                media: supportImageUrl,
+                caption: welcomeMessage,
+                parse_mode: 'MarkdownV2'
+              }
+            ]
+          });
+
+					await Bun.sleep(1000);
 
 					const rulesMessage = `
 				yo @${username}\\! 🔥
@@ -466,9 +430,12 @@ we dont need to say "new fren" and we should indicate it as a dialogue more clea
 				
 				*ready\\? let's go\\!* 💫
 					`.trim();
-				
-					const rulesMsgResponse = await sendTelegramMessage(rulesMessage);
-					logAction(userId, 'ruleMessageSent', rulesMsgResponse);
+
+          await msg('sendMessage', {
+            chat_id: GROUP_ID,
+            text: rulesMessage,
+            parse_mode: 'MarkdownV2'
+          });
 				
           const stmt = user ? 
             usersDb.prepare(`
@@ -495,7 +462,31 @@ we dont need to say "new fren" and we should indicate it as a dialogue more clea
              verificationData.finalQuestion, verificationData.expectedAnswer];
 
           stmt.run(...params);
+
+          await restrictUser(userId, false, VALIDATION_TIMEOUT);
 				}
+
+        setTimeout(async () => {
+          const userStatus = usersDb.prepare(`
+            SELECT is_approved FROM approved_users WHERE telegram_user_id = ?
+          `).get(userId);
+
+          if (!userStatus?.is_approved) {
+            await msg('deleteMessage', {
+              chat_id: GROUP_ID,
+              message_id: update.message.message_id
+            });
+            
+            const cooldown = calculateCooldown(user?.verification_count || 1);
+            await restrictUser(userId, false, cooldown);
+            
+            await msg('sendMessage', {
+              chat_id: GROUP_ID,
+              text: `⚠️ *Time's up @${username}* \\- verification failed\\. Try again in ${cooldown}m\\!`,
+              parse_mode: 'MarkdownV2'
+            });
+          }
+        }, VALIDATION_TIMEOUT * 1000);
       }
     }, 'Update processing');
   } catch (error) {
