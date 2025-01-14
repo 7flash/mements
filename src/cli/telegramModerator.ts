@@ -70,6 +70,10 @@ const POLL_INTERVAL = 1000;
 const COOLDOWN_MINUTES = 15;
 let lastUpdateId = 0;
 
+const escapeMarkdown = (text: string) => {
+  return text.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
+};
+
 async function measureTime<T>(fn: () => Promise<T>, label: string): Promise<T> {
   const start = performance.now();
   try {
@@ -83,28 +87,56 @@ async function measureTime<T>(fn: () => Promise<T>, label: string): Promise<T> {
   }
 }
 
-async function restrictUser(userId: string, duration: number) {
-  console.log(`🔒 Restricting user ${userId} for ${duration} minutes`);
+async function sendTelegramMessage(text: string, parseMode: 'Markdown' | 'MarkdownV2' = 'MarkdownV2') {
   try {
-    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/restrictChatMember`, {
+    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: GROUP_ID,
-        user_id: userId,
-        permissions: {
-          can_send_messages: false,
-          can_send_media_messages: false,
-          can_send_other_messages: false,
-        },
-        until_date: Math.floor(Date.now() / 1000) + (duration * 60)
+        text,
+        parse_mode: parseMode
       })
     });
+    if (!response.ok) throw new Error(`Telegram API error: ${response.status}`);
+    return await response.json();
   } catch (error) {
-    console.error(`Failed to restrict user ${userId}:`, error);
+    console.error('Failed to send message:', error);
+    throw error;
   }
 }
 
+async function updateUserPermissions(userId: string, canMessage: boolean, duration?: number) {
+  try {
+    const permissions = {
+      can_send_messages: canMessage,
+      can_send_media_messages: canMessage,
+      can_send_other_messages: canMessage,
+    };
+
+    const body: any = {
+      chat_id: GROUP_ID,
+      user_id: userId,
+      permissions
+    };
+
+    if (duration) {
+      body.until_date = Math.floor(Date.now() / 1000) + (duration * 60);
+    }
+
+    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/restrictChatMember`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) throw new Error(`Failed to update permissions: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    console.error(`Failed to update permissions for user ${userId}:`, error);
+    throw error;
+  }
+}
 
 console.log('Starting Telegram moderator bot...');
 while (true) {
@@ -131,8 +163,6 @@ while (true) {
         `).get(userId) as ApprovedUser | undefined;
         console.log(`👤 Processing update for user ${userId} (@${username})`);
 
-        if (user?.is_approved) continue;
-
         if (user?.is_approved) {
           console.log(`✅ User ${userId} is already approved`);
           continue;
@@ -150,40 +180,33 @@ while (true) {
             );
             
             console.log(`⏳ User ${userId} in cooldown, ${remainingMinutes}m remaining`);
-            await restrictUser(userId, remainingMinutes);
-
-            await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                chat_id: GROUP_ID,
-                text: `⏳ *yo @${username}* - gotta wait ${remainingMinutes}m before trying again ser`,
-                parse_mode: 'MarkdownV2'
-              })
-            });
+            await updateUserPermissions(userId, false, remainingMinutes);
+            await sendTelegramMessage(
+              `⏳ *yo @${username}* \\- gotta wait ${remainingMinutes}m before trying again ser`
+            );
             continue;
           }
 
           if (user.verification_question) {
             console.log(`🤔 Validating answer from user ${userId}`);
-						const agent = agentsDb.prepare(`
-							SELECT * FROM agents WHERE name = ?
-						`).get(user.verification_agent);
+            const agent = agentsDb.prepare(`
+              SELECT * FROM agents WHERE name = ?
+            `).get(user.verification_agent);
 
-						const validationInput = {
-							agentName: agent.name,
-							question: user.verification_question,
-							answer: update.message.text,
-							agentPersonality: agent.prompt,
-						};
-						console.log("validationInput ==> ", validationInput);
+            const validationInput = {
+              agentName: agent.name,
+              question: user.verification_question,
+              answer: update.message.text,
+              agentPersonality: agent.prompt,
+            };
+            console.log("validationInput ==> ", validationInput);
 
-						const validation = await Query.from(validationInput, 'gpt-4o-mini').infer({
-							correctness: 'Rate from 1-10 how well the answer addresses the question (1-3 means answer is totally unrelated to the given context of question, 4-6 means answer is relevant but might be incomplete or incorrect, 7-10 means answer resonates to the questioners own opinion)',
-						});
-						console.log("validation ==> ", validation);
+            const validation = await Query.from(validationInput, 'gpt-4o-mini').infer({
+              correctness: 'Rate from 1-10 how well the answer addresses the question (1-3 means answer is totally unrelated to the given context of question, 4-6 means answer is relevant but might be incomplete or incorrect, 7-10 means answer resonates to the questioners own opinion)',
+            });
+            console.log("validation ==> ", validation);
 
-						const score = parseInt(validation.correctness);
+            const score = parseInt(validation.correctness);
 
             if (score >= 4) {
               console.log(`🎉 User ${userId} passed verification with score ${score}`);
@@ -193,60 +216,44 @@ while (true) {
                 WHERE telegram_user_id = ?
               `).run(userId);
               
-							// todo: should send message welcoming user can message now
-							await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-								method: 'POST',
-								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify({
-									chat_id: GROUP_ID,
-									text: successMessage,
-									parse_mode: 'Markdown'
-								})
-							});
+              const successMessage = `
+🎉 *Welcome to the community @${username}\\!*
 
-							// todo: should remove restrictUser and always do fetch explicitly in other places, and improve ensure all code works in all scenarios
-              await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/restrictChatMember`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  chat_id: GROUP_ID,
-                  user_id: userId,
-                  permissions: {
-                    can_send_messages: true,
-                    can_send_media_messages: true,
-                    can_send_other_messages: true,
-                  }
-                })
-              });
+Your answer showed you understand the vibe\\. You're now free to participate\\!
+
+Remember to keep it real and have fun\\! 🌟
+              `.trim();
+
+              await sendTelegramMessage(successMessage);
+              await updateUserPermissions(userId, true);
             } else {
               console.log(`❌ User ${userId} failed verification with score ${score}`);
-							usersDb.prepare(`
-								UPDATE approved_users 
-								SET last_verification_attempt = ?,
-										verification_count = verification_count + 1
-								WHERE telegram_user_id = ?
-							`).run(new Date().toISOString(), userId);
+              usersDb.prepare(`
+                UPDATE approved_users 
+                SET last_verification_attempt = ?,
+                    verification_count = verification_count + 1
+                WHERE telegram_user_id = ?
+              `).run(new Date().toISOString(), userId);
 
-							await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-								method: 'POST',
-								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify({
-									chat_id: GROUP_ID,
-									text: failureMessage,
-									parse_mode: 'Markdown'
-								})
-							});
-              await restrictUser(userId, COOLDOWN_MINUTES * 2);
+              const failureMessage = `
+❌ *Not quite there @${username}*
+
+Your answer didn't quite match the vibe we're looking for\\. 
+Try again in ${COOLDOWN_MINUTES} minutes with a fresh perspective\\!
+              `.trim();
+
+              await sendTelegramMessage(failureMessage);
+              await updateUserPermissions(userId, false, COOLDOWN_MINUTES * 2);
             }
             continue;
-          }					
+          }          
           
           action = user.verification_question ? 'validateAnswer' : 'askQuestion';
         } else {
           action = 'askQuestion';
         }
 
-        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage`, {
+				await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -409,7 +416,7 @@ while (true) {
              verificationData.finalQuestion, verificationData.expectedAnswer];
 
           stmt.run(...params);
-        }
+				}
       }
     }, 'Update processing');
   } catch (error) {
