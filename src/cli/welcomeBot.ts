@@ -66,6 +66,7 @@ type TelegramUpdate = {
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const GROUP_ID = process.env.TELEGRAM_GROUP_ID;
+console.log("GROUP_ID ==> ", GROUP_ID);
 const POLL_INTERVAL = 1000;
 const COOLDOWN_MINUTES = 15;
 let lastUpdateId = 0;
@@ -130,6 +131,7 @@ while (true) {
       for (const update of updates) {
         console.log("update ==> ", update);
 
+        // todo: for some reason when there is a message its not being processed we need to give better console logging information here, also we should wrap all the logic into multiple nested measureTime, and every time it should log out user id, its relevant data of the action, and action name and how long it took
         if (!update?.message?.chat?.id || update.message.chat.id !== GROUP_ID) continue;        
         if (update?.message?.from?.is_bot) continue;
         if (!update?.message?.text && !update?.message?.new_chat_member) continue;
@@ -150,8 +152,6 @@ while (true) {
         if (user?.verification_count > 0) {
           console.log(`skip ${username} not approved but we have a pending verification`);
           continue;
-
-          // todo: should actually delete message from user if pending verification
         }
 
         let agents = [];
