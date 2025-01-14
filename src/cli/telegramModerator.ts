@@ -54,9 +54,6 @@ type TelegramUpdate = {
     chat: {
       id: string;
     };
-    reply_to_message?: {
-      message_id: number;
-    };
   };
   new_chat_member?: {
     id: string;
@@ -109,16 +106,31 @@ while (true) {
 
         if (user?.is_approved) continue;
 
-        // Determine action based on user state and cooldown
+        // Determine action based on user state
         let action: 'askQuestion' | 'validateAnswer' | 'deleteMessage' = 'deleteMessage';
         
         if (user) {
           const lastAttempt = new Date(user.last_verification_attempt);
           const cooldownPassed = (Date.now() - lastAttempt.getTime()) > (COOLDOWN_MINUTES * 60 * 1000);
           
-          if (cooldownPassed) {
-            action = update.message.reply_to_message ? 'validateAnswer' : 'askQuestion';
+          if (!cooldownPassed) {
+            const remainingMinutes = Math.ceil(
+              (COOLDOWN_MINUTES * 60 * 1000 - (Date.now() - lastAttempt.getTime())) / (60 * 1000)
+            );
+            
+            await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: GROUP_ID,
+                text: `⏳ *yo @${username}* - gotta wait ${remainingMinutes}m before trying again ser`,
+                parse_mode: 'MarkdownV2'
+              })
+            });
+            continue;
           }
+          
+          action = user.verification_question ? 'validateAnswer' : 'askQuestion';
         } else {
           action = 'askQuestion';
         }
@@ -133,107 +145,91 @@ while (true) {
           })
         });
 
-        if (action === 'deleteMessage') {
-          if (user) {
-            const remainingMinutes = Math.ceil(
-              (COOLDOWN_MINUTES * 60 * 1000 - (Date.now() - new Date(user.last_verification_attempt).getTime())) / (60 * 1000)
-            );
-            
-            await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                chat_id: GROUP_ID,
-                text: `⏳ *yo @${username}* - gotta wait ${remainingMinutes}m before trying again ser`,
-                parse_mode: 'MarkdownV2'
-              })
-            });
-          }
-          continue;
-        }
-
         if (action === 'askQuestion') {
-/*
-todo:
-
-if we have invite link then one of the agents should be taken based on its name if its present otherwise still random
-
-								const inviteLinkName = update?.new_chat_member ? update?.invite_link?.name : null;
-
-								let query = `
-										SELECT a.*, i.imageCid 
-										FROM agents a
-										LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
-									`;
-	
-								if (inviteLinkName) {
-									query += ` WHERE a.subdomain = ? LIMIT 1`;
-									return agentsDb.prepare(query).get(inviteLinkName);
-								}
-								
-*/
-
-					const agents = agentsDb.prepare(`
+          // Fetch two random agents for roleplay
+          const agents = agentsDb.prepare(`
             SELECT a.*, i.imageCid 
             FROM agents a
             LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
-            ORDER BY RANDOM() LIMIT 2
+            ORDER BY RANDOM() 
+            LIMIT 2
           `).all();
 
           if (agents.length < 2) {
             throw new Error('Unable to start verification process - insufficient agents');
           }
 
-          // Get signed URLs for both agent images
-          const imageUrls = await Promise.all(agents.map(agent => 
+          const [mainAgent, supportAgent] = agents;
+
+          const [mainImageUrl, supportImageUrl] = await Promise.all([
             pinata.gateways.createSignedURL({
-              cid: agent.imageCid,
+              cid: mainAgent.imageCid,
+              expires: 3600
+            }).optimizeImage({
+              width: 512,
+              height: 512,
+              format: 'webp',
+            }),
+            pinata.gateways.createSignedURL({
+              cid: supportAgent.imageCid,
               expires: 3600
             }).optimizeImage({
               width: 512,
               height: 512,
               format: 'webp',
             })
-          ));
+          ]);
 
-          // Generate verification data using both agents
-          const verificationData = await Query.from({
-            agent1Name: agents[0].name,
-            agent2Name: agents[1].name,
-            communityContext: agents[0].prompt,
+
+/*
+todo: should improve this message, its always a dialogue between two agents, and they thinking whether allow @userhandle to join, and direct a question to him.
+
+            roleplayDialog: `Generate a brief friendly roleplay dialog between ${mainAgent.name} and ${supportAgent.name} welcoming @${username}`,
+            finalQuestion: `Generate a short, casual question (max 15 words) that ${mainAgent.name} would ask a new fren`,
+
+improve this prompt and improve verification message
+*/
+					const verificationData = await Query.from({
+            mainAgentName: mainAgent.name,
+            supportAgentName: supportAgent.name,
+            agentCommunity: mainAgent.prompt,
           }, 'gpt-4o-mini').infer({
-            welcomeDialog: `Generate a brief, casual welcome dialog between ${agents[0].name} and ${agents[1].name} greeting @${username}`,
-            verificationQuestion: `Generate a casual verification question (max 15 words)`,
+            roleplayDialog: `Generate a brief friendly roleplay dialog between ${mainAgent.name} and ${supportAgent.name} welcoming @${username}`,
+            finalQuestion: `Generate a short, casual question (max 15 words) that ${mainAgent.name} would ask a new fren`,
             expectedAnswer: 'Generate a brief, casual answer example',
           });
 
           const verificationMessage = `
-🤖 *Welcome to the Community*
+🤖 *Welcome Vibe Check*
 
-${verificationData.welcomeDialog}
+${verificationData.roleplayDialog}
 
-*Verification Question:*
-> "${verificationData.verificationQuestion}"
+*${mainAgent.name}:* "${verificationData.finalQuestion}"
 
-Reply to this message with your answer to continue\\! \\(${COOLDOWN_MINUTES}min timeout\\)
+@${username} \\- reply to this msg w/ ur answer\\! one shot or ${COOLDOWN_MINUTES}min timeout ⏳
 `.trim();
 
-          // Send media group with both images
+          // Send media group with both agents
           await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMediaGroup`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               chat_id: GROUP_ID,
-              media: imageUrls.map((url, i) => ({
-                type: 'photo',
-                media: url,
-                caption: i === 0 ? verificationMessage : '',
-                parse_mode: 'MarkdownV2'
-              }))
+              media: [
+                {
+                  type: 'photo',
+                  media: mainImageUrl,
+                },
+                {
+                  type: 'photo',
+                  media: supportImageUrl,
+                  caption: verificationMessage,
+                  parse_mode: 'MarkdownV2'
+                }
+              ]
             })
           });
 
-          // Update or insert user record
           const stmt = user ? 
             usersDb.prepare(`
               UPDATE approved_users 
@@ -251,13 +247,12 @@ Reply to this message with your answer to continue\\! \\(${COOLDOWN_MINUTES}min 
             `);
 
           const params = user ? 
-            [new Date().toISOString(), `${agents[0].name} & ${agents[1].name}`, 
-             update.message.message_id, update.message.text, 
-             verificationData.verificationQuestion, verificationData.expectedAnswer, userId] :
-            [userId, false, new Date().toISOString(), 1, 
-             `${agents[0].name} & ${agents[1].name}`, update.message.message_id,
-             update.message.text, verificationData.verificationQuestion, 
-             verificationData.expectedAnswer];
+            [new Date().toISOString(), mainAgent.name, update.message.message_id,
+             update.message.text, verificationData.finalQuestion,
+             verificationData.expectedAnswer, userId] :
+            [userId, false, new Date().toISOString(), 1, mainAgent.name,
+             update.message.message_id, update.message.text,
+             verificationData.finalQuestion, verificationData.expectedAnswer];
 
           stmt.run(...params);
         }
