@@ -111,6 +111,23 @@ while (true) {
 
         let action: 'askQuestion' | 'validateAnswer' | 'deleteMessage' = 'deleteMessage';
         
+				/* todo: should implement a detailed logging indicating user id every time and whats happening, and should fix an error currently i send message to chat and its just deleted, nothing else happens, it should always have some reaction, and it should never be deleting messages, intead it should be restricting user from sending further messages IF user haven't answered correctly within given period of time like this
+
++								await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/restrictChatMember`, {
++									method: 'POST',
++									headers: { 'Content-Type': 'application/json' },
++									body: JSON.stringify({
++										chat_id: GROUP_ID,
++										user_id: userId,
++										permissions: {
++											can_send_messages: false
++										},
++										until_date: Math.floor(Date.now() / 1000) + ((score <= 3 ? COOLDOWN_MINUTES*2 : COOLDOWN_MINUTES) * 2 * 60)
++									})
++								});
+				
+
+				*/
         if (user) {
           const lastAttempt = new Date(user.last_verification_attempt);
           const cooldownPassed = (Date.now() - lastAttempt.getTime()) > (COOLDOWN_MINUTES * 60 * 1000);
