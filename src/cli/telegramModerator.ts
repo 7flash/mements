@@ -59,6 +59,9 @@ type TelegramUpdate = {
     id: string;
     username: string;
   };
+  invite_link?: {
+    name: string;
+  };
 };
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -106,7 +109,6 @@ while (true) {
 
         if (user?.is_approved) continue;
 
-        // Determine action based on user state
         let action: 'askQuestion' | 'validateAnswer' | 'deleteMessage' = 'deleteMessage';
         
         if (user) {
@@ -145,30 +147,44 @@ while (true) {
         });
 
         if (action === 'askQuestion') {
-/*
-todo: if we have invite link we should try to take main agent based on it
+          let agents = [];
+          const inviteLinkName = update?.new_chat_member && update?.invite_link?.name;
 
-								const inviteLinkName = update?.new_chat_member ? update?.invite_link?.name : null;
+          if (inviteLinkName) {
+            // Try to get the main agent based on invite link
+            const mainAgent = agentsDb.prepare(`
+              SELECT a.*, i.imageCid 
+              FROM agents a
+              LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
+              WHERE a.subdomain = ?
+              LIMIT 1
+            `).get(inviteLinkName);
 
-								let query = `
-										SELECT a.*, i.imageCid 
-										FROM agents a
-										LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
-									`;
-	
-								if (inviteLinkName) {
-									query += ` WHERE a.subdomain = ? LIMIT 1`;
-									return agentsDb.prepare(query).get(inviteLinkName);
-								}
-*/
-					
-          const agents = agentsDb.prepare(`
-            SELECT a.*, i.imageCid 
-            FROM agents a
-            LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
-            ORDER BY RANDOM() 
-            LIMIT 2
-          `).all();
+            if (mainAgent) {
+              // Get a random support agent excluding the main agent
+              const supportAgent = agentsDb.prepare(`
+                SELECT a.*, i.imageCid 
+                FROM agents a
+                LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
+                WHERE a.subdomain != ?
+                ORDER BY RANDOM()
+                LIMIT 1
+              `).get(inviteLinkName);
+
+              agents = [mainAgent, supportAgent];
+            }
+          }
+
+          // Fallback to random selection if no invite link or main agent not found
+          if (agents.length < 2) {
+            agents = agentsDb.prepare(`
+              SELECT a.*, i.imageCid 
+              FROM agents a
+              LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
+              ORDER BY RANDOM() 
+              LIMIT 2
+            `).all();
+          }
 
           if (agents.length < 2) {
             throw new Error('Unable to start verification process - insufficient agents');
@@ -195,49 +211,49 @@ todo: if we have invite link we should try to take main agent based on it
             })
           ]);
 
-					const verificationData = await Query.from({
-						mainAgentName: mainAgent.name,
-						supportAgentName: supportAgent.name,
-						username: username,
-						agentCommunity: mainAgent.prompt,
-						mainAgentPersonality: mainAgent.personality || 'friendly and welcoming',
-						supportAgentPersonality: supportAgent.personality || 'supportive and curious'
-					}, 'gpt-4o-mini').infer({
-						roleplayDialog: `
-							Create a natural, casual dialogue where ${mainAgent.name} and ${supportAgent.name} are 
-							discussing whether to welcome @${username} to their community. Include:
-							- ${mainAgent.name} notices the new user first
-							- ${supportAgent.name} shares their thoughts
-							- Both agents show their unique personalities
-							- Keep it friendly but make it feel like they're genuinely evaluating @${username}
-							- Max 3-4 lines of dialogue total
-							- End with ${mainAgent.name} deciding to ask a question
-						`,
-						finalQuestion: `
-							Create a clever but casual question (max 12 words) that:
-							- Fits naturally with ${mainAgent.name}'s personality
-							- Tests if @${username} vibes with the community
-							- Encourages a creative or thoughtful response
-							- Feels like a natural continuation of the dialogue
-						`,
-						expectedAnswer: 'Generate a brief example answer that would show good community fit'
-					});
-					
-					const escapeMarkdown = (text: string) => {
-						return text.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
-					};
-					
-					const verificationMessage = `
-					🌟 *New Fren Vibe Check* 🌟
-					
-					${escapeMarkdown(verificationData.roleplayDialog)}
-					
-					*${escapeMarkdown(mainAgent.name)}:* "${escapeMarkdown(verificationData.finalQuestion)}"
-					
-					\\> @${username} \\- time to prove ur vibe\\! 
-					\\> one shot to answer \\| ${COOLDOWN_MINUTES}min timeout ⏳
-					\\> make it count fren ✨
-					`.trim();			
+          const verificationData = await Query.from({
+            mainAgentName: mainAgent.name,
+            supportAgentName: supportAgent.name,
+            username: username,
+            agentCommunity: mainAgent.prompt,
+            mainAgentPersonality: mainAgent.personality || 'friendly and welcoming',
+            supportAgentPersonality: supportAgent.personality || 'supportive and curious'
+          }, 'gpt-4o-mini').infer({
+            roleplayDialog: `
+              Create a natural, casual dialogue where ${mainAgent.name} and ${supportAgent.name} are 
+              discussing whether to welcome @${username} to their community. Include:
+              - ${mainAgent.name} notices the new user first
+              - ${supportAgent.name} shares their thoughts
+              - Both agents show their unique personalities
+              - Keep it friendly but make it feel like they're genuinely evaluating @${username}
+              - Max 3-4 lines of dialogue total
+              - End with ${mainAgent.name} deciding to ask a question
+            `,
+            finalQuestion: `
+              Create a clever but casual question (max 12 words) that:
+              - Fits naturally with ${mainAgent.name}'s personality
+              - Tests if @${username} vibes with the community
+              - Encourages a creative or thoughtful response
+              - Feels like a natural continuation of the dialogue
+            `,
+            expectedAnswer: 'Generate a brief example answer that would show good community fit'
+          });
+
+          const escapeMarkdown = (text: string) => {
+            return text.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
+          };
+
+          const verificationMessage = `
+          🌟 *New Fren Vibe Check* 🌟
+          
+          ${escapeMarkdown(verificationData.roleplayDialog)}
+          
+          *${escapeMarkdown(mainAgent.name)}:* "${escapeMarkdown(verificationData.finalQuestion)}"
+          
+          \\> @${username} \\- time to prove ur vibe\\! 
+          \\> one shot to answer \\| ${COOLDOWN_MINUTES}min timeout ⏳
+          \\> make it count fren ✨
+          `.trim();
 
           await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMediaGroup`, {
             method: 'POST',
