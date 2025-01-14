@@ -165,6 +165,9 @@ async function scheduleMessageDeletion(messageId: number, userId: string, delay:
   }
 }
 
+function logAction(userId: string, action: string, details?: any) {
+  console.log(`${userId}:${action} ==> `, details || '');
+}
 
 console.log('Starting Telegram moderator bot...');
 while (true) {
@@ -198,48 +201,48 @@ while (true) {
 
         let action: 'askQuestion' | 'validateAnswer' = 'askQuestion';
         
-				/* todo: improve logging in our program, everything happens in the program, it should be following with statement  for example like this:
-
-            console.log(userId, ":validationInput ==> ", validationInput);
-				*/
 				if (user) {
-          const lastAttempt = new Date(user.last_verification_attempt);
-          const cooldown = calculateCooldown(user.verification_count);
-          const cooldownPassed = (Date.now() - lastAttempt.getTime()) > (cooldown * 60 * 1000);
-          
-					// todo: this should probably never happen, how could have user sent a message until cooldown passed if we restricted him for that period, we should indicate an error here 
-          if (!cooldownPassed) {
-            const remainingMinutes = Math.ceil(
-              (cooldown * 60 * 1000 - (Date.now() - lastAttempt.getTime())) / (60 * 1000)
-            );
-            
-            console.log(`⏳ User ${userId} in cooldown, ${remainingMinutes}m remaining`);
-            await updateUserPermissions(userId, false, remainingMinutes);
-            await sendTelegramMessage(
-              `⏳ *yo @${username}* \\- gotta wait ${remainingMinutes}m before trying again ser`
-            );
-            continue;
-          }
-
-          if (user.verification_question) {
-            console.log(`🤔 Validating answer from user ${userId}`);
-            const agent = agentsDb.prepare(`
-              SELECT * FROM agents WHERE name = ?
-            `).get(user.verification_agent);
-
-            const validationInput = {
-              agentName: agent.name,
-              question: user.verification_question,
-              answer: update.message.text,
-              agentPersonality: agent.prompt,
-            };
-            console.log("validationInput ==> ", validationInput);
-
-            const validation = await Query.from(validationInput, 'gpt-4o-mini').infer({
-              correctness: 'Rate from 1-10 how well the answer addresses the question (1-3 means answer is totally unrelated to the given context of question, 4-6 means answer is relevant but might be incomplete or incorrect, 7-10 means answer resonates to the questioners own opinion)',
-            });
-            console.log("validation ==> ", validation);
-
+					const lastAttempt = new Date(user.last_verification_attempt);
+					const cooldown = calculateCooldown(user.verification_count);
+					const cooldownPassed = (Date.now() - lastAttempt.getTime()) > (cooldown * 60 * 1000);
+					
+					logAction(userId, 'cooldownCheck', { cooldownPassed, lastAttempt, cooldown });
+					
+					if (!cooldownPassed) {
+						// This is an anomaly - user shouldn't be able to send messages during cooldown
+						const remainingMinutes = Math.ceil(
+							(cooldown * 60 * 1000 - (Date.now() - lastAttempt.getTime())) / (60 * 1000)
+						);
+						
+						logAction(userId, 'anomalyCooldownMessage', { remainingMinutes });
+						console.error(`⚠️ Security anomaly: User ${userId} somehow posted during cooldown period`);
+						
+						await updateUserPermissions(userId, false, remainingMinutes);
+						await sendTelegramMessage(
+							`⚠️ *Whoa @${username}* \\- you shouldn't be able to send messages yet\\. ${remainingMinutes}m remaining on cooldown\\!`
+						);
+						continue;
+					}
+				
+					if (user.verification_question) {
+						logAction(userId, 'validatingAnswer');
+						const agent = agentsDb.prepare(`
+							SELECT * FROM agents WHERE name = ?
+						`).get(user.verification_agent);
+				
+						const validationInput = {
+							agentName: agent.name,
+							question: user.verification_question,
+							answer: update.message.text,
+							agentPersonality: agent.prompt,
+						};
+						logAction(userId, 'validationInput', validationInput);
+				
+						const validation = await Query.from(validationInput, 'gpt-4o-mini').infer({
+							correctness: 'Rate from 1-10 how well the answer addresses the question'
+						});
+						logAction(userId, 'validationResult', validation);
+				
             const score = parseInt(validation.correctness);
 
             if (score >= 4) {
@@ -374,98 +377,75 @@ Try again in ${COOLDOWN_MINUTES} minutes with a fresh perspective\\!
             })
           ]);
 
-/*
-currently the message looks like this:
-
-🌟 New Fren Vibe Check 🌟
-          
-          
-santagga: Hey ghost, check out @mementsxyz! They just joined our community. I wonder what they're all about.  
-ghost: Oh, nice! I’m always curious about new members. Do you think they’ll fit in with our vibe?  
-santagga: I hope so! I love how diverse our group is. It could be great to see what they bring to the table.  
-ghost: Totally agree! Maybe we should ask them something to get a feel for their vibe?  
-
-          
-          santagga: "
-What’s your favorite way to blend tradition with modern creativity?  
-"
-          
-          > @mementsxyz - time to prove ur vibe! 
-          > one shot to answer | 15min timeout ⏳
-          > make it count fren ✨
-
-todo: we should improve it, first of all we should separate into two messages. first message with two images as its now only have a short conversation between main and helper agent, it should consist exactly of two lines:
-
-> main agent is asking his helper to welcome new user and ask him a validation question in regards to our shared values
-> helper agent is tagging the user inside of his question addressing to him
-
-then, we send additional message in reply to this one tagging user again and explaining the rules why its necessary for verification to fight off spam and check the vibe, all in very casual degen language
-*/
-          const verificationData = await Query.from({
-            mainAgentName: mainAgent.name,
-            supportAgentName: supportAgent.name,
-            username: username,
-            agentCommunity: mainAgent.prompt,
-            mainAgentPersonality: mainAgent.personality || 'friendly and welcoming',
-            supportAgentPersonality: supportAgent.personality || 'supportive and curious'
-          }, 'gpt-4o-mini').infer({
-            roleplayDialog: `
-              Create a natural, casual dialogue where ${mainAgent.name} and ${supportAgent.name} are 
-              discussing whether to welcome @${username} to their community. Include:
-              - ${mainAgent.name} notices the new user first
-              - ${supportAgent.name} shares their thoughts
-              - Both agents show their unique personalities
-              - Keep it friendly but make it feel like they're genuinely evaluating @${username}
-              - Max 3-4 lines of dialogue total
-              - End with ${mainAgent.name} deciding to ask a question
-            `,
-            finalQuestion: `
-              Create a clever but casual question (max 12 words) that:
-              - Fits naturally with ${mainAgent.name}'s personality
-              - Tests if @${username} vibes with the community
-              - Encourages a creative or thoughtful response
-              - Feels like a natural continuation of the dialogue
-            `,
-            expectedAnswer: 'Generate a brief example answer that would show good community fit'
-          });
-
-          const escapeMarkdown = (text: string) => {
-            return text.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
-          };
-
-          const verificationMessage = `
-          🌟 *New Fren Vibe Check* 🌟
-          
-          ${escapeMarkdown(verificationData.roleplayDialog)}
-          
-          *${escapeMarkdown(mainAgent.name)}:* "${escapeMarkdown(verificationData.finalQuestion)}"
-          
-          \\> @${username} \\- time to prove ur vibe\\! 
-          \\> ⚠️ You have ${VALIDATION_TIMEOUT} seconds to answer\\!
-          \\> one shot to answer \\| exponential cooldown on fails
-          \\> make it count fren ✨
-          `.trim();
-
-          await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMediaGroup`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chat_id: GROUP_ID,
-              media: [
-                {
-                  type: 'photo',
-                  media: mainImageUrl,
-                },
-                {
-                  type: 'photo',
-                  media: supportImageUrl,
-                  caption: verificationMessage,
-                  parse_mode: 'MarkdownV2'
-                }
-              ]
-            })
-          });
-
+					const verificationData = await Query.from({
+						mainAgentName: mainAgent.name,
+						supportAgentName: supportAgent.name,
+						username: username,
+						agentCommunity: mainAgent.prompt,
+						mainAgentPersonality: mainAgent.personality || 'friendly and welcoming',
+						supportAgentPersonality: supportAgent.personality || 'supportive and curious'
+					}, 'gpt-4o-mini').infer({
+						welcomeDialog: `
+							Create a 2-line casual dialogue where:
+							1. ${mainAgent.name} asks ${supportAgent.name} to help welcome @${username} and check their vibe
+							2. ${supportAgent.name} directly addresses @${username} with the verification question
+						`,
+						verificationQuestion: `
+							Create a casual but meaningful question that:
+							- Tests understanding of community values
+							- Max 15 words
+							- Feels natural and conversational
+						`,
+						expectedAnswer: 'Brief example of a good answer showing community understanding'
+					});
+				
+					logAction(userId, 'verificationData', verificationData);
+				
+					// First message - Welcome dialogue with images
+					const welcomeMessage = `
+				🌟 *New Fren Alert* 🌟
+				
+				${escapeMarkdown(verificationData.welcomeDialog)}
+					`.trim();
+				
+					const mediaResponse = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMediaGroup`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							chat_id: GROUP_ID,
+							media: [
+								{
+									type: 'photo',
+									media: mainImageUrl,
+								},
+								{
+									type: 'photo',
+									media: supportImageUrl,
+									caption: welcomeMessage,
+									parse_mode: 'MarkdownV2'
+								}
+							]
+						})
+					});
+					logAction(userId, 'welcomeMessageSent', await mediaResponse.json());
+				
+					// Second message - Verification rules
+					const rulesMessage = `
+				yo @${username}\\! 🔥
+				
+				we gotta make sure ur not a bot & check ur vibe\\. here's the deal:
+				
+				\\> ⏰ *${VALIDATION_TIMEOUT} seconds* to answer the question
+				\\> 🎯 one shot only \\- make it count
+				\\> ⚠️ fail = exponential timeout \\(${BASE_COOLDOWN}m \\-> ${BASE_COOLDOWN*2}m \\-> ${BASE_COOLDOWN*4}m\\)
+				\\> 🤝 be real, show ur personality
+				
+				*ready\\? let's go\\!* 💫
+					`.trim();
+				
+					const rulesMsgResponse = await sendTelegramMessage(rulesMessage);
+					logAction(userId, 'ruleMessageSent', rulesMsgResponse);
+				
           const stmt = user ? 
             usersDb.prepare(`
               UPDATE approved_users 
