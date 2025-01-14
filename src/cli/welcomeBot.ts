@@ -1,4 +1,3 @@
-```ts
 import path from 'path';
 import { Database } from "bun:sqlite";
 import Query from "uai/src/query";
@@ -51,7 +50,6 @@ type TelegramUpdate = {
       id: string;
       username?: string;
       first_name?: string;
-      is_bot?: boolean;
     };
     text: string;
     chat: {
@@ -70,7 +68,7 @@ type TelegramUpdate = {
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const GROUP_ID = process.env.TELEGRAM_GROUP_ID;
 console.log("GROUP_ID ==> ", GROUP_ID);
-const POLL_INTERVAL = 60000; // 1 minute to allow moderators to handle messages
+const POLL_INTERVAL = 1000; // todo: we should probably increase polling interval here all the way up to allow first moderators to deal with message maybe like a minute or so, and only if message is not deleted, then in our handler we should actually check that message is not deleted and only then proceed
 let lastUpdateId = 0;
 
 const escapeMarkdown = (text: string) => {
@@ -177,7 +175,6 @@ while (true) {
             return;
           }
 
-          // Check if message still exists
           const messageExists = await checkMessageExists(GROUP_ID, update.message.message_id);
           if (!messageExists) {
             console.log("Skipping: Message was deleted");
@@ -190,16 +187,158 @@ while (true) {
           const userReference = getUserReference(userId, username, firstName);
 
           await measureTime(async () => {
-            // ... Rest of the code remains the same until verificationData generation ...
+            const user = usersDb.prepare(`
+              SELECT * FROM approved_users WHERE telegram_user_id = ?
+            `).get(userId) as ApprovedUser | undefined;
+            console.log(`👤 Processing update for user ${userId} (@${username})`);
 
-            const welcomeMessage = `
-👤 *${escapeMarkdown(mainAgent.name)}* \\(on the left\\) says:
-${escapeMarkdown(verificationData.mainAgentReplica.replace('@' + username, userReference))}
-👥 *${escapeMarkdown(supportAgent.name)}* \\(on the right\\) says:
-${escapeMarkdown(verificationData.supportAgentReplica.replace('@' + username, userReference))}
-            `.trim();
+            if (user?.is_approved) {
+              console.log(`✅ User ${userId} (@${username}) is already approved`);
+              return;
+            }
 
-            // ... Rest of the code remains the same ...
+            if (user?.verification_count > 0) {
+              console.log(`⏳ Skip user ${userId} (@${username}): pending verification`);
+              return;
+            }
+
+            const agents = await measureTime(async () => {
+              let selectedAgents = [];
+              const inviteLinkName = update?.new_chat_member && update?.invite_link?.name;
+
+              if (inviteLinkName) {
+                const mainAgent = agentsDb.prepare(`
+                  SELECT a.*, i.imageCid 
+                  FROM agents a
+                  LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
+                  WHERE a.subdomain = ?
+                  LIMIT 1
+                `).get(inviteLinkName);
+
+                if (mainAgent) {
+                  const supportAgent = agentsDb.prepare(`
+                    SELECT a.*, i.imageCid 
+                    FROM agents a
+                    LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
+                    WHERE a.subdomain != ?
+                    ORDER BY RANDOM()
+                    LIMIT 1
+                  `).get(inviteLinkName);
+
+                  selectedAgents = [mainAgent, supportAgent];
+                }
+              }
+
+              if (selectedAgents.length < 2) {
+                selectedAgents = agentsDb.prepare(`
+                  SELECT a.*, i.imageCid 
+                  FROM agents a
+                  LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
+                  ORDER BY RANDOM() 
+                  LIMIT 2
+                `).all();
+              }
+
+              return selectedAgents;
+            }, `Select agents for user ${userId}`);
+
+            if (agents.length < 2) {
+              throw new Error('Unable to start verification process - insufficient agents');
+            }
+
+            const [mainAgent, supportAgent] = agents;
+
+            const [mainImageUrl, supportImageUrl] = await measureTime(async () => {
+              return Promise.all([
+                pinata.gateways.createSignedURL({
+                  cid: mainAgent.imageCid,
+                  expires: 3600
+                }).optimizeImage({
+                  width: 512,
+                  height: 512,
+                  format: 'webp',
+                }),
+                pinata.gateways.createSignedURL({
+                  cid: supportAgent.imageCid,
+                  expires: 3600
+                }).optimizeImage({
+                  width: 512,
+                  height: 512,
+                  format: 'webp',
+                })
+              ]);
+            }, `Generate image URLs for user ${userId}`);
+
+            const verificationData = await measureTime(async () => {
+              return Query.from({
+                mainAgentName: mainAgent.name,
+                supportAgentName: supportAgent.name,
+                username: username,
+                agentCommunity: mainAgent.prompt,
+                mainAgentPersonality: mainAgent.personality || 'friendly and welcoming',
+                supportAgentPersonality: supportAgent.personality || 'supportive and curious'
+              }, 'gpt-4o-mini').infer({
+                mainAgentReplica: `Speaking as ${mainAgent.name} with ${mainAgent.personality || 'friendly'} personality, create a greeting asking ${supportAgent.name} to help welcome @${username}. Include specific personality traits and mannerisms.`,
+                supportAgentReplica: `Speaking as ${supportAgent.name} with ${supportAgent.personality || 'supportive'} personality, create a response to ${mainAgent.name} and address @${username} with a verification question. Show distinct personality.`,
+                verificationQuestion: `Create a question (max 15 words) that reflects ${mainAgent.name}'s values and community principles`,
+                expectedAnswer: `Create an example answer that shows understanding of ${mainAgent.name}'s community values`
+              });
+            }, `Generate verification data for user ${userId}`);
+
+            logAction(userId, 'verificationData', verificationData);
+
+            await measureTime(async () => {
+              const welcomeMessage = `
+              👤 *${escapeMarkdown(mainAgent.name)}* \\(on the left\\) says:
+              ${escapeMarkdown(verificationData.mainAgentReplica.replace('@' + username, userReference))}
+              👥 *${escapeMarkdown(supportAgent.name)}* \\(on the right\\) says:
+              ${escapeMarkdown(verificationData.supportAgentReplica.replace('@' + username, userReference))}
+                          `.trim();
+              
+              await tg('sendMediaGroup', {
+                chat_id: GROUP_ID,
+                media: [
+                  {
+                    type: 'photo',
+                    media: mainImageUrl,
+                  },
+                  {
+                    type: 'photo',
+                    media: supportImageUrl,
+                    caption: welcomeMessage,
+                    parse_mode: 'MarkdownV2'
+                  }
+                ]
+              });
+            }, `Send welcome message for user ${userId}`);
+
+            await measureTime(async () => {
+              const stmt = user ?
+                usersDb.prepare(`
+                UPDATE approved_users 
+                SET last_verification_attempt = ?, verification_count = verification_count + 1,
+                    verification_agent = ?, original_message_id = ?, original_message = ?,
+                    verification_question = ?, expected_answer = ?
+                WHERE telegram_user_id = ?
+              `) :
+                usersDb.prepare(`
+                INSERT INTO approved_users (
+                  telegram_user_id, is_approved, last_verification_attempt, verification_count,
+                  verification_agent, original_message_id, original_message, verification_question,
+                  expected_answer
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `);
+
+              const params = user ?
+                [new Date().toISOString(), mainAgent.name, update.message.message_id,
+                update.message.text, verificationData.verificationQuestion,
+                verificationData.expectedAnswer, userId] :
+                [userId, false, new Date().toISOString(), 1, mainAgent.name,
+                  update.message.message_id, update.message.text,
+                  verificationData.verificationQuestion, verificationData.expectedAnswer];
+
+              stmt.run(...params);
+            }, `Update database for user ${userId}`);
 
           }, `Process verification for user ${userId}`);
         }, `Process update ${update?.message?.message_id}`);
@@ -211,15 +350,3 @@ ${escapeMarkdown(verificationData.supportAgentReplica.replace('@' + username, us
 
   await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
 }
-```
-
-The main changes include:
-1. Increased POLL_INTERVAL to 60000ms (1 minute)
-2. Added checkMessageExists function to verify message hasn't been deleted
-3. Added getUserReference function to handle users with/without usernames
-4. Updated message formatting to use inline mentions when username is not available
-5. Added message existence check before processing
-6. Updated TelegramUpdate type to include first_name and is_bot
-7. Added proper user reference handling in welcome message formatting
-
-These changes ensure better moderation support and handle users without usernames properly while maintaining all existing functionality.
