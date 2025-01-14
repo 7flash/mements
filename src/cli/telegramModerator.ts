@@ -87,7 +87,7 @@ async function measureTime<T>(fn: () => Promise<T>, label: string): Promise<T> {
   }
 }
 
-async function msg(method: string, body: any) {
+async function tg(method: string, body: any) {
   try {
     const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
       method: 'POST',
@@ -96,23 +96,7 @@ async function msg(method: string, body: any) {
     });
 
     const data = await response.json();
-
-/*
-todo:
-
-fix currently have error
-
-Failed to execute sendMessage:  97 | 
- 98 |     const data = await response.json();
- 99 | 
-100 |     if (!response.ok) {
-101 |       console.error(`Telegram API error (${method}):`, data);
-102 |       throw new Error(`${method} failed: ${response.status} - ${data.description || 'Unknown error'}`);
-                      ^
-error: sendMessage failed: 400 - Bad Request: can't parse entities: Character '=' is reserved and must be escaped with the preceding '\'
-      at /home/galaxy/askuai/src/cli/telegramModerator.ts:102:17
-
-*/
+    
     if (!response.ok) {
       console.error(`Telegram API error (${method}):`, data);
       throw new Error(`${method} failed: ${response.status} - ${data.description || 'Unknown error'}`);
@@ -125,7 +109,8 @@ error: sendMessage failed: 400 - Bad Request: can't parse entities: Character '=
   }
 }
 
-async function restrictUser(userId: string, canMessage: boolean, duration?: number) {
+// Helper for user permissions
+async function updateUserPermissions(userId: string, canMessage: boolean, duration?: number) {
   const permissions = {
     can_send_messages: canMessage,
     can_send_media_messages: canMessage,
@@ -135,14 +120,22 @@ async function restrictUser(userId: string, canMessage: boolean, duration?: numb
     can_add_web_page_previews: canMessage
   };
 
-  const body = {
+  return tg('restrictChatMember', {
     chat_id: GROUP_ID,
     user_id: userId,
     permissions,
     until_date: duration ? Math.floor(Date.now() / 1000) + (duration * 60) : undefined
-  };
+  });
+}
 
-  return msg('restrictChatMember', body);
+// Helper for sending messages
+async function sendTelegramMessage(text: string, options: any = {}) {
+  return tg('sendMessage', {
+    chat_id: GROUP_ID,
+    text: text,
+    parse_mode: 'MarkdownV2',
+    ...options
+  });
 }
 
 // Add constants for timeouts
@@ -396,52 +389,21 @@ todo: fix all across we dont have updateUserPermissions and sendTelegramMessage 
 						mainAgentPersonality: mainAgent.personality || 'friendly and welcoming',
 						supportAgentPersonality: supportAgent.personality || 'supportive and curious'
 					}, 'gpt-4o-mini').infer({
-						welcomeDialog: `
-							Create a 2-line casual dialogue where:
-							1. ${mainAgent.name} asks ${supportAgent.name} to help welcome @${username} and check their vibe
-							2. ${supportAgent.name} directly addresses @${username} with the verification question
-						`,
-						verificationQuestion: `
-							Create a casual but meaningful question that:
-							- Tests understanding of community values
-							- Max 15 words
-							- Feels natural and conversational
-						`,
+            mainAgentReplica: `Create a casual greeting where ${mainAgent.name} asks ${supportAgent.name} to help welcome @${username}`,
+            supportAgentReplica: `Create a friendly response where ${supportAgent.name} addresses @${username} with a verification question`,
+            verificationQuestion: `Create a casual but meaningful question that tests community values (max 15 words)`,
 						expectedAnswer: 'Brief example of a good answer showing community understanding'
 					});
 				
 					logAction(userId, 'verificationData', verificationData);
 				
-/*
-currently msg looks like this
+          const welcomeMessage = `
+👤 *${escapeMarkdown(mainAgent.name)}*: ${escapeMarkdown(verificationData.mainAgentReplica)}
 
-👤 larp:
-      
+👥 *${escapeMarkdown(supportAgent.name)}*: ${escapeMarkdown(verificationData.supportAgentReplica)}
+          `.trim();
 
-      👥 ggg:
-      larp: "Hey ggg, can you help welcome @mementsxyz and check their vibe?"
-
-todo: please fix it, it should be like this (without doublequotes for larp and it seems ggg message is missing please fix it all)
-
-👤 larp: ...
-
-👥 ggg: ...
-
-because our verificationData.welcomeDialog looks like this
-
-  welcomeDialog: "\nlarp: \"Hey ggg, can you help welcome @mementsxyz and check their vibe?\"\nggg: \"Sure! @mementsxyz, what do you think makes our community special?\"\n",
-
-todo: maybe alternatively we should add these fields in our verificationData when passing object to infer we can specify mainAgent replica and his helper response replica specifically
-*/
-					const welcomeMessage = `
-						👤 *${escapeMarkdown(mainAgent.name)}*:
-						${escapeMarkdown(verificationData.welcomeDialog.split('\n')[0])}
-
-						👥 *${escapeMarkdown(supportAgent.name)}*:
-						${escapeMarkdown(verificationData.welcomeDialog.split('\n')[1])}
-					`.trim();
-
-          await msg('sendMediaGroup', {
+          await tg('sendMediaGroup', {
             chat_id: GROUP_ID,
             media: [
               {
@@ -460,7 +422,7 @@ todo: maybe alternatively we should add these fields in our verificationData whe
 					await Bun.sleep(1000);
 
 					const rulesMessage = `
-				yo @${username}\\! 🔥
+yo @${escapeMarkdown(username)}\\! 🔥
 				
 				we gotta make sure ur not a bot & check ur vibe\\. here's the deal:
 				
@@ -504,7 +466,7 @@ todo: maybe alternatively we should add these fields in our verificationData whe
 
           stmt.run(...params);
 
-          await restrictUser(userId, false, VALIDATION_TIMEOUT);
+          await updateUserPermissions(userId, false, VALIDATION_TIMEOUT);
 				}
 
         setTimeout(async () => {
@@ -513,19 +475,17 @@ todo: maybe alternatively we should add these fields in our verificationData whe
           `).get(userId);
 
           if (!userStatus?.is_approved) {
-            await msg('deleteMessage', {
+            await tg('deleteMessage', {
               chat_id: GROUP_ID,
               message_id: update.message.message_id
             });
             
             const cooldown = calculateCooldown(user?.verification_count || 1);
-            await restrictUser(userId, false, cooldown);
+            await updateUserPermissions(userId, false, cooldown);
             
-            await msg('sendMessage', {
-              chat_id: GROUP_ID,
-              text: `⚠️ *Time's up @${username}* \\- verification failed\\. Try again in ${cooldown}m\\!`,
-              parse_mode: 'MarkdownV2'
-            });
+            await sendTelegramMessage(
+              `⚠️ *Time's up @${escapeMarkdown(username)}* \\- verification failed\\. Try again in ${cooldown}m\\!`
+            );
           }
         }, VALIDATION_TIMEOUT * 1000);
       }
