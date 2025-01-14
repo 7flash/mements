@@ -129,6 +129,20 @@ async function updateUserPermissions(userId: string, canMessage: boolean, durati
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
+/*
+todo: fix it, also leverage our new generic function "msg" for it and remove "updateUserPermissions" function
+
+error: Failed to update permissions: 400
+      at /home/galaxy/askuai/src/cli/telegramModerator.ts:133:33
+      at processTicksAndRejections (native:7:39)
+
+128 |       method: 'POST',
+129 |       headers: { 'Content-Type': 'application/json' },
+130 |       body: JSON.stringify(body)
+131 |     });
+132 | 
+133 |     if (!response.ok) throw new Error(`Failed to update permissions: ${response.status}`);
+*/
 
     if (!response.ok) throw new Error(`Failed to update permissions: ${response.status}`);
     return await response.json();
@@ -401,7 +415,16 @@ Try again in ${COOLDOWN_MINUTES} minutes with a fresh perspective\\!
 				
 					logAction(userId, 'verificationData', verificationData);
 				
-					// First message - Welcome dialogue with images
+/*
+currently it looks like this, which is not very readable
+
+🌟 New Fren Alert 🌟    
+    
+Ricky: "Hey Onoku-san, can you help me welcome @mementsxyz and check their vibe?"  
+Onoku-san: "Sure thing! @mementsxyz, what do you think makes a community thrive?"
+
+we dont need to say "new fren" and we should indicate it as a dialogue more clearly with proper spacing emoji or whatever
+*/
 					const welcomeMessage = `
 				🌟 *New Fren Alert* 🌟
 				
@@ -429,7 +452,8 @@ Try again in ${COOLDOWN_MINUTES} minutes with a fresh perspective\\!
 					});
 					logAction(userId, 'welcomeMessageSent', await mediaResponse.json());
 				
-					// Second message - Verification rules
+// todo: fix it something went wrong and we dont see this second message, also never use sendTelegramMessage function instead define more generic function "msg" which can be used for above request as well in which case we just pass "sendMediaGroup" as method and then body as an object
+
 					const rulesMessage = `
 				yo @${username}\\! 🔥
 				
