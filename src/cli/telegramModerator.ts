@@ -110,7 +110,45 @@ while (true) {
           `).get(userId) as ApprovedUser | undefined;
 					console.log("user ==> ", user);
 
-					// todo: fix it seems we are missing to check cooldown has passed otherwise we just delete message, but if cooldown has passed and user sends a new message, so in this case we ask user a new question
+					if (user && user.is_approved) {
+						continue;
+					}
+
+					// todo: please fix this code, keep here in two stages define action first based if user is new or passed cooldown, then proceed accordingly, do not define any functions
+					let shouldDeleteMessage = true;
+					let action: 'askQuestion' | 'validateAnswer' | 'deleteMessage' = 
+
+					if (user && user.is_approved) {
+						// all good already approved
+						continue;
+					} else {
+						const lastAttempt = new Date(user.last_verification_attempt);
+						const cooldownPassed = (Date.now() - lastAttempt.getTime()) > (COOLDOWN_MINUTES * 60 * 1000);
+						
+						if (!cooldownPassed) {
+							const remainingMinutes = Math.ceil(
+								(COOLDOWN_MINUTES * 60 * 1000 - (Date.now() - lastAttempt.getTime())) / (60 * 1000)
+							);
+							
+							await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json' },
+								body: JSON.stringify({
+									chat_id: GROUP_ID,
+									text: `⏳ *yo @${username}* - gotta wait ${remainingMinutes}m before trying again ser`,
+									parse_mode: 'MarkdownV2'
+								})
+							});
+
+							continue;
+						}					}
+					
+
+					if (user ) {
+
+					} else if (!user || ) {
+						// new user just joined
+					}
 
 					if (!user?.is_approved) {
 						await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage`, {
@@ -122,204 +160,123 @@ while (true) {
 							})
 						});
 
-						if (!user) {
-							const inviteLinkName = update?.new_chat_member ? update?.invite_link?.name : null;
+            if (user) {
+              const lastAttempt = new Date(user.last_verification_attempt);
+              const cooldownPassed = (Date.now() - lastAttempt.getTime()) > (COOLDOWN_MINUTES * 60 * 1000);
+              
+              if (!cooldownPassed) {
+                const remainingMinutes = Math.ceil(
+                  (COOLDOWN_MINUTES * 60 * 1000 - (Date.now() - lastAttempt.getTime())) / (60 * 1000)
+                );
+                
+                await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    chat_id: GROUP_ID,
+                    text: `⏳ *yo @${username}* - gotta wait ${remainingMinutes}m before trying again ser`,
+                    parse_mode: 'MarkdownV2'
+                  })
+                });
 
-							let query = `
-									SELECT a.*, i.imageCid 
-									FROM agents a
-									LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
-								`;
+								continue;
+              } else {
+								const inviteLinkName = update?.new_chat_member ? update?.invite_link?.name : null;
 
-							if (inviteLinkName) {
-								query += ` WHERE a.subdomain = ? LIMIT 1`;
-								return agentsDb.prepare(query).get(inviteLinkName);
-							}
-
-							query += ` ORDER BY RANDOM() LIMIT 1`;
-
-							const agent = agentsDb.prepare(query).get();
-							console.log("agent ==> ", agent);
-
-							if (!agent) {
-								throw new Error('Unable to start verification process');
-							}
-
-							const imageUrl = await pinata.gateways.createSignedURL({
-								cid: agent.imageCid,
-								expires: 3600
-							}).optimizeImage({
-								width: 512,
-								height: 512,
-								format: 'webp',
-							});
-
-// todo: all of question, answer, and verification message itself should be aligned in same casual degen writing style, and question/answer can be really short its fine, also we should fix to use proper markdown here in verification message, and also success welcoming message should include users answer because its been deleted from chat anyway
-
-							const verificationData = await Query.from({
-								agentName: agent.name,
-								agentCommunity: agent.prompt,
-							}, 'gpt-4o-mini').infer({
-								finalQuestion: `Generate a question that agent "${agent.name}" would ask interviewing a new member who wants to join his community`,
-								expectedAnswer: 'Generate a sample correct answer to this question',
-							});
-
-							const verificationMessage = `
-🤖 *Verification Required*
-
-👋 Hey @${username}!
-
-*Interviewer:* ${agent.name} (${agent.subdomain}.mements.xyz)
-
-> "${verificationData.finalQuestion}"
-
-⚠️ *Instructions:*
-• Reply directly to this message with your answer
-• Be genuine and thoughtful
-• You have one attempt before a ${COOLDOWN_MINUTES}-minute cooldown
-
-Good luck! 🍀
-`.trim();
-
-							await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
-								method: 'POST',
-								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify({
-									chat_id: GROUP_ID,
-									photo: imageUrl,
-									caption: verificationMessage,
-									reply_markup: {
-										force_reply: true,
-										selective: true
-									}
-								})
-							});
-
-							usersDb.prepare(`
-                INSERT INTO approved_users (
-                  telegram_user_id,
-                  is_approved,
-                  last_verification_attempt,
-                  verification_count,
-                  verification_agent,
-                  original_message_id,
-                  original_message,
-                  verification_question,
-                  expected_answer
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-              `).run(
-								userId,
-								false,
-								new Date().toISOString(),
-								1,
-								agent.name,
-								update.message.message_id,
-								update.message.text,
-								verificationData.finalQuestion,
-								verificationData.expectedAnswer
-							);
-						} else {
-							const agent = agentsDb.prepare(`
-								SELECT * FROM agents WHERE name = ?
-							`).get(user.verification_agent);
-
-							const validationInput = {
-								agentName: agent.name,
-								question: user.verification_question,
-								answer: update.message.text,
-								agentPersonality: agent.prompt,
-							};
-							console.log("validationInput ==> ", validationInput);
-
-							const validation = await Query.from(validationInput, 'gpt-4o-mini').infer({
-								correctness: 'Rate from 1-10 how well the answer addresses the question (1-3 means answer is totally unrelated to the given context of question, 4-6 means answer is relevant but might be incomplete or incorrect, 7-10 means answer resonates to the questioners own opinion)',
-								exampleAnswer: 'Provide a brief example of a better answer to this question'
-							});
-							console.log("validation ==> ", validation);
-
-							const score = parseInt(validation.correctness);
-
-							if (validation.passed || score > 4) {
-								usersDb.prepare(`
-										UPDATE approved_users 
-										SET is_approved = TRUE
-										WHERE telegram_user_id = ?
-									`).run(userId);
-
-								const successMessage = `
-✅ *Based answer fren!* (${validation.score}/10)
-
-${validation.thinking}
-
-*Welcome to the squad* 🤝
-
-`.trim();
-
-								await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+								let query = `
+										SELECT a.*, i.imageCid 
+										FROM agents a
+										LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
+									`;
+	
+								if (inviteLinkName) {
+									query += ` WHERE a.subdomain = ? LIMIT 1`;
+									return agentsDb.prepare(query).get(inviteLinkName);
+								}
+	
+								query += ` ORDER BY RANDOM() LIMIT 1`;
+	
+								// todo: actually we should fetch two agents always, and send both images in the message, and then we should generate our message that kind of role plays a user entering community chat and these two agents are welcoming him asking a quesion, and then its explained he must answer the question before proceed further and before can send any other messages 
+								const agent = agentsDb.prepare(query).get();
+								console.log("agent ==> ", agent);
+	
+								if (!agent) {
+									throw new Error('Unable to start verification process');
+								}
+	
+								const imageUrl = await pinata.gateways.createSignedURL({
+									cid: agent.imageCid,
+									expires: 3600
+								}).optimizeImage({
+									width: 512,
+									height: 512,
+									format: 'webp',
+								});
+	
+								const verificationData = await Query.from({
+									agentName: agent.name,
+									agentCommunity: agent.prompt,
+								}, 'gpt-4o-mini').infer({
+									finalQuestion: `Generate a short, casual question (max 15 words) that ${agent.name} would ask a new fren when they join the community`,
+									expectedAnswer: 'Generate a brief, casual answer example',
+								});
+	
+								const verificationMessage = `
+	🤖 *Vibe Check Required*
+	
+	sup @${username}\\! 
+	
+	*interviewer:* ${agent.name} \\(${agent.subdomain}\\.mements\\.xyz\\)
+	
+	> "${verificationData.finalQuestion}"
+	
+	just reply to this msg w/ ur answer fren\\! one shot or ${COOLDOWN_MINUTES}min timeout ⏳
+	`.trim();
+	
+								await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
 									method: 'POST',
 									headers: { 'Content-Type': 'application/json' },
 									body: JSON.stringify({
 										chat_id: GROUP_ID,
-										text: successMessage,
-										parse_mode: 'Markdown'
+										photo: imageUrl,
+										caption: verificationMessage,
+										parse_mode: 'MarkdownV2',
+										reply_markup: {
+											force_reply: true,
+											selective: true
+										}
 									})
 								});
-							} else {
+	
+								const stmt = user ? 
 								usersDb.prepare(`
 									UPDATE approved_users 
-									SET last_verification_attempt = ?,
-											verification_count = verification_count + 1
+									SET last_verification_attempt = ?, verification_count = verification_count + 1,
+											verification_agent = ?, original_message_id = ?, original_message = ?,
+											verification_question = ?, expected_answer = ?
 									WHERE telegram_user_id = ?
-								`).run(new Date().toISOString(), userId);
+								`) :
+								usersDb.prepare(`
+									INSERT INTO approved_users (
+										telegram_user_id, is_approved, last_verification_attempt, verification_count,
+										verification_agent, original_message_id, original_message, verification_question,
+										expected_answer
+									) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+								`);
+	
+							const params = user ? 
+								[new Date().toISOString(), agent.name, update.message.message_id,
+								 update.message.text, verificationData.finalQuestion,
+								 verificationData.expectedAnswer, userId] :
+								[userId, false, new Date().toISOString(), 1, agent.name,
+								 update.message.message_id, update.message.text,
+								 verificationData.finalQuestion, verificationData.expectedAnswer];
+	
+							stmt.run(...params);
 
 
-								const failureMessage = score <= 3 ? `
-									❌ *Ser, that's kinda sus...*
-
-									@${username}, ngl that was pretty off:
-									${validation.thinking}
-
-									Try something more like:
-									"${validation.exampleAnswer}"
-
-									⏳ Touch grass for ${COOLDOWN_MINUTES*2}mins and try again
-									`.trim() : `
-									😅 *Almost there anon!*
-
-									@${username}, your answer needs a lil work:
-									${validation.thinking}
-
-									Here's the vibe we're looking for:
-									"${validation.exampleAnswer}"
-
-									⏳ HODL for ${COOLDOWN_MINUTES}mins and give it another shot
-									`.trim();
-
-								await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-									method: 'POST',
-									headers: { 'Content-Type': 'application/json' },
-									body: JSON.stringify({
-										chat_id: GROUP_ID,
-										text: failureMessage,
-										parse_mode: 'Markdown'
-									})
-								});
-
-								// todo: fix cooldown here in the beginning when we get message must check if its been 15 minutes since last verification attempt, if not we should delete message and ask user to wait, if its been 15 minutes we should ask user a new question
-								await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/restrictChatMember`, {
-									method: 'POST',
-									headers: { 'Content-Type': 'application/json' },
-									body: JSON.stringify({
-										chat_id: GROUP_ID,
-										user_id: userId,
-										permissions: {
-											can_send_messages: false
-										},
-										until_date: Math.floor(Date.now() / 1000) + ((score <= 3 ? COOLDOWN_MINUTES*2 : COOLDOWN_MINUTES) * 2 * 60)
-									})
-								});
 							}
-						}
+            }
 					}
 				}
 			}
