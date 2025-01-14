@@ -83,6 +83,29 @@ async function measureTime<T>(fn: () => Promise<T>, label: string): Promise<T> {
   }
 }
 
+async function restrictUser(userId: string, duration: number) {
+  console.log(`🔒 Restricting user ${userId} for ${duration} minutes`);
+  try {
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/restrictChatMember`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: GROUP_ID,
+        user_id: userId,
+        permissions: {
+          can_send_messages: false,
+          can_send_media_messages: false,
+          can_send_other_messages: false,
+        },
+        until_date: Math.floor(Date.now() / 1000) + (duration * 60)
+      })
+    });
+  } catch (error) {
+    console.error(`Failed to restrict user ${userId}:`, error);
+  }
+}
+
+
 console.log('Starting Telegram moderator bot...');
 while (true) {
   try {
@@ -106,28 +129,17 @@ while (true) {
         const user = usersDb.prepare(`
           SELECT * FROM approved_users WHERE telegram_user_id = ?
         `).get(userId) as ApprovedUser | undefined;
+        console.log(`👤 Processing update for user ${userId} (@${username})`);
 
         if (user?.is_approved) continue;
 
+        if (user?.is_approved) {
+          console.log(`✅ User ${userId} is already approved`);
+          continue;
+        }
+
         let action: 'askQuestion' | 'validateAnswer' | 'deleteMessage' = 'deleteMessage';
         
-				/* todo: should implement a detailed logging indicating user id every time and whats happening, and should fix an error currently i send message to chat and its just deleted, nothing else happens, it should always have some reaction, and it should never be deleting messages, intead it should be restricting user from sending further messages IF user haven't answered correctly within given period of time like this
-
-+								await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/restrictChatMember`, {
-+									method: 'POST',
-+									headers: { 'Content-Type': 'application/json' },
-+									body: JSON.stringify({
-+										chat_id: GROUP_ID,
-+										user_id: userId,
-+										permissions: {
-+											can_send_messages: false
-+										},
-+										until_date: Math.floor(Date.now() / 1000) + ((score <= 3 ? COOLDOWN_MINUTES*2 : COOLDOWN_MINUTES) * 2 * 60)
-+									})
-+								});
-				
-
-				*/
         if (user) {
           const lastAttempt = new Date(user.last_verification_attempt);
           const cooldownPassed = (Date.now() - lastAttempt.getTime()) > (COOLDOWN_MINUTES * 60 * 1000);
@@ -137,6 +149,9 @@ while (true) {
               (COOLDOWN_MINUTES * 60 * 1000 - (Date.now() - lastAttempt.getTime())) / (60 * 1000)
             );
             
+            console.log(`⏳ User ${userId} in cooldown, ${remainingMinutes}m remaining`);
+            await restrictUser(userId, remainingMinutes);
+
             await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -148,6 +163,83 @@ while (true) {
             });
             continue;
           }
+
+          if (user.verification_question) {
+            console.log(`🤔 Validating answer from user ${userId}`);
+						const agent = agentsDb.prepare(`
+							SELECT * FROM agents WHERE name = ?
+						`).get(user.verification_agent);
+
+						const validationInput = {
+							agentName: agent.name,
+							question: user.verification_question,
+							answer: update.message.text,
+							agentPersonality: agent.prompt,
+						};
+						console.log("validationInput ==> ", validationInput);
+
+						const validation = await Query.from(validationInput, 'gpt-4o-mini').infer({
+							correctness: 'Rate from 1-10 how well the answer addresses the question (1-3 means answer is totally unrelated to the given context of question, 4-6 means answer is relevant but might be incomplete or incorrect, 7-10 means answer resonates to the questioners own opinion)',
+						});
+						console.log("validation ==> ", validation);
+
+						const score = parseInt(validation.correctness);
+
+            if (score >= 4) {
+              console.log(`🎉 User ${userId} passed verification with score ${score}`);
+              usersDb.prepare(`
+                UPDATE approved_users 
+                SET is_approved = 1
+                WHERE telegram_user_id = ?
+              `).run(userId);
+              
+							// todo: should send message welcoming user can message now
+							await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json' },
+								body: JSON.stringify({
+									chat_id: GROUP_ID,
+									text: successMessage,
+									parse_mode: 'Markdown'
+								})
+							});
+
+							// todo: should remove restrictUser and always do fetch explicitly in other places, and improve ensure all code works in all scenarios
+              await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/restrictChatMember`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  chat_id: GROUP_ID,
+                  user_id: userId,
+                  permissions: {
+                    can_send_messages: true,
+                    can_send_media_messages: true,
+                    can_send_other_messages: true,
+                  }
+                })
+              });
+            } else {
+              console.log(`❌ User ${userId} failed verification with score ${score}`);
+							usersDb.prepare(`
+								UPDATE approved_users 
+								SET last_verification_attempt = ?,
+										verification_count = verification_count + 1
+								WHERE telegram_user_id = ?
+							`).run(new Date().toISOString(), userId);
+
+							await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json' },
+								body: JSON.stringify({
+									chat_id: GROUP_ID,
+									text: failureMessage,
+									parse_mode: 'Markdown'
+								})
+							});
+              await restrictUser(userId, COOLDOWN_MINUTES * 2);
+            }
+            continue;
+          }					
           
           action = user.verification_question ? 'validateAnswer' : 'askQuestion';
         } else {
