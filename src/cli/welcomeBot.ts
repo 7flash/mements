@@ -129,159 +129,209 @@ while (true) {
       }
 
       for (const update of updates) {
-        console.log("update ==> ", update);
+        await measureTime(async () => {
+          console.log("Processing update:", {
+            messageId: update?.message?.message_id,
+            chatId: update?.message?.chat?.id,
+            userId: update?.message?.from?.id,
+            username: update?.message?.from?.username,
+            isNewMember: !!update?.new_chat_member,
+            hasText: !!update?.message?.text
+          });
 
-        // todo: for some reason when there is a message its not being processed we need to give better console logging information here, also we should wrap all the logic into multiple nested measureTime, and every time it should log out user id, its relevant data of the action, and action name and how long it took
-        if (!update?.message?.chat?.id || update.message.chat.id !== GROUP_ID) continue;        
-        if (update?.message?.from?.is_bot) continue;
-        if (!update?.message?.text && !update?.message?.new_chat_member) continue;
-
-        const userId = update.message.from.id;
-        const username = update.message.from.username;
-
-        const user = usersDb.prepare(`
-            SELECT * FROM approved_users WHERE telegram_user_id = ?
-          `).get(userId) as ApprovedUser | undefined;
-        console.log(`👤 Processing update for user ${userId} (@${username})`);
-
-        if (user?.is_approved) {
-          console.log(`✅  ${username} is already approved`);
-          continue;
-        }
-
-        if (user?.verification_count > 0) {
-          console.log(`skip ${username} not approved but we have a pending verification`);
-          continue;
-        }
-
-        let agents = [];
-        const inviteLinkName = update?.new_chat_member && update?.invite_link?.name;
-
-        if (inviteLinkName) {
-          const mainAgent = agentsDb.prepare(`
-              SELECT a.*, i.imageCid 
-              FROM agents a
-              LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
-              WHERE a.subdomain = ?
-              LIMIT 1
-            `).get(inviteLinkName);
-
-          if (mainAgent) {
-            const supportAgent = agentsDb.prepare(`
-                SELECT a.*, i.imageCid 
-                FROM agents a
-                LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
-                WHERE a.subdomain != ?
-                ORDER BY RANDOM()
-                LIMIT 1
-              `).get(inviteLinkName);
-
-            agents = [mainAgent, supportAgent];
+          if (!update?.message?.chat?.id || `${update.message.chat.id}` !== GROUP_ID) {
+            console.log("Skipping: Invalid chat ID or not matching GROUP_ID");
+            return;
           }
-        }
+          
+          if (update?.message?.from?.is_bot) {
+            console.log("Skipping: Message from bot");
+            return;
+          }
+          
+          if (!update?.message?.text && !update?.message?.new_chat_member) {
+            console.log("Skipping: No text message or new member");
+            return;
+          }
 
-        if (agents.length < 2) {
-          agents = agentsDb.prepare(`
-              SELECT a.*, i.imageCid 
-              FROM agents a
-              LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
-              ORDER BY RANDOM() 
-              LIMIT 2
-            `).all();
-        }
+          const userId = update.message.from.id;
+          const username = update.message.from.username;
 
-        if (agents.length < 2) {
-          throw new Error('Unable to start verification process - insufficient agents');
-        }
+          // Handle missing username
+          if (!username) {
+            await measureTime(async () => {
+              await tg('sendMessage', {
+                chat_id: GROUP_ID,
+                text: `Hey <click>@${userId}</click>! Please set up a username in your Telegram settings before joining our community. This helps us create a better experience for everyone!`,
+                parse_mode: 'HTML'
+              });
+            }, `Send username request for user ${userId}`);
+            return;
+          }
 
-        const [mainAgent, supportAgent] = agents;
+          await measureTime(async () => {
+            const user = usersDb.prepare(`
+              SELECT * FROM approved_users WHERE telegram_user_id = ?
+            `).get(userId) as ApprovedUser | undefined;
+            console.log(`👤 Processing update for user ${userId} (@${username})`);
 
-        const [mainImageUrl, supportImageUrl] = await Promise.all([
-          pinata.gateways.createSignedURL({
-            cid: mainAgent.imageCid,
-            expires: 3600
-          }).optimizeImage({
-            width: 512,
-            height: 512,
-            format: 'webp',
-          }),
-          pinata.gateways.createSignedURL({
-            cid: supportAgent.imageCid,
-            expires: 3600
-          }).optimizeImage({
-            width: 512,
-            height: 512,
-            format: 'webp',
-          })
-        ]);
+            if (user?.is_approved) {
+              console.log(`✅ User ${userId} (@${username}) is already approved`);
+              return;
+            }
 
-        // todo: it seems like sometimes username is undefined maybe we need to handle this and ignore it or just send message to him by id asking to set user name before joining community but not generate a question for him, also here when we generate questions the problem all of them are too generic, we should more explicitly instruct our fields to main agent replica to be said from the personality of main agent and same with support agent correspondingly
-        const verificationData = await Query.from({
-          mainAgentName: mainAgent.name,
-          supportAgentName: supportAgent.name,
-          username: username,
-          agentCommunity: mainAgent.prompt,
-          mainAgentPersonality: mainAgent.personality || 'friendly and welcoming',
-          supportAgentPersonality: supportAgent.personality || 'supportive and curious'
-        }, 'gpt-4o-mini').infer({
-          mainAgentReplica: `Create a casual greeting where ${mainAgent.name} asks ${supportAgent.name} to help welcome @${username}`,
-          supportAgentReplica: `Create a friendly response where ${supportAgent.name} addresses @${username} with a verification question`,
-          verificationQuestion: `Create a casual but meaningful question that tests community values (max 15 words)`,
-          expectedAnswer: 'Brief example of a good answer showing community understanding'
-        });
+            if (user?.verification_count > 0) {
+              console.log(`⏳ Skip user ${userId} (@${username}): pending verification`);
+              return;
+            }
 
-        logAction(userId, 'verificationData', verificationData);
+            // Agent selection logic wrapped in measureTime
+            const agents = await measureTime(async () => {
+              let selectedAgents = [];
+              const inviteLinkName = update?.new_chat_member && update?.invite_link?.name;
 
-        const welcomeMessage = `
+              if (inviteLinkName) {
+                const mainAgent = agentsDb.prepare(`
+                  SELECT a.*, i.imageCid 
+                  FROM agents a
+                  LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
+                  WHERE a.subdomain = ?
+                  LIMIT 1
+                `).get(inviteLinkName);
+
+                if (mainAgent) {
+                  const supportAgent = agentsDb.prepare(`
+                    SELECT a.*, i.imageCid 
+                    FROM agents a
+                    LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
+                    WHERE a.subdomain != ?
+                    ORDER BY RANDOM()
+                    LIMIT 1
+                  `).get(inviteLinkName);
+
+                  selectedAgents = [mainAgent, supportAgent];
+                }
+              }
+
+              if (selectedAgents.length < 2) {
+                selectedAgents = agentsDb.prepare(`
+                  SELECT a.*, i.imageCid 
+                  FROM agents a
+                  LEFT JOIN images i ON i.subdomain = a.subdomain AND i.image_key = 'default'
+                  ORDER BY RANDOM() 
+                  LIMIT 2
+                `).all();
+              }
+
+              return selectedAgents;
+            }, `Select agents for user ${userId}`);
+
+            if (agents.length < 2) {
+              throw new Error('Unable to start verification process - insufficient agents');
+            }
+
+            const [mainAgent, supportAgent] = agents;
+
+            // Image URL generation wrapped in measureTime
+            const [mainImageUrl, supportImageUrl] = await measureTime(async () => {
+              return Promise.all([
+                pinata.gateways.createSignedURL({
+                  cid: mainAgent.imageCid,
+                  expires: 3600
+                }).optimizeImage({
+                  width: 512,
+                  height: 512,
+                  format: 'webp',
+                }),
+                pinata.gateways.createSignedURL({
+                  cid: supportAgent.imageCid,
+                  expires: 3600
+                }).optimizeImage({
+                  width: 512,
+                  height: 512,
+                  format: 'webp',
+                })
+              ]);
+            }, `Generate image URLs for user ${userId}`);
+
+            // Enhanced personality-driven verification data
+            const verificationData = await measureTime(async () => {
+              return Query.from({
+                mainAgentName: mainAgent.name,
+                supportAgentName: supportAgent.name,
+                username: username,
+                agentCommunity: mainAgent.prompt,
+                mainAgentPersonality: mainAgent.personality || 'friendly and welcoming',
+                supportAgentPersonality: supportAgent.personality || 'supportive and curious'
+              }, 'gpt-4o-mini').infer({
+                mainAgentReplica: `Speaking as ${mainAgent.name} with ${mainAgent.personality || 'friendly'} personality, create a greeting asking ${supportAgent.name} to help welcome @${username}. Include specific personality traits and mannerisms.`,
+                supportAgentReplica: `Speaking as ${supportAgent.name} with ${supportAgent.personality || 'supportive'} personality, create a response to ${mainAgent.name} and address @${username} with a verification question. Show distinct personality.`,
+                verificationQuestion: `Create a question (max 15 words) that reflects ${mainAgent.name}'s values and community principles`,
+                expectedAnswer: `Create an example answer that shows understanding of ${mainAgent.name}'s community values`
+              });
+            }, `Generate verification data for user ${userId}`);
+
+            logAction(userId, 'verificationData', verificationData);
+
+            // Send welcome message
+            await measureTime(async () => {
+              const welcomeMessage = `
 👤 *${escapeMarkdown(mainAgent.name)}* \\(on the left\\) says:
 ${escapeMarkdown(verificationData.mainAgentReplica)}
-👥 *${escapeMarkdown(supportAgent.name)}* \\(on the right\\)says:
+👥 *${escapeMarkdown(supportAgent.name)}* \\(on the right\\) says:
 ${escapeMarkdown(verificationData.supportAgentReplica)}
-          `.trim();
+              `.trim();
 
-        await tg('sendMediaGroup', {
-          chat_id: GROUP_ID,
-          media: [
-            {
-              type: 'photo',
-              media: mainImageUrl,
-            },
-            {
-              type: 'photo',
-              media: supportImageUrl,
-              caption: welcomeMessage,
-              parse_mode: 'MarkdownV2'
-            }
-          ]
-        });
+              await tg('sendMediaGroup', {
+                chat_id: GROUP_ID,
+                media: [
+                  {
+                    type: 'photo',
+                    media: mainImageUrl,
+                  },
+                  {
+                    type: 'photo',
+                    media: supportImageUrl,
+                    caption: welcomeMessage,
+                    parse_mode: 'MarkdownV2'
+                  }
+                ]
+              });
+            }, `Send welcome message for user ${userId}`);
 
-        const stmt = user ?
-          usersDb.prepare(`
-          UPDATE approved_users 
-          SET last_verification_attempt = ?, verification_count = verification_count + 1,
-              verification_agent = ?, original_message_id = ?, original_message = ?,
-              verification_question = ?, expected_answer = ?
-          WHERE telegram_user_id = ?
-        `) :
-          usersDb.prepare(`
-          INSERT INTO approved_users (
-            telegram_user_id, is_approved, last_verification_attempt, verification_count,
-            verification_agent, original_message_id, original_message, verification_question,
-            expected_answer
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `);
+            // Update database
+            await measureTime(async () => {
+              const stmt = user ?
+                usersDb.prepare(`
+                UPDATE approved_users 
+                SET last_verification_attempt = ?, verification_count = verification_count + 1,
+                    verification_agent = ?, original_message_id = ?, original_message = ?,
+                    verification_question = ?, expected_answer = ?
+                WHERE telegram_user_id = ?
+              `) :
+                usersDb.prepare(`
+                INSERT INTO approved_users (
+                  telegram_user_id, is_approved, last_verification_attempt, verification_count,
+                  verification_agent, original_message_id, original_message, verification_question,
+                  expected_answer
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `);
 
-        const params = user ?
-          [new Date().toISOString(), mainAgent.name, update.message.message_id,
-          update.message.text, verificationData.finalQuestion,
-          verificationData.expectedAnswer, userId] :
-          [userId, false, new Date().toISOString(), 1, mainAgent.name,
-            update.message.message_id, update.message.text,
-            verificationData.finalQuestion, verificationData.expectedAnswer];
+              const params = user ?
+                [new Date().toISOString(), mainAgent.name, update.message.message_id,
+                update.message.text, verificationData.verificationQuestion,
+                verificationData.expectedAnswer, userId] :
+                [userId, false, new Date().toISOString(), 1, mainAgent.name,
+                  update.message.message_id, update.message.text,
+                  verificationData.verificationQuestion, verificationData.expectedAnswer];
 
-        stmt.run(...params);
+              stmt.run(...params);
+            }, `Update database for user ${userId}`);
+
+          }, `Process verification for user ${userId}`);
+        }, `Process update ${update?.message?.message_id}`);
       }
-    }, 'Welcome processing');
+    }, 'Welcome processing cycle');
   } catch (error) {
     console.error('Welcome Bot error:', error);
   }
