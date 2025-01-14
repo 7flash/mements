@@ -215,6 +215,7 @@ while (true) {
           })
         ]);
 
+        // todo: it seems like sometimes username is undefined maybe we need to handle this and ignore it or just send message to him by id asking to set user name before joining community but not generate a question for him, also here when we generate questions the problem all of them are too generic, we should more explicitly instruct our fields to main agent replica to be said from the personality of main agent and same with support agent correspondingly
         const verificationData = await Query.from({
           mainAgentName: mainAgent.name,
           supportAgentName: supportAgent.name,
