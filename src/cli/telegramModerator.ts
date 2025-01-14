@@ -109,7 +109,6 @@ async function tg(method: string, body: any) {
   }
 }
 
-// Helper for user permissions
 async function updateUserPermissions(userId: string, canMessage: boolean, duration?: number) {
   const permissions = {
     can_send_messages: canMessage,
@@ -128,7 +127,6 @@ async function updateUserPermissions(userId: string, canMessage: boolean, durati
   });
 }
 
-// Helper for sending messages
 async function sendTelegramMessage(text: string, options: any = {}) {
   return tg('sendMessage', {
     chat_id: GROUP_ID,
@@ -138,16 +136,13 @@ async function sendTelegramMessage(text: string, options: any = {}) {
   });
 }
 
-// Add constants for timeouts
-const VALIDATION_TIMEOUT = 60; // 1 minute for validation
-const BASE_COOLDOWN = 15; // Base cooldown in minutes
+const VALIDATION_TIMEOUT = 60;
+const BASE_COOLDOWN = 15;
 
-// Helper for exponential cooldown calculation
 function calculateCooldown(attempts: number): number {
-  return Math.min(BASE_COOLDOWN * Math.pow(2, attempts - 1), 24 * 60); // Max 24 hours
+  return Math.min(BASE_COOLDOWN * Math.pow(2, attempts - 1), 24 * 60);
 }
 
-// Helper to schedule message deletion
 async function scheduleMessageDeletion(messageId: number, userId: string, delay: number) {
   await new Promise(resolve => setTimeout(resolve, delay * 1000));
   try {
@@ -169,6 +164,7 @@ function logAction(userId: string, action: string, details?: any) {
   console.log(`${userId}:${action} ==> `, details || '');
 }
 
+// todo: we should simplify, separate this bot into two separate bots. current bot should only send welcome message from the agents exactly the way it currently does. then second bot should listen for messages of first bot and explain to user the rules, and manage permissions and cooldowns.
 console.log('Starting Telegram moderator bot...');
 while (true) {
   try {
@@ -209,7 +205,6 @@ while (true) {
 					logAction(userId, 'cooldownCheck', { cooldownPassed, lastAttempt, cooldown });
 					
 					if (!cooldownPassed) {
-						// This is an anomaly - user shouldn't be able to send messages during cooldown
 						const remainingMinutes = Math.ceil(
 							(cooldown * 60 * 1000 - (Date.now() - lastAttempt.getTime())) / (60 * 1000)
 						);
@@ -306,10 +301,6 @@ Try again in ${COOLDOWN_MINUTES} minutes with a fresh perspective\\!
               })
             });
             
-
-/*
-todo: fix all across we dont have updateUserPermissions and sendTelegramMessage anymore, and wee should remove "msg" and "restrictUser" as well, instead we should have a single function "tg" and pass method name and body into it always.
-*/
             const cooldown = calculateCooldown(user?.verification_count || 1);
             await updateUserPermissions(userId, false, cooldown);
             await sendTelegramMessage(
@@ -345,8 +336,7 @@ todo: fix all across we dont have updateUserPermissions and sendTelegramMessage 
             }
           }
 
-          // Fallback to random selection if no invite link or main agent not found
-          if (agents.length < 2) {
+					if (agents.length < 2) {
             agents = agentsDb.prepare(`
               SELECT a.*, i.imageCid 
               FROM agents a
@@ -398,9 +388,9 @@ todo: fix all across we dont have updateUserPermissions and sendTelegramMessage 
 					logAction(userId, 'verificationData', verificationData);
 				
           const welcomeMessage = `
-👤 *${escapeMarkdown(mainAgent.name)}*: ${escapeMarkdown(verificationData.mainAgentReplica)}
+👤 *${escapeMarkdown(mainAgent.name)}* (on the left): ${escapeMarkdown(verificationData.mainAgentReplica)}
 
-👥 *${escapeMarkdown(supportAgent.name)}*: ${escapeMarkdown(verificationData.supportAgentReplica)}
+👥 *${escapeMarkdown(supportAgent.name)}* (on the right): ${escapeMarkdown(verificationData.supportAgentReplica)}
           `.trim();
 
           await tg('sendMediaGroup', {
@@ -434,12 +424,12 @@ yo @${escapeMarkdown(username)}\\! 🔥
 				*ready\\? let's go\\!* 💫
 					`.trim();
 
-          await msg('sendMessage', {
-            chat_id: GROUP_ID,
-            text: rulesMessage,
-            parse_mode: 'MarkdownV2'
-          });
-				
+					await tg('sendMessage', {
+						chat_id: GROUP_ID,
+						text: escapeMarkdown(rulesMessage),
+						parse_mode: 'MarkdownV2'
+					});
+									
           const stmt = user ? 
             usersDb.prepare(`
               UPDATE approved_users 
