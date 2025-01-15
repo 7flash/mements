@@ -149,9 +149,8 @@ while (true) {
       }
 
       for (const update of updates) {
-      console.log("update ==> ", update);
-      continue;
         await measureTime(async () => {
+          console.log("Processing update:", {
             messageId: update?.message?.message_id,
             chatId: update?.message?.chat?.id,
             userId: update?.message?.from?.id,
@@ -176,6 +175,7 @@ while (true) {
             return;
           }
 
+          // todo: we should not forward message here, maybe instead should check if sender if message is not blocked or something
           const messageExists = await checkMessageExists(GROUP_ID, update.message.message_id);
           if (!messageExists) {
             console.log("Skipping: Message was deleted");
