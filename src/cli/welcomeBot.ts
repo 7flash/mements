@@ -68,7 +68,7 @@ type TelegramUpdate = {
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const GROUP_ID = process.env.TELEGRAM_GROUP_ID;
 console.log("GROUP_ID ==> ", GROUP_ID);
-const POLL_INTERVAL = 1000; // todo: we should probably increase polling interval here all the way up to allow first moderators to deal with message maybe like a minute or so, and only if message is not deleted, then in our handler we should actually check that message is not deleted and only then proceed
+const POLL_INTERVAL = 60000;
 let lastUpdateId = 0;
 
 const escapeMarkdown = (text: string) => {
@@ -118,6 +118,18 @@ async function checkMessageExists(chatId: string, messageId: number): Promise<bo
       message_id: messageId
     });
     return !!result;
+  } catch {
+    return false;
+  }
+}
+
+async function checkUserStatus(chatId: string, userId: string): Promise<boolean> {
+  try {
+    const result = await tg('getChatMember', {
+      chat_id: chatId,
+      user_id: userId
+    });
+    return ['creator', 'administrator', 'member', 'restricted'].includes(result.result.status);
   } catch {
     return false;
   }
@@ -175,10 +187,9 @@ while (true) {
             return;
           }
 
-          // todo: we should not forward message here, maybe instead should check if sender if message is not blocked or something
-          const messageExists = await checkMessageExists(GROUP_ID, update.message.message_id);
-          if (!messageExists) {
-            console.log("Skipping: Message was deleted");
+          const userIsValid = await checkUserStatus(GROUP_ID, update.message.from.id);
+          if (!userIsValid) {
+            console.log("Skipping: User is not valid group member");
             return;
           }
 
