@@ -55,10 +55,9 @@ export default function() {
     }
   };
 
-  // todo: actually what i noticed when i just zoom in 200% in my desktop browser it looks much better, taking content over all screen, and more readable text, and more blurred image, please can we achieve that by default 
   return (
     <AppContext.Provider value={{ inputValue, setInputValue, handleSubmit, isLoading }}>
-      <div className="flex flex-col items-center mt-4 sm:mt-8 space-y-4 sm:space-y-6 px-4 sm:px-0">
+      <div className="flex flex-col items-center mt-8 sm:mt-16 space-y-8 sm:space-y-12 px-6 sm:px-8 max-w-6xl mx-auto">
         <Avatar />
         <Header />
         <ChatInput />
@@ -68,7 +67,7 @@ export default function() {
 };
 
 const Avatar = () => (
-  <div className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden border-4 border-white/20 shadow-2xl view-transition-avatar">
+  <div className="relative w-32 h-32 sm:w-48 sm:h-48 rounded-full overflow-hidden border-8 border-white/20 shadow-2xl view-transition-avatar">
     <img 
       src={window.serverData.agentImages['avatar'] ? window.serverData.agentImages['avatar'] : window.serverData.agentImages['default']}
       alt="Avatar"
@@ -98,11 +97,15 @@ const Header = () => {
   };
 
   return (
-    <div className="text-left">
-      <div className="flex flex-col items-center bg-white/10 backdrop-blur-md rounded-xl border border-white/20 shadow-lg p-4">
+    <div className="text-left w-full max-w-4xl">
+      <div className="flex flex-col items-center bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 shadow-xl p-6 sm:p-8">
         <div className="view-transition-name-container">
-          {!window.serverData.customInfo && <span className="text-2xl sm:text-4xl font-bold text-white mb-2 font-geohumanist-sans view-transition-name">{capitalizeFirstLetter(window.serverData.botName)}</span>}
-          <div className="text-white/70 font-mono text-sm sm:text-base leading-tight whitespace-pre-wrap break-words">
+          {!window.serverData.customInfo && (
+            <span className="text-3xl sm:text-5xl font-bold text-white mb-4 font-geohumanist-sans view-transition-name tracking-tight">
+              {capitalizeFirstLetter(window.serverData.botName)}
+            </span>
+          )}
+          <div className="text-white/80 font-mono text-base sm:text-xl leading-relaxed whitespace-pre-wrap break-words">
             {renderInfo()}
           </div>
         </div>
@@ -121,20 +124,20 @@ const ChatInput = () => {
   };
 
   return (
-    <form onSubmit={onSubmit} className="w-full max-w-md sm:max-w-2xl">
+    <form onSubmit={onSubmit} className="w-full max-w-4xl">
       <div className="relative view-transition-question-container">
         <input
           type="text"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          className="w-full px-4 sm:px-6 py-3 sm:py-4 text-base sm:text-lg text-white bg-white/10 backdrop-blur-md rounded-xl border border-white/20 shadow-lg focus:outline-none focus:border-white/30 transition-all view-transition-question"
+          className="w-full px-6 sm:px-8 py-4 sm:py-6 text-lg sm:text-xl text-white bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 shadow-xl focus:outline-none focus:border-white/40 transition-all view-transition-question"
           placeholder={window.serverData.links['input_placeholder'] ?? 'Ask me anything...'}
           disabled={isLoading}
         />
         <button
           type="submit"
           disabled={isLoading}
-          className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition-colors"
+          className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 text-white/80 hover:text-white transition-colors text-xl sm:text-2xl"
         >
           {isLoading ? '...' : '→'}
         </button>
