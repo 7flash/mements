@@ -472,55 +472,6 @@ function DeploymentSuccess() {
   );
 }
 
-/*
-todo: currently Toaster throws an error which gives us white page rendering, we need to fix it
-
-Catching rendering errors with an error boundary 
-By default, if your application throws an error during rendering, React will remove its UI from the screen. To prevent this, you can wrap a part of your UI into an error boundary. An error boundary is a special component that lets you display some fallback UI instead of the part that crashed—for example, an error message.
-
-To implement an error boundary component, you need to provide static getDerivedStateFromError which lets you update state in response to an error and display an error message to the user. You can also optionally implement componentDidCatch to add some extra logic, for example, to log the error to an analytics service.
-
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError(error) {
-    // Update state so the next render will show the fallback UI.
-    return { hasError: true };
-  }
-
-  componentDidCatch(error, info) {
-    // Example "componentStack":
-    //   in ComponentThatThrows (created by App)
-    //   in ErrorBoundary (created by App)
-    //   in div (created by App)
-    //   in App
-    logErrorToMyService(error, info.componentStack);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      // You can render any custom fallback UI
-      return this.props.fallback;
-    }
-
-    return this.props.children;
-  }
-}
-Then you can wrap a part of your component tree with it:
-
-<ErrorBoundary fallback={<p>Something went wrong</p>}>
-  <Profile />
-</ErrorBoundary>
-If Profile or its child component throws an error, ErrorBoundary will “catch” that error, display a fallback UI with the error message you’ve provided, and send a production error report to your error reporting service.
-
-You don’t need to wrap every component into a separate error boundary. When you think about the granularity of error boundaries, consider where it makes sense to display an error message. For example, in a messaging app, it makes sense to place an error boundary around the list of conversations. It also makes sense to place one around every individual message. However, it wouldn’t make sense to place a boundary around every avatar.
-*/
-
-
-
 function App() {
   const [location, setLocation] = useLocation();
   
