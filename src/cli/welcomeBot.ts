@@ -129,7 +129,8 @@ async function checkUserStatus(chatId: string, userId: string): Promise<boolean>
       chat_id: chatId,
       user_id: userId
     });
-    return ['creator', 'administrator', 'member', 'restricted'].includes(result.result.status);
+    console.log("result ==> ", result);
+    return ['creator', 'administrator', 'member'].includes(result.result.status);
   } catch {
     return false;
   }
@@ -302,9 +303,9 @@ while (true) {
             await measureTime(async () => {
               const welcomeMessage = `
               👤 *${escapeMarkdown(mainAgent.name)}* \\(on the left\\) says:
-              ${escapeMarkdown(verificationData.mainAgentReplica.replace('@' + username, userReference))}
+              ${verificationData.mainAgentReplica.replaceAll('@' + username, userReference)}
               👥 *${escapeMarkdown(supportAgent.name)}* \\(on the right\\) says:
-              ${escapeMarkdown(verificationData.supportAgentReplica.replace('@' + username, userReference))}
+              ${verificationData.supportAgentReplica.replaceAll('@' + username, userReference)}
                           `.trim();
               
               await tg('sendMediaGroup', {
