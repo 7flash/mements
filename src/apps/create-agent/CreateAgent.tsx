@@ -519,31 +519,32 @@ If Profile or its child component throws an error, ErrorBoundary will “catch�
 You don’t need to wrap every component into a separate error boundary. When you think about the granularity of error boundaries, consider where it makes sense to display an error message. For example, in a messaging app, it makes sense to place an error boundary around the list of conversations. It also makes sense to place one around every individual message. However, it wouldn’t make sense to place a boundary around every avatar.
 */
 
+
+
 function App() {
   const [location, setLocation] = useLocation();
   
   return (
-    <AgentProvider>
-      <div className="min-h-screen bg-gray-50 flex flex-col">
-      <Header />
-      <div className="flex-grow">
-        <Switch>
-          <Route path="/">
-            <LandingHero onProceed={() => setLocation('/create')} />
-          </Route>
-          <Route path="/create">
-            <CreateMementForm />
-          </Route>
-          <Route path="/success">
-            <DeploymentSuccess />
-          </Route>
-        </Switch>
+      <AgentProvider>
+        <div className="min-h-screen bg-gray-50 flex flex-col">
+          <Header />
+          <div className="flex-grow">
+            <Switch>
+              <Route path="/">
+                <LandingHero onProceed={() => setLocation('/create')} />
+              </Route>
+              <Route path="/create">
+                <CreateMementForm />
+              </Route>
+              <Route path="/success">
+                <DeploymentSuccess />
+              </Route>
+            </Switch>
+          </div>
+          <Footer />
+            <Toaster richColors />
         </div>
-        <Footer />
-
-        <Toaster richColors />
-      </div>
-    </AgentProvider>
+      </AgentProvider>
   );
 }
 

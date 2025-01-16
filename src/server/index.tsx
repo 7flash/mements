@@ -116,6 +116,15 @@ const { randomUUID: randomUUIDForChat } = new ShortUniqueId({ length: 10, dictio
 const { randomUUID: randomUUIDForRequest } = new ShortUniqueId({ length: 6, dictionary: 'alphanum_lower' });
 
 function htmlTemplate(scriptLink: string, serverData: string = '{}'): string {
+  // Determine if we're in dev mode
+  const isDev = process.env.SERVER_MODE === 'dev';
+  
+  // Modify ESM URLs based on mode
+  const reactVersion = '19.0.0';
+  const sonnerVersion = '1.7.2';
+  const devSuffix = isDev ? '?dev' : '';
+  const depsParam = `&deps=react@${reactVersion}`;
+
   return `
   <html>
     <head>
@@ -141,9 +150,9 @@ function htmlTemplate(scriptLink: string, serverData: string = '{}'): string {
       <script type="importmap">
         {
           "imports": {
-            "react": "https://esm.sh/react@19.0.0/?dev",
-            "react-dom/client": "https://esm.sh/react-dom@19.0.0/client/?dev",
-            "sonner": "https://esm.sh/sonner@1.7.1/?dev"
+            "react": "https://esm.sh/react@${reactVersion}/${devSuffix}",
+            "react-dom/client": "https://esm.sh/react-dom@${reactVersion}/client/${devSuffix}",
+            "sonner": "https://esm.sh/sonner@${sonnerVersion}/${devSuffix}${depsParam}"
           }
         }
       </script>
