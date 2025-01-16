@@ -55,7 +55,7 @@ export default function() {
     }
   };
 
-  // todo: improve mobile layout currently it shows a desktop version thats not responsive just very big distance around the edges and very small text
+  // todo: actually what i noticed when i just zoom in 200% in my desktop browser it looks much better, taking content over all screen, and more readable text, and more blurred image, please can we achieve that by default 
   return (
     <AppContext.Provider value={{ inputValue, setInputValue, handleSubmit, isLoading }}>
       <div className="flex flex-col items-center mt-4 sm:mt-8 space-y-4 sm:space-y-6 px-4 sm:px-0">
