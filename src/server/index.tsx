@@ -116,14 +116,12 @@ const { randomUUID: randomUUIDForChat } = new ShortUniqueId({ length: 10, dictio
 const { randomUUID: randomUUIDForRequest } = new ShortUniqueId({ length: 6, dictionary: 'alphanum_lower' });
 
 function htmlTemplate(scriptLink: string, serverData: string = '{}'): string {
-  // Determine if we're in dev mode
   const isDev = process.env.SERVER_MODE === 'dev';
   
-  // Modify ESM URLs based on mode
   const reactVersion = '19.0.0';
   const sonnerVersion = '1.7.2';
   const devSuffix = isDev ? '?dev' : '';
-  const depsParam = `&deps=react@${reactVersion}`;
+  const depsParam = `${devSuffix ? '&' : '?'}deps=react@${reactVersion}`;
 
   return `
   <html>
