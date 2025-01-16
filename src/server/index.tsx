@@ -871,7 +871,9 @@ todo: every time somebody sends a message to the chat, we should check in the da
         const imageQuery = db.query<Image, { $subdomain: string }>("SELECT image_key, imageCid FROM images WHERE subdomain = $subdomain");
         const imageData = imageQuery.all({ $subdomain: agentData.subdomain });
         console.log("imageData ==> ", imageData);
-        const agentImages = Object.fromEntries(await Promise.all(imageData.map(async (img) => [img.image_key, await files.getUrl(img.imageCid, 3600)])));
+        const agentImages = Object.fromEntries(await Promise.all(imageData.map(async (img) => [img.image_key, await files.getUrl(img.imageCid, 3600, {
+          width: 1024, height: 1024, format: 'webp'
+        })])));
         console.log("agentImages ==> ", agentImages);
 
         const linksData = links?.reduce((prev, it) => { return { ...prev, [it.type]: it.value } }, {})
