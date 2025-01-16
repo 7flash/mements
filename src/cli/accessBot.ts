@@ -137,31 +137,17 @@ while (true) {
       if (!update?.message?.from) continue;
 
       const isModeratorMessage = update.message.from.username === WELCOME_BOT_USERNAME;
-
-      // todo: its not necessary that user replies directly to moderator message, but instead any next message to the chat from the user who is in the process of verification counts as his answer
-      const isUserResponse = update.message.reply_to_message?.from?.username === WELCOME_BOT_USERNAME;
-      
-      if (!isModeratorMessage && !isUserResponse) continue;
-
       const userId = update.message.from.id;
       const username = update.message.from.username;
       const messageId = update.message.message_id;
 
       if (isModeratorMessage) {
-        // todo: we dont need to insert, we assume its already been inserted by moderator and we can fetch here expected answer and etc by mentioned user id
-        usersDb.prepare(`
-          INSERT OR REPLACE INTO approved_users (
-            telegram_user_id, verification_question, expected_answer, 
-            original_message_id, original_message, last_verification_attempt
-          ) VALUES (?, ?, ?, ?, ?, ?)
-        `).run(
-          userId,
-          update.message.text,
-          '',
-          messageId,
-          update.message.text,
-          new Date().toISOString()
-        );
+        // Fetch existing user data instead of inserting
+        const user = usersDb.prepare(`
+          SELECT * FROM approved_users WHERE telegram_user_id = ?
+        `).get(userId) as ApprovedUser;
+
+        if (!user) continue;
 
         const rulesMessage = `
 Hey @${escapeMarkdown(username)}\\! 🎯
@@ -173,7 +159,7 @@ The moderator just asked you a question\\. Here's what you need to know:
 \\- ⚠️ Failed attempt = timeout \\(${BASE_COOLDOWN}m \\-> ${BASE_COOLDOWN*2}m \\-> ${BASE_COOLDOWN*4}m\\)
 \\- 🤝 Be authentic and thoughtful
 
-Your time starts now\\! Reply to the moderator's message above\\.
+Your time starts now\\! Send your answer in the chat\\.
         `.trim();
 
         await tg('sendMessage', {
@@ -185,12 +171,17 @@ Your time starts now\\! Reply to the moderator's message above\\.
 
         await updateUserPermissions(userId, true, VALIDATION_TIMEOUT);
 
-      } else if (isUserResponse) {
+      } else {
+        // Check if user is in verification process
         const user = usersDb.prepare(`
-          SELECT * FROM approved_users WHERE telegram_user_id = ?
+          SELECT * FROM approved_users 
+          WHERE telegram_user_id = ? 
+          AND is_approved = 0 
+          AND is_muted = 0
+          AND last_verification_attempt > datetime('now', '-${VALIDATION_TIMEOUT} seconds')
         `).get(userId) as ApprovedUser;
 
-        if (!user || user.is_muted) continue;
+        if (!user) continue;
 
         const validation = await Query.from({
           question: user.verification_question,
