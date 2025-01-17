@@ -1,4 +1,4 @@
-import path from 'path';
+import { resolve, join } from 'path';
 import { serve, type BunFile } from "bun";
 import ShortUniqueId from "short-unique-id";
 import { Database as BunDatabase } from "bun:sqlite";
@@ -22,7 +22,7 @@ const args = parseArgs({
   allowPositionals: true,
 });
 
-const configPath = path.join(process.cwd(), args.values.config!);
+const configPath = join(process.cwd(), args.values.config!);
 
 let config;
 if (configPath.endsWith('.toml')) {
@@ -43,12 +43,12 @@ if (configPath.endsWith('.toml')) {
 
 const files: IFiles = Files.init();
 
-const dbPath = path.join(process.cwd(), 'static/database', `${config.database.name}.sqlite`).trim();
+const dbPath = join(process.cwd(), 'static/database', `${config.database.name}.sqlite`).trim();
 
 try {
   await Bun.$`ls ${dbPath}`;
 } catch (err) {
-  const rawCmd = `bun run ${path.join(import.meta.dir, "../cli/initializeDatabase.ts")} --path=${dbPath}`;
+  const rawCmd = `bun run ${join(import.meta.dir, "../cli/initializeDatabase.ts")} --path=${dbPath}`;
   console.log("rawCmd ==> ", rawCmd);
   await Bun.$`${{ raw: rawCmd }}`
 }
@@ -75,39 +75,39 @@ import buildAssets from './assets';
 const assets = await buildAssets({
   logo: {
     href: "/assets/logo.png", 
-    path: path.join(process.cwd(), "static/images", "logomark.png"),
+    path: join(process.cwd(), "static/images", "logomark.png"),
   },
   favicon: {
     href: "/assets/favicon.ico",
-    path: path.join(process.cwd(), "static/images", "favicon.ico"), 
+    path: join(process.cwd(), "static/images", "favicon.ico"), 
   },
   style: {
     href: "/assets/main.css",
-    source: path.join(import.meta.dir, "../apps/App.css"),
+    source: join(import.meta.dir, "../apps/App.css"),
   },
   createAgentApp: {
     href: "/assets/create-agent.js",
-    source: path.join(import.meta.dir, "../apps/create-agent/index.tsx"),
+    source: join(import.meta.dir, "../apps/create-agent/index.tsx"),
   },
   askAgentApp: {
     href: "/assets/ask-agent.js", 
-    source: path.join(import.meta.dir, "../apps/ask-agent/index.tsx"),
+    source: join(import.meta.dir, "../apps/ask-agent/index.tsx"),
   },
   exploreAgentsApp: {
     href: "/assets/explore-agents.js",
-    source: path.join(import.meta.dir, "../apps/explore-agents/index.tsx"),
+    source: join(import.meta.dir, "../apps/explore-agents/index.tsx"),
   },
   fontSans: {
     href: "/assets/Geist.ttf",
-    path: path.join(process.cwd(), "static/fonts", "Geist.ttf"),
+    path: join(process.cwd(), "static/fonts", "Geist.ttf"),
   },
   fontGeohumanistSans: {
     href: "/assets/Sen.ttf", 
-    path: path.join(process.cwd(), "static/fonts", "Sen.ttf"),
+    path: join(process.cwd(), "static/fonts", "Sen.ttf"),
   },
   fontMono: {
     href: "/assets/JetBrainsMono.ttf",
-    path: path.join(process.cwd(), "static/fonts", "JetBrainsMono.ttf"),
+    path: join(process.cwd(), "static/fonts", "JetBrainsMono.ttf"),
   },
 });
 
@@ -224,14 +224,12 @@ const server = serve({
   port: config.server.port,
   async fetch(req) {
     const url = new URL(req.url);
-    const path = url.pathname;
 
-    if (assets.hasAssetByPath(path)) {
-      return new Response(assets.getAssetByPath(path));
+    if (assets.hasAssetByPath(url.pathname)) {
+      return new Response(assets.getAssetByPath(url.pathname));
     }
 
     const requestId = randomUUIDForRequest();
-    console.log(requestId, "path", path);
 
     const localTime = new Date().toLocaleString("en-US", {
       timeZone: "Asia/Makassar",
@@ -244,12 +242,9 @@ const server = serve({
     });
 
     const host = req.headers.get("host");
-
-    console.log(requestId, `${localTime}`, host, path);
-
     const subdomain = host ? host.split(".")[0] : "";
 
-    if (path === "/api/agents") {
+    if (url.pathname === "/api/agents") {
       try {
         const page = parseInt(url.searchParams.get('page') || '1');
         const limit = parseInt(url.searchParams.get('limit') || '10');
@@ -354,7 +349,7 @@ const server = serve({
       }
     }
 
-    if (path === "/explore") {
+    if (url.pathname === "/explore") {
       try {
         const page = parseInt(url.searchParams.get('page') || '1');
         const limit = parseInt(url.searchParams.get('limit') || '9');
@@ -462,7 +457,7 @@ const server = serve({
       }
     }
 
-    if (req.method === "POST" && path === "/registerSharedAccount") {
+    if (req.method === "POST" && url.pathname === "/registerSharedAccount") {
       try {
         const authHeader = req.headers.get('Authorization');
         const token = authHeader?.split(' ')[1];
@@ -524,7 +519,7 @@ const server = serve({
       }
     }
 
-    if (req.method === "POST" && path === "/createAgent") {
+    if (req.method === "POST" && url.pathname === "/createAgent") {
       try {
         const authHeader = req.headers.get('Authorization');
         console.log("authHeader ==> ", authHeader);
@@ -714,9 +709,6 @@ const server = serve({
         const agentEntry = transaction();
         console.log(requestId, "Agent created", agentEntry);
 
-        /*
-todo: every time somebody sends a message to the chat, we should check in the database if he has been approved to be allowed for sending message. otherwise, an approval process should be triggered, where our same telegram bot sends a question message to the group specifically mentioning handle of user who tried to send message while not being approved and then it instructs user to answer mentioned question addressed to the user, and then awaiting for user to send his next message which is answering the question, and if its not a valid answer then user failed verification and can try it again in 15 minutes. question and answer we take from a random agent in our database, where question is the prompt of agent, and in the answer user should write a name of the agent. and it should also send image of agent along the question.
-        */
         async function notifyBotCreation() {
           if (config.telegram?.bot_token && config.telegram?.group_id) {
             const imageQuery = db.query<Image, { $subdomain: string }>("SELECT imageCid FROM images WHERE subdomain = $subdomain AND image_key = 'default'");
@@ -753,7 +745,7 @@ todo: every time somebody sends a message to the chat, we should check in the da
       }
     }
 
-    if (req.method === "POST" && path === "/api/create-agent") {
+    if (req.method === "POST" && url.pathname === "/api/create-agent") {
       try {
         const { name, location, purpose, type } = await req.json();
         console.log(requestId, "Received create-agent data", { name, location, purpose });
@@ -890,13 +882,13 @@ todo: every time somebody sends a message to the chat, we should check in the da
           customInfo: customInfoData?.info ? encodeURIComponent(customInfoData?.info) : '',
         };
 
-        if (path == "/") {
+        if (url.pathname == "/") {
           console.log(requestId, "Serving main page");
           return new Response(htmlTemplate(assets.getLink(appName), JSON.stringify(serverData)), {
             headers: { "content-type": "text/html" },
           });
-        } else if (path.startsWith("/chat")) {
-          const chatId = path.split("/")[2];
+        } else if (url.pathname.startsWith("/chat")) {
+          const chatId = url.pathname.split("/")[2];
           console.log(requestId, 'chatId', chatId);
           if (chatId) {
             const chatQuery = db.query<Chat, { $id: string }>("SELECT * FROM chats WHERE id = $id");
@@ -926,7 +918,7 @@ todo: every time somebody sends a message to the chat, we should check in the da
       }
 
 
-      if (req.method === "POST" && path === "/api/ask-agent") {
+      if (req.method === "POST" && url.pathname === "/api/ask-agent") {
         try {
           const data = await req.json();
           console.log(requestId, "Received question", data.content);

@@ -72,7 +72,10 @@ const POLL_INTERVAL = 60000;
 let lastUpdateId = 0;
 
 const escapeMarkdown = (text: string) => {
-  return text.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
+  console.log("text ==> ", text);
+  const it = text.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
+  console.log("it ==> ", it);
+  return it;
 };
 
 async function measureTime<T>(fn: () => Promise<T>, label: string): Promise<T> {
