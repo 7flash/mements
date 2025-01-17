@@ -1150,7 +1150,7 @@ const server = serve({
       }
     }
 
-    if (path === "/" || path === "/create" || path === "/success") {
+    if (url.pathname === "/" || url.pathname === "/create" || url.pathname === "/success") {
       return new Response(htmlTemplate(assets.getLink('createAgentApp')), {
         headers: { "content-type": "text/html" }
       });
