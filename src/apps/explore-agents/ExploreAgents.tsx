@@ -386,8 +386,9 @@ function ExplorePage() {
         pages: Math.ceil(data.total / AGENTS_PER_PAGE)
       });
     } catch (err) {
+      console.error(err);
       setError(err instanceof Error ? err.message : 'An error occurred');
-      toast.error('Failed to load agents');
+      // toast.error('Failed to load agents');
     } finally {
       setLoading(false);
     }
@@ -537,7 +538,6 @@ function App() {
           <ExplorePage />
         </div>
         <Footer />
-        <Toaster richColors />
       </div>
     </AgentProvider>
   );

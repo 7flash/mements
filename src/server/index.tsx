@@ -5,10 +5,22 @@ import { Database as BunDatabase } from "bun:sqlite";
 import OAuth from 'oauth-1.0a';
 import { Keypair } from "@solana/web3.js";
 
+import * as fs from "fs";
+import path from 'path';
+
 import Files from "./files";
 import constants from './constants.ts';
 
 import { parseArgs } from 'util';
+
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    // Potentially exit or log more details for production
+});
 
 const args = parseArgs({
   args: Bun.argv,
@@ -28,6 +40,10 @@ let config;
 if (configPath.endsWith('.toml')) {
   config = (await import(configPath)).default;
   console.log("config ==> ", config);
+
+  // process.env.OPENAI_API_KEY = "sk-31412f308cd04aed88c311a02bed9407"
+  // process.env.OPENAI_API_URL = "https://api.deepseek.com/v1/chat/completions"
+  // process.env.OPENAI_MODEL = "deepseek-chat"
 
   process.env.OPENAI_API_KEY = config.env.openai_api_key;
   process.env.PINATA_JWT = config.env.pinata_jwt;
@@ -51,6 +67,10 @@ try {
   const rawCmd = `bun run ${join(import.meta.dir, "../cli/initializeDatabase.ts")} --path=${dbPath}`;
   console.log("rawCmd ==> ", rawCmd);
   await Bun.$`${{ raw: rawCmd }}`
+}
+
+if (!fs.existsSync(`${process.env.HOME}/.mements/images`)) {
+  await Bun.$`mkdir -p ${process.env.HOME}/.mements/images`;
 }
 
 const db = new BunDatabase(dbPath);
@@ -853,8 +873,15 @@ const server = serve({
         const walletQuery = db.query<Wallet, { $subdomain: string }>("SELECT public_key FROM wallets WHERE subdomain = $subdomain");
         const walletData = walletQuery.get({ $subdomain: agentData.subdomain });
 
-        if (walletData) {
-          links.push({ type: `SOL Wallet of ${agentData.name}`, value: walletData.public_key });
+        if (subdomain == "trump") {
+          // links.push({ type: `Official CA of $TRUMP`, value: "6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN" })
+        }
+        else if (walletData) {
+          // links.push({ type: `SOL Wallet of ${agentData.name}`, value: walletData.public_key });
+        }
+
+        if (links.length == 0) {
+          links.push({ type: 'Agent World Context', value: agentData.prompt })
         }
 
         const customInfoQuery = db.query<CustomInfo, { $subdomain: string }>("SELECT info FROM custom_info WHERE subdomain = $subdomain");
@@ -920,8 +947,19 @@ const server = serve({
 
       if (req.method === "POST" && url.pathname === "/api/ask-agent") {
         try {
-          const data = await req.json();
-          console.log(requestId, "Received question", data.content);
+          const formData = await req.formData();
+          const content = formData.get('content') as string;
+          
+          const uploadedImage = formData.get('file') as File | null; 
+          
+          let imagePath;
+          if (uploadedImage) {
+            imagePath = path.join(process.env.HOME!, '.mements', 'images', `${requestId}.png`);
+                        
+            await Bun.write(imagePath, uploadedImage, {
+              'createPath': true,
+            });  
+          }   
 
           const cookies = req.headers.get('cookie')?.split(';')
           .reduce((acc: Record<string, string>, cookie) => {
@@ -930,21 +968,33 @@ const server = serve({
             return acc;
           }, {}) || {};          
 
-          const { default: workflowFn } = await import(`../workflows/${agentData.workflow || "basic-structured-workflow"}.tsx`);
-
-          const result = await workflowFn
-            .from({
-              question: data.content,
-              situation: agentData.prompt,
-            })
-            .to({
-              success: 'TRUE or FALSE indicating if question is appropriate and answerable',
-              answer: 'twitter post, should not contain hash tags, nor double quotes or other special symbols'
-            })
-            .exec({
-              agentData,
-              cookies
-            }); 
+          let result;
+          if (imagePath) {
+            const { default: workflowFn } = await import(`../workflows/basic-structured-workflow-with-image.tsx`);
+          
+            result = await workflowFn
+              .exec({
+                agentData,
+                imagePath,
+              });
+          } else {
+            const { default: workflowFn } = await import(`../workflows/${agentData.workflow || "basic-structured-workflow"}.tsx`);
+          
+            result = await workflowFn
+              .from({
+                question: content,
+                situation: agentData.prompt,
+              })
+              .to({
+                success: 'TRUE or FALSE indicating if question is appropriate and answerable',
+                answer: 'twitter post, should not contain hash tags, nor double quotes or other special symbols'
+              })
+              .exec({
+                agentData,
+                cookies,
+                imagePath,
+              });            
+          } 
 
           console.log(requestId, "Workflow result", result);
 
@@ -956,6 +1006,15 @@ const server = serve({
           }
 
           result.answer = result.answer.trim();
+
+          let questionContent = content;
+
+          if (uploadedImage) {
+            const arrayBuffer = await uploadedImage.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+            const mimeType = uploadedImage.type || 'image/png';
+            questionContent = `data:${mimeType};base64,${buffer.toString('base64')}`;          
+          }          
 
           if (result?.answer?.length > 280 && !result?.isTerminal) {
               const shorterResult = await uai.from({
@@ -972,26 +1031,28 @@ const server = serve({
           }
           
 
-          const telegramBotData = measureQueryPerformance(requestId, "fetch-telegram-bot", () => {
-            const telegramBotQuery = db.query<TelegramBot, { $subdomain: string }>(
-              "SELECT bot_token, group_id FROM telegram_bots WHERE subdomain = $subdomain"
-            );
-            return telegramBotQuery.get({ $subdomain: agentData.subdomain });
-          });
+          if (!result.isTerminal) {
+            const telegramBotData = measureQueryPerformance(requestId, "fetch-telegram-bot", () => {
+              const telegramBotQuery = db.query<TelegramBot, { $subdomain: string }>(
+                "SELECT bot_token, group_id FROM telegram_bots WHERE subdomain = $subdomain"
+              );
+              return telegramBotQuery.get({ $subdomain: agentData.subdomain });
+            });
     
-          if (telegramBotData && telegramBotData.group_id) {
-            const telegramApiUrl = `https://api.telegram.org/bot${telegramBotData.bot_token}/sendMessage`;
-            const messageBody = {
-              chat_id: telegramBotData.group_id,
-              text: `${result.answer}`
-            };
+            if (telegramBotData && telegramBotData.group_id) {
+              const telegramApiUrl = `https://api.telegram.org/bot${telegramBotData.bot_token}/sendMessage`;
+              const messageBody = {
+                chat_id: telegramBotData.group_id,
+                text: `${result.answer}`
+              };
 
-            fetch(telegramApiUrl, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(messageBody)
-            }).catch(console.error);
-            console.log(requestId, "Message sent to Telegram");
+              fetch(telegramApiUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(messageBody)
+              }).catch(console.error);
+              console.log(requestId, "Message sent to Telegram");
+            }
           }
 
           let twitterPostLink = null;
@@ -1100,7 +1161,7 @@ const server = serve({
 
           const responseData: Chat = {
             chatId: randomUUIDForChat(),
-            question: data.content,
+            question: questionContent,
             content: result.answer,
             timestamp: new Date().toISOString(),
             subdomain: subdomain,
@@ -1114,32 +1175,37 @@ const server = serve({
 
           console.log(requestId, "Response stored in database", responseData);
 
-          let cookieHeaders: string[] = [];
-          if (result?.cookies && typeof result.cookies === 'object') {
-            cookieHeaders = Object.entries(result.cookies).map(([key, value]) => {
-              const options = typeof value === 'object' ? value : { value };
-              const { value: cookieValue, ...cookieOptions } = options;
-              
-              let cookie = `${key}=${cookieValue}`;
-              if (cookieOptions.maxAge) cookie += `; Max-Age=${cookieOptions.maxAge}`;
-              if (cookieOptions.domain) cookie += `; Domain=${cookieOptions.domain}`;
-              if (cookieOptions.path) cookie += `; Path=${cookieOptions.path}`;
-              if (cookieOptions.secure) cookie += '; Secure';
-              if (cookieOptions.httpOnly) cookie += '; HttpOnly';
-              if (cookieOptions.sameSite) cookie += `; SameSite=${cookieOptions.sameSite}`;
-              
-              return cookie;
-            });
-          }  
+let cookieHeaders: string[] = [];
+    
+    if (result?.cookies && typeof result.cookies === 'object') {
+      cookieHeaders = Object.entries(result.cookies).map(([key, value]) => {
+        const options = typeof value === 'object' ? value : { value };
+        const { value: cookieValue, ...cookieOptions } = options;
+        
+        let cookie = `${key}=${cookieValue}`;
+        if (cookieOptions.maxAge) cookie += `; Max-Age=${cookieOptions.maxAge}`;
+        if (cookieOptions.domain) cookie += `; Domain=${cookieOptions.domain}`;
+        if (cookieOptions.path) cookie += `; Path=${cookieOptions.path}`;
+        if (cookieOptions.secure) cookie += '; Secure';
+        if (cookieOptions.httpOnly) cookie += '; HttpOnly';
+        if (cookieOptions.sameSite) cookie += `; SameSite=${cookieOptions.sameSite}`;
+        
+        return cookie;
+      });
+    }
 
-          return new Response(JSON.stringify(responseData), {
-            headers: { 
-              "Content-Type": "application/json",
-              ...(cookieHeaders.length && {
-                "Set-Cookie": cookieHeaders
-              })
-            },
-          });
+   
+    const headers = new Headers({
+      "Content-Type": "application/json"
+    });
+
+    cookieHeaders.forEach(cookie => {
+      headers.append("Set-Cookie", cookie);
+    });
+
+    return new Response(JSON.stringify(responseData), {
+      headers
+    });
           } catch (err) {
           console.log(requestId, "Error generating response", err);
           return new Response(JSON.stringify({ error: `${err}` }), {

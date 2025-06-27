@@ -56,7 +56,8 @@ class Assets implements IAssets {
     for (const it in this.assets) {
       if (this.assets[it as AssetName].source && this.assets[it as AssetName].source?.includes('.css')) {
         this.assets[it as AssetName].path = join(process.cwd(), 'generated/post-build', basename(this.assets[it as AssetName].source!));
-        await $`bunx @tailwindcss/cli@next -i ${this.assets[it as AssetName].source} -o ${this.assets[it as AssetName].path}`;
+        await $`bunx @tailwindcss/cli -i ${this.assets[it as AssetName].source} -o ${this.assets[it as AssetName].path}`;
+        // console.log(`bunx @tailwindcss/cli@next -i ${this.assets[it as AssetName].source} -o ${this.assets[it as AssetName].path}`);
       }
     }
 

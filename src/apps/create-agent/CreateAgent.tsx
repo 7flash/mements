@@ -136,24 +136,31 @@ function HandleInput({ value, onChange }: HandleInputProps) {
 
 const agentTypes = [
   {
-    id: 'chat',
-    icon: MessageSquare,
-    title: 'Chat',
-    description: 'Interactive conversational agent',
+    id: 'imaginary',
+    icon: Bot,
+    title: 'Imaginary World',
+    description: 'Create an AI agent with its own unique imaginary world based on purpose',
     disabled: false
   },
   {
-    id: 'terminal',
-    icon: Terminal,
-    title: 'Terminal',
-    description: 'Command-line interface agent',
+    id: 'twitter',
+    icon: Twitter,
+    title: 'Twitter-based',
+    description: 'Create an agent from a Twitter post or account personality',
     disabled: true
   },
   {
-    id: 'feed',
-    icon: Rss,
-    title: 'Feed',
-    description: 'Content stream processing agent',
+    id: 'youtube',
+    icon: MessageSquare,
+    title: 'YouTube-based',
+    description: 'Create an agent based on a YouTube video or channel',
+    disabled: true
+  },
+  {
+    id: 'token',
+    icon: Zap,
+    title: 'Token-based',
+    description: 'Create an agent from a pump.fun token',
     disabled: true
   }
 ] as const;
@@ -161,13 +168,13 @@ const agentTypes = [
 export function TypeSelection({ selected, onSelect }: TypeSelectionProps) {
   return (
     <div className="text-center">
-      <h2 className="text-2xl font-bold mb-2">Choose Your Mement Type</h2>
-      <p className="text-gray-600 mb-8">Select how your Meme Agent will interact</p>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <h2 className="text-2xl font-bold mb-2">Choose Your Mement Source</h2>
+      <p className="text-gray-600 mb-8">Select how your Meme Agent will be initialized</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {agentTypes.map(({ id, icon: Icon, title, description, disabled }) => (
           <button
             key={id}
-            onClick={() => !disabled && onSelect(id)}
+            onClick={() => !disabled && onSelect(id as AgentType)}
             disabled={disabled}
             className={`p-6 rounded-lg border-2 transition-all ${
               selected === id
@@ -287,7 +294,7 @@ function CreateMementForm() {
 
   const canProceed = 
     (currentStep === 'handle' && data.handle.length >= 3 && data.handle.length <= 20) ||
-    (currentStep === 'type' && data.type === 'chat') ||
+    (currentStep === 'type' && data.type !== null) ||
     (currentStep === 'description' && data.location && data.purpose);
 
   const handleDeploy = async () => {

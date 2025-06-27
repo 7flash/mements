@@ -1,14 +1,35 @@
 [agent]
-subdomain = "solanasanta-7pzt"
+subdomain = "santaai-9ign"
 workflow = "santa-workflow"
 
-[[domains]]
-domain="first.localhost:3000"
-custom_script_path=""
-
 [customInfo]
-info = "static/agent-info/jesus-info.txt"
+info = "static/agent-info/santa-info.txt"
+
+[[domains]]
+domain="solanasanta.live"
+custom_script_path=""
 
 [[links]]
 type="input_placeholder"
 value="Enter any solana wallet address..."
+
+[[links]]
+type="twitter"
+value="https://x.com/solanasantalive"
+
+[[links]]
+type="telegram"
+value="https://t.me/solanasantachat"
+
+[[links]]
+type="pumpfun"
+value="3QXKbDSLTEfTQZ3xT6ACDxXKvj9hqi5nw6auXeoThXdQ"
+
+[twitterBot]
+oauth_token="1874031281891401731-nCLEZMzzYrsSZW45URa4gFBFhEU3o8"
+oauth_token_secret="qFLOH4Dw8xvjVIIa0kSiJipITVZbggpWvSYhQANUJNiQD"
+user_id="1874031281891401731"
+screen_name="solanasantalive"
+
+[telegramBot]
+bot_token="8114392325:AAGGFqSV4G_XgZ6Yilj16z6pcli6b935swM"

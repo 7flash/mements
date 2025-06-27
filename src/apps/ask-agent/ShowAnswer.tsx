@@ -32,10 +32,27 @@ const ResponseCard = ({ visible }) => {
     timestamp: window.serverData.timestamp,
   };
 
+  const isBase64Image = (str) => {
+    return str.startsWith('data:image');
+  };
+
+  const renderQuestion = () => {
+    if (isBase64Image(response.question)) {
+      return (
+        <img 
+          src={response.question} 
+          alt="Question Image" 
+          className="max-w-full h-auto rounded-lg"
+        />
+      );
+    }
+    return <div className="text-neutral-200 text-sm sm:text-base">{response.question}</div>;
+  };  
+
   return (
     <div className={`bg-neutral-900/90 backdrop-blur-sm border border-neutral-800 rounded-2xl shadow-xl ${visible ? 'opacity-100' : 'opacity-0'}`}>
       <div className="p-6 border-b border-neutral-800 view-transition-question">
-        <div className="text-neutral-200 text-sm sm:text-base">{response.question}</div>
+      {renderQuestion()}
       </div>
       
       <div className="p-6">
@@ -58,7 +75,7 @@ const ResponseCard = ({ visible }) => {
         </div>
 
         <div className="mt-4 sm:mt-5">
-          <div className="font-sans text-[16px] sm:text-[20px] leading-normal text-neutral-100 whitespace-pre-line">
+          <div className="font-sans text-[16px] sm:text-[20px] leading-normal break-words text-neutral-100 whitespace-pre-line">
             {response.content.split("\n").map((line, index) => (
               <p key={index} className="mb-2">{line}</p>
             ))}
@@ -84,11 +101,13 @@ const ResponseCard = ({ visible }) => {
         </div>
       </div>
 
-      {window.serverData.twitterPostLink && <div className="absolute bottom-0 right-0">
-        <div className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-gradient-to-r from-neutral-900/95 to-neutral-950/95 backdrop-blur-[2px] border-t border-l border-neutral-800/30 rounded-tl-xl">
-          <div className="text-neutral-400 text-[10px] sm:text-xs">{window.serverData.twitterPostLink}</div>
+      {window.serverData.twitterPostLink && (
+        <div className="absolute bottom-0 right-0">
+          <div className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-gradient-to-r from-neutral-900/95 to-neutral-950/95 backdrop-blur-[2px] border-t border-l border-neutral-800/30 rounded-tl-xl">
+            <div className="text-neutral-400 text-[10px] sm:text-xs">{window.serverData.twitterPostLink}</div>
+          </div>
         </div>
-      </div>}
+      )}
     </div>
   );
 };
